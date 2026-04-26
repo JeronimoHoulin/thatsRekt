@@ -387,4 +387,101 @@ contract ThatsRektTest is Test {
 
         assertEq(reg.attackerScore(dave), 2);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                       PHASE 6 - AUTO REMOVAL
+    //////////////////////////////////////////////////////////////*/
+
+    function test_autoRemoval_triggersAtThreshold() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        _whitelist(carol);
+        _whitelist(dave);
+        uint256 id = _post(alice, makeAddr("attacker"), address(0));
+
+        vm.prank(bob);   reg.vote(id, -1);
+        vm.prank(carol); reg.vote(id, -1);
+
+        (, , , , bool removed1, , ) = reg.getPost(id);
+        assertFalse(removed1);
+
+        vm.expectEmit(true, false, false, true);
+        emit ThatsRekt.PostRemoved(id, ThatsRekt.RemovalReason.AutoDownvote);
+
+        vm.prank(dave);  reg.vote(id, -1);
+
+        (, , , , bool removed2, , ) = reg.getPost(id);
+        assertTrue(removed2);
+    }
+
+    function test_autoRemoval_reversesAttackerScore() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        _whitelist(carol);
+        _whitelist(dave);
+        address attacker = makeAddr("attacker");
+        uint256 id = _post(alice, attacker, address(0));
+
+        vm.prank(bob);   reg.vote(id, -1);
+        vm.prank(carol); reg.vote(id, -1);
+        vm.prank(dave);  reg.vote(id, -1);
+
+        assertEq(reg.attackerScore(attacker), 0);
+        assertEq(reg.attackerAppearances(attacker), 0);
+    }
+
+    function test_autoRemoval_unsetsIsVictim_whenLastActivePost() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        _whitelist(carol);
+        _whitelist(dave);
+        address victim = makeAddr("victim");
+        uint256 id = _post(alice, address(0), victim);
+
+        assertTrue(reg.isVictim(victim));
+
+        vm.prank(bob);   reg.vote(id, -1);
+        vm.prank(carol); reg.vote(id, -1);
+        vm.prank(dave);  reg.vote(id, -1);
+
+        assertFalse(reg.isVictim(victim));
+    }
+
+    function test_autoRemoval_keepsIsVictim_whenOtherPostsActive() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        _whitelist(carol);
+        _whitelist(dave);
+        address victim = makeAddr("victim");
+
+        uint256 id1 = _post(alice, address(0), victim);
+        uint256 id2 = _post(alice, address(0), victim);
+
+        vm.prank(bob);   reg.vote(id1, -1);
+        vm.prank(carol); reg.vote(id1, -1);
+        vm.prank(dave);  reg.vote(id1, -1);
+
+        assertTrue(reg.isVictim(victim));
+        (, , , , bool r2, , ) = reg.getPost(id2);
+        assertFalse(r2);
+    }
+
+    function test_voteOnRemovedPost_reverts() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        _whitelist(carol);
+        _whitelist(dave);
+        uint256 id = _post(alice, makeAddr("attacker"), address(0));
+
+        vm.prank(bob);   reg.vote(id, -1);
+        vm.prank(carol); reg.vote(id, -1);
+        vm.prank(dave);  reg.vote(id, -1);
+
+        address eve = makeAddr("eve");
+        _whitelist(eve);
+
+        vm.expectRevert(ThatsRekt.PostIsRemoved.selector);
+        vm.prank(eve);
+        reg.vote(id, 1);
+    }
 }

@@ -216,8 +216,39 @@ contract ThatsRekt is Ownable2Step {
         }
     }
 
-    function _removePost(uint256 /*id*/, RemovalReason /*reason*/) internal {
-        // implemented in Phase 6
+    function _removePost(uint256 id, RemovalReason reason) internal {
+        Post storage p = _posts[id];
+
+        int256 net = int256(uint256(p.upvotes)) - int256(uint256(p.downvotes));
+
+        // 1. reverse attacker aggregates
+        uint256 aLen = p.attackers.length;
+        for (uint256 i; i < aLen; ++i) {
+            address a = p.attackers[i];
+            attackerScore[a] -= net;
+            unchecked { --attackerAppearances[a]; }
+        }
+
+        // 2. reverse victim aggregates
+        uint256 vLen = p.victims.length;
+        for (uint256 i; i < vLen; ++i) {
+            address v = p.victims[i];
+            unchecked { --_victimActivePosts[v]; }
+            if (_victimActivePosts[v] == 0) isVictim[v] = false;
+        }
+
+        // 3. unlink from active-post linked list
+        uint256 prev = prevPostId[id];
+        uint256 next = nextPostId[id];
+        if (prev != 0) nextPostId[prev] = next; else headPostId = next;
+        if (next != 0) prevPostId[next] = prev; else tailPostId = prev;
+        delete prevPostId[id];
+        delete nextPostId[id];
+
+        // 4. mark removed
+        p.removed = true;
+
+        emit PostRemoved(id, reason);
     }
 
     /*//////////////////////////////////////////////////////////////
