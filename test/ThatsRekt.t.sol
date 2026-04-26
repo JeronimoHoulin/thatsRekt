@@ -726,4 +726,16 @@ contract ThatsRektTest is Test {
         vm.expectRevert(ThatsRekt.PostNotFound.selector);
         reg.activePostsBefore(id1, 10);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                     PHASE 11 - DEPLOY GUARD
+    //////////////////////////////////////////////////////////////*/
+
+    /// During dev, the GOVERNANCE constant is the placeholder. The deploy
+    /// script's first guard (require gov != DEV_PLACEHOLDER) is what blocks
+    /// accidental mainnet deploys before the real Safe address is wired in.
+    /// Phase 13's final operational task replaces the constant.
+    function test_deployScript_governanceIsPlaceholder() public view {
+        assertEq(reg.GOVERNANCE(), 0x000000000000000000000000000000000000ABcD);
+    }
 }
