@@ -16,12 +16,6 @@ contract ThatsRekt is Ownable2Step {
                                  CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Governance Safe multisig. Hardcoded for cross-chain bytecode
-    ///         determinism. THIS PLACEHOLDER MUST BE REPLACED WITH THE REAL
-    ///         SAFE ADDRESS BEFORE ANY MAINNET / L2 DEPLOY. The deploy script
-    ///         enforces this with a runtime check.
-    address public constant GOVERNANCE = 0x000000000000000000000000000000000000ABcD;
-
     /// @notice (downvotes - upvotes) >= this triggers auto-removal at end of vote().
     uint256 public constant REMOVAL_THRESHOLD = 3;
 
@@ -107,7 +101,13 @@ contract ThatsRekt is Ownable2Step {
                                 CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor() Ownable(GOVERNANCE) {}
+    /// @param initialOwner The Safe multisig (or any contract / EOA) that will
+    ///                     own the whitelist at deploy time. The owner role
+    ///                     is fully transferable via the inherited Ownable2Step
+    ///                     two-step flow (`transferOwnership` -> `acceptOwnership`),
+    ///                     so the governance keys can be rotated freely. Reverts
+    ///                     if zero (Ownable check).
+    constructor(address initialOwner) Ownable(initialOwner) {}
 
     /*//////////////////////////////////////////////////////////////
                                 MODIFIERS

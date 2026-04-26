@@ -13,8 +13,8 @@ contract ThatsRektTest is Test {
     address public dave;
 
     function setUp() public virtual {
-        reg = new ThatsRekt();
-        governance = reg.GOVERNANCE();
+        governance = makeAddr("governance");
+        reg = new ThatsRekt(governance);
         alice = makeAddr("alice");
         bob   = makeAddr("bob");
         carol = makeAddr("carol");
@@ -728,14 +728,50 @@ contract ThatsRektTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-                     PHASE 11 - DEPLOY GUARD
+                     PHASE 11 - OWNERSHIP / GOVERNANCE
     //////////////////////////////////////////////////////////////*/
 
-    /// During dev, the GOVERNANCE constant is the placeholder. The deploy
-    /// script's first guard (require gov != DEV_PLACEHOLDER) is what blocks
-    /// accidental mainnet deploys before the real Safe address is wired in.
-    /// Phase 13's final operational task replaces the constant.
-    function test_deployScript_governanceIsPlaceholder() public view {
-        assertEq(reg.GOVERNANCE(), 0x000000000000000000000000000000000000ABcD);
+    function test_constructor_setsInitialOwner() public {
+        address newOwner = makeAddr("newOwner");
+        ThatsRekt fresh = new ThatsRekt(newOwner);
+        assertEq(fresh.owner(), newOwner);
+    }
+
+    function test_constructor_revertsOnZeroOwner() public {
+        vm.expectRevert();   // OwnableInvalidOwner(address(0))
+        new ThatsRekt(address(0));
+    }
+
+    /// Governance can be rotated via Ownable2Step's two-step transfer.
+    /// New owner inherits the full whitelist-management authority; old
+    /// owner is fully de-authorized once the transfer is accepted.
+    function test_governance_canBeRotated() public {
+        address newGov = makeAddr("newGov");
+
+        // 1. current owner proposes the new owner
+        vm.prank(governance);
+        reg.transferOwnership(newGov);
+
+        // 2. pending until accepted; current owner unchanged
+        assertEq(reg.pendingOwner(), newGov);
+        assertEq(reg.owner(), governance);
+
+        // 3. new owner accepts
+        vm.prank(newGov);
+        reg.acceptOwnership();
+
+        // 4. ownership has fully transferred
+        assertEq(reg.owner(), newGov);
+        assertEq(reg.pendingOwner(), address(0));
+
+        // 5. new owner can manage the whitelist
+        vm.prank(newGov);
+        reg.addWhitelisted(alice);
+        assertTrue(reg.isWhitelisted(alice));
+
+        // 6. old owner is fully de-authorized
+        vm.expectRevert();
+        vm.prank(governance);
+        reg.addWhitelisted(bob);
     }
 }

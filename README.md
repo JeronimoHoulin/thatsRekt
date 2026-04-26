@@ -8,7 +8,7 @@ Designed as a public good: no economic admin power, no upgradeability, no proxie
 
 ## Architecture
 
-- **Owner** (Safe multisig, hardcoded constant) — only role with whitelist write authority. Can be transferred via OpenZeppelin `Ownable2Step`.
+- **Owner** (Safe multisig, set at deploy time via constructor) — only role with whitelist write authority. Fully rotatable via OpenZeppelin `Ownable2Step` (two-step `transferOwnership` -> `acceptOwnership`), so governance keys can be rotated as needed.
 - **Whitelisted addresses** — can post alerts and vote up/down on others' alerts. Cannot vote on own posts.
 - **Anyone** — can read posts, attacker scores, victim flags, and the active-post linked list.
 
@@ -52,7 +52,7 @@ Walks a doubly-linked list of non-removed posts. `MAX_VIEW_LIMIT = 100` per call
 
 The contract is deployed at the same address on every supported EVM chain using the CREATE2 deployer at `0x4e59b44847b379578588920cA78FbF26c0B4956C`. Each chain has its own sovereign state — own whitelist, own posts, own karma. Cross-chain aggregation is an off-chain concern.
 
-The governance Safe must also exist at the same address on every chain (see Safe Singleton Factory) since its address is baked into the contract bytecode as a constant.
+The governance owner is a constructor argument — pass the SAME owner address on every chain to get the SAME deployed address everywhere (the constructor arg is encoded into init code, so identical args + identical salt + identical factory = identical address). Typically that owner is a Safe multisig also deployed at the same address on every chain via the Safe Singleton Factory.
 
 ## Build / test / deploy
 
@@ -61,10 +61,9 @@ forge build
 forge test -vv
 forge test --match-contract ThatsRektInvariants -vv
 
-# Pre-deploy: replace GOVERNANCE constant with the real Safe address.
-# The deploy script refuses to run while the dev placeholder is in place.
-cp .env.example .env  # fill in PRIVATE_KEY, RPC_URL, ETHERSCAN_API_KEY
-forge script script/Deploy.s.sol \
+# Deploy: pass the initial owner via the GOVERNANCE_OWNER env var.
+cp .env.example .env  # fill in PRIVATE_KEY, RPC_URL, ETHERSCAN_API_KEY, GOVERNANCE_OWNER
+GOVERNANCE_OWNER=0x...   forge script script/Deploy.s.sol \
     --rpc-url <chain-rpc> \
     --broadcast \
     --verify \

@@ -12,8 +12,8 @@ contract ThatsRektInvariants is Test {
     address[] public actors;
 
     function setUp() public {
-        reg = new ThatsRekt();
-        governance = reg.GOVERNANCE();
+        governance = makeAddr("governance");
+        reg = new ThatsRekt(governance);
 
         for (uint256 i; i < 5; ++i) {
             address a = address(uint160(0xACC0 + i));
