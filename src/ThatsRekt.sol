@@ -255,8 +255,12 @@ contract ThatsRekt is Ownable2Step {
                           POSTER (retract)
     //////////////////////////////////////////////////////////////*/
 
-    function retract(uint256 /*postId*/) external {
-        // implemented in Phase 7
+    function retract(uint256 postId) external {
+        Post storage p = _posts[postId];
+        if (p.poster == address(0))     revert PostNotFound();
+        if (p.poster != msg.sender)     revert NotPoster();
+        if (p.removed)                  revert PostIsRemoved();
+        _removePost(postId, RemovalReason.PosterRetract);
     }
 
     /*//////////////////////////////////////////////////////////////

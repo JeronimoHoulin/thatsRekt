@@ -484,4 +484,67 @@ contract ThatsRektTest is Test {
         vm.prank(eve);
         reg.vote(id, 1);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                          PHASE 7 - retract()
+    //////////////////////////////////////////////////////////////*/
+
+    function test_retract_byPoster() public {
+        _whitelist(alice);
+        address attacker = makeAddr("attacker");
+        uint256 id = _post(alice, attacker, address(0));
+
+        vm.expectEmit(true, false, false, true);
+        emit ThatsRekt.PostRemoved(id, ThatsRekt.RemovalReason.PosterRetract);
+
+        vm.prank(alice);
+        reg.retract(id);
+
+        (, , , , bool removed, , ) = reg.getPost(id);
+        assertTrue(removed);
+        assertEq(reg.attackerAppearances(attacker), 0);
+    }
+
+    function test_retract_revertsIfNotPoster() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.expectRevert(ThatsRekt.NotPoster.selector);
+        vm.prank(bob);
+        reg.retract(id);
+    }
+
+    function test_retract_revertsIfAlreadyRemoved() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.prank(alice);
+        reg.retract(id);
+
+        vm.expectRevert(ThatsRekt.PostIsRemoved.selector);
+        vm.prank(alice);
+        reg.retract(id);
+    }
+
+    function test_retract_worksEvenIfPosterDeWhitelisted() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.prank(governance);
+        reg.removeWhitelisted(alice);
+
+        vm.prank(alice);
+        reg.retract(id);
+
+        (, , , , bool removed, , ) = reg.getPost(id);
+        assertTrue(removed);
+    }
+
+    function test_retract_revertsIfPostNotFound() public {
+        _whitelist(alice);
+        vm.expectRevert(ThatsRekt.PostNotFound.selector);
+        vm.prank(alice);
+        reg.retract(99);
+    }
 }
