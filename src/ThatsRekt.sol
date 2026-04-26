@@ -141,11 +141,47 @@ contract ThatsRekt is Ownable2Step {
     //////////////////////////////////////////////////////////////*/
 
     function post(
-        address[] calldata /*attackers_*/,
-        address[] calldata /*victims_*/,
-        string   calldata /*note*/
-    ) external onlyWhitelisted returns (uint256 /*id*/) {
-        // implemented in Phase 3
+        address[] calldata attackers_,
+        address[] calldata victims_,
+        string   calldata note
+    ) external onlyWhitelisted returns (uint256 id) {
+        uint256 totalAddrs = attackers_.length + victims_.length;
+        if (totalAddrs > MAX_ADDRESSES_PER_POST) revert PostTooLarge();
+        if (totalAddrs == 0 && bytes(note).length == 0) revert EmptyPost();
+
+        unchecked { id = ++postCount; }
+
+        Post storage p = _posts[id];
+        p.poster    = msg.sender;
+        p.timestamp = uint64(block.timestamp);
+
+        uint256 aLen = attackers_.length;
+        for (uint256 i; i < aLen; ++i) {
+            p.attackers.push(attackers_[i]);
+            unchecked { ++attackerAppearances[attackers_[i]]; }
+        }
+        uint256 vLen = victims_.length;
+        for (uint256 i; i < vLen; ++i) {
+            address v = victims_[i];
+            p.victims.push(v);
+            unchecked { ++_victimActivePosts[v]; }
+            if (_victimActivePosts[v] == 1) isVictim[v] = true;
+        }
+
+        _insertActiveTail(id);
+
+        emit PostCreated(id, msg.sender, uint64(block.timestamp), attackers_, victims_, note);
+    }
+
+    function _insertActiveTail(uint256 id) internal {
+        if (tailPostId == 0) {
+            headPostId = id;
+            tailPostId = id;
+        } else {
+            prevPostId[id]         = tailPostId;
+            nextPostId[tailPostId] = id;
+            tailPostId             = id;
+        }
     }
 
     function vote(uint256 /*postId*/, int8 /*direction*/) external onlyWhitelisted {
@@ -164,16 +200,18 @@ contract ThatsRekt is Ownable2Step {
                                   READS
     //////////////////////////////////////////////////////////////*/
 
-    function getPost(uint256 /*id*/) external view returns (
-        address  /*poster*/,
-        uint64   /*timestamp*/,
-        uint32   /*upvotes*/,
-        uint32   /*downvotes*/,
-        bool     /*removed*/,
-        address[] memory /*attackers_*/,
-        address[] memory /*victims_*/
+    function getPost(uint256 id) external view returns (
+        address  poster,
+        uint64   timestamp,
+        uint32   upvotes,
+        uint32   downvotes,
+        bool     removed,
+        address[] memory attackers_,
+        address[] memory victims_
     ) {
-        // implemented in Phase 3 (storage read) and Phase 9 (full surface)
+        Post storage p = _posts[id];
+        if (p.poster == address(0)) revert PostNotFound();
+        return (p.poster, p.timestamp, p.upvotes, p.downvotes, p.removed, p.attackers, p.victims);
     }
 
     function attackerReport(address /*a*/) external view returns (int256 /*score*/, uint256 /*appearances*/) {

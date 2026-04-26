@@ -66,4 +66,115 @@ contract ThatsRektTest is Test {
         vm.prank(alice);
         reg.removeWhitelisted(bob);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            PHASE 3 - post()
+    //////////////////////////////////////////////////////////////*/
+
+    function test_post_returnsId1_onFirstPost() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](1); atk[0] = bob;
+        address[] memory vic = new address[](0);
+
+        vm.prank(alice);
+        uint256 id = reg.post(atk, vic, "exploit on bob's vault");
+
+        assertEq(id, 1);
+        assertEq(reg.postCount(), 1);
+    }
+
+    function test_post_emitsPostCreated() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](1); atk[0] = bob;
+        address[] memory vic = new address[](1); vic[0] = carol;
+
+        vm.expectEmit(true, true, false, true);
+        emit ThatsRekt.PostCreated(1, alice, uint64(block.timestamp), atk, vic, "rekt");
+
+        vm.prank(alice);
+        reg.post(atk, vic, "rekt");
+    }
+
+    function test_post_storesFields() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](2); atk[0] = bob; atk[1] = carol;
+        address[] memory vic = new address[](1); vic[0] = dave;
+
+        vm.warp(123_456_789);
+        vm.prank(alice);
+        uint256 id = reg.post(atk, vic, "");
+
+        (
+            address poster,
+            uint64 ts,
+            uint32 up,
+            uint32 down,
+            bool removed,
+            address[] memory storedAtk,
+            address[] memory storedVic
+        ) = reg.getPost(id);
+
+        assertEq(poster, alice);
+        assertEq(ts, 123_456_789);
+        assertEq(up, 0);
+        assertEq(down, 0);
+        assertFalse(removed);
+        assertEq(storedAtk.length, 2);
+        assertEq(storedAtk[0], bob);
+        assertEq(storedAtk[1], carol);
+        assertEq(storedVic.length, 1);
+        assertEq(storedVic[0], dave);
+    }
+
+    function test_post_onlyWhitelisted() public {
+        address[] memory atk = new address[](1); atk[0] = bob;
+        address[] memory vic = new address[](0);
+
+        vm.expectRevert(ThatsRekt.NotWhitelisted.selector);
+        vm.prank(alice);
+        reg.post(atk, vic, "no auth");
+    }
+
+    function test_post_revertsIfEmpty() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](0);
+        address[] memory vic = new address[](0);
+
+        vm.expectRevert(ThatsRekt.EmptyPost.selector);
+        vm.prank(alice);
+        reg.post(atk, vic, "");
+    }
+
+    function test_post_acceptsNoteOnly() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](0);
+        address[] memory vic = new address[](0);
+
+        vm.prank(alice);
+        uint256 id = reg.post(atk, vic, "Twitter says protocol X is being drained");
+        assertEq(id, 1);
+    }
+
+    function test_post_revertsIfTooLarge() public {
+        _whitelist(alice);
+        uint256 cap = reg.MAX_ADDRESSES_PER_POST();
+        address[] memory atk = new address[](cap + 1);
+        for (uint256 i; i < cap + 1; ++i) atk[i] = address(uint160(0x1000 + i));
+        address[] memory vic = new address[](0);
+
+        vm.expectRevert(ThatsRekt.PostTooLarge.selector);
+        vm.prank(alice);
+        reg.post(atk, vic, "");
+    }
+
+    function test_post_acceptsExactlyCap() public {
+        _whitelist(alice);
+        uint256 cap = reg.MAX_ADDRESSES_PER_POST();
+        address[] memory atk = new address[](cap);
+        for (uint256 i; i < cap; ++i) atk[i] = address(uint160(0x1000 + i));
+        address[] memory vic = new address[](0);
+
+        vm.prank(alice);
+        reg.post(atk, vic, "");
+    }
 }
