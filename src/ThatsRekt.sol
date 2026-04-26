@@ -1,150 +1,116 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity 0.8.25;
 
-/// @title  ThatsRekt
-/// @notice Public register of rekt addresses.
-///         Any whitelisted address can add entries or manage the whitelist.
-///         Removal is a two-step process: one whitelisted address proposes,
-///         a different whitelisted address executes.
-contract ThatsRekt {
+import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+
+/// @title  ThatsRekt - On-chain hack-alert registry (v0)
+/// @notice Whitelisted operators post structured alerts identifying attacker
+///         addresses, victim contracts, and free-form context. Other whitelisters
+///         vouch (upvote) or refute (downvote). Aggregates exposed as O(1) reads
+///         so any contract can plug in and inline-blacklist.
+/// @dev    Single immutable contract. Cross-chain identical-address deploy via
+///         the singleton CREATE2 factory. See tasks/v0-impl-plan.md and the
+///         design spec in DAMMfi-knowledge-base for the full architecture.
+contract ThatsRekt is Ownable2Step {
     /*//////////////////////////////////////////////////////////////
-                                CONSTANTS
+                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
-    address public constant JERRYTHEKID = 0x9E8680dbBcA1127add812abE209A10E621b385dF;
-    address public constant BAUTI       = 0xda1b9dFA299d655135C1ECdc4f0b4c9aED9a7f45;
+    /// @notice (downvotes - upvotes) >= this triggers auto-removal at end of vote().
+    uint256 public constant REMOVAL_THRESHOLD = 3;
+
+    /// @notice Hard cap on attackers.length + victims.length per post.
+    uint256 public constant MAX_ADDRESSES_PER_POST = 32;
+
+    /// @notice Pagination cap for view helpers (eth_call gas budget).
+    uint256 public constant MAX_VIEW_LIMIT = 100;
 
     /*//////////////////////////////////////////////////////////////
-                                 STORAGE
+                                  STRUCTS
+    //////////////////////////////////////////////////////////////*/
+
+    struct Post {
+        address  poster;
+        uint64   timestamp;
+        uint32   upvotes;
+        uint32   downvotes;
+        bool     removed;
+        address[] attackers;
+        address[] victims;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                  STORAGE
     //////////////////////////////////////////////////////////////*/
 
     mapping(address => bool) public isWhitelisted;
 
-    address[] private _rektList;
-    mapping(address => bool)    private _isRekt;
-    mapping(address => uint256) private _rektIndex; // 1-indexed; 0 = absent
+    uint256 public postCount;
+    mapping(uint256 => Post) private _posts;
+    mapping(uint256 => mapping(address => int8)) public voteOf;
 
-    struct RemovalProposal {
-        address   proposer;
-        bool      executed;
-        address[] targets;
-    }
+    mapping(address => int256)  public attackerScore;
+    mapping(address => uint256) public attackerAppearances;
 
-    uint256 public proposalCount;
-    mapping(uint256 => RemovalProposal) private _proposals;
+    mapping(address => bool)    public isVictim;
+    mapping(address => uint256) private _victimActivePosts;
+
+    uint256 public headPostId;
+    uint256 public tailPostId;
+    mapping(uint256 => uint256) public nextPostId;
+    mapping(uint256 => uint256) public prevPostId;
 
     /*//////////////////////////////////////////////////////////////
-                                 EVENTS
+                                  EVENTS
     //////////////////////////////////////////////////////////////*/
 
     event WhitelistUpdated(address indexed account, bool status);
-    event AddedRekt(address indexed account);
-    event RemovedRekt(address indexed account);
-    event RemovalProposed(uint256 indexed id, address indexed proposer, address[] targets);
-    event RemovalExecuted(uint256 indexed id, address indexed executor);
+    event PostCreated(
+        uint256 indexed id,
+        address indexed poster,
+        uint64          timestamp,
+        address[]       attackers,
+        address[]       victims,
+        string          note
+    );
+    event Voted(
+        uint256 indexed postId,
+        address indexed voter,
+        int8            oldDirection,
+        int8            newDirection
+    );
+
+    enum RemovalReason { AutoDownvote, PosterRetract }
+    event PostRemoved(uint256 indexed postId, RemovalReason reason);
 
     /*//////////////////////////////////////////////////////////////
-                                 ERRORS
+                                  ERRORS
     //////////////////////////////////////////////////////////////*/
 
     error NotWhitelisted();
-    error ProposalNotFound();
-    error CannotSelfExecute();
-    error AlreadyExecuted();
+    error PosterCannotVote();
+    error PostIsRemoved();
+    error PostNotFound();
+    error InvalidDirection();
+    error NoVoteChange();
+    error EmptyPost();
+    error PostTooLarge();
+    error NotPoster();
 
     /*//////////////////////////////////////////////////////////////
-                               CONSTRUCTOR
+                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor() {
-        _setWhitelisted(JERRYTHEKID, true);
-        _setWhitelisted(BAUTI, true);
-    }
+    /// @param initialOwner The Safe multisig (or any contract / EOA) that will
+    ///                     own the whitelist at deploy time. The owner role
+    ///                     is fully transferable via the inherited Ownable2Step
+    ///                     two-step flow (`transferOwnership` -> `acceptOwnership`),
+    ///                     so the governance keys can be rotated freely. Reverts
+    ///                     if zero (Ownable check).
+    constructor(address initialOwner) Ownable(initialOwner) {}
 
     /*//////////////////////////////////////////////////////////////
-                            WHITELIST MANAGEMENT
-                         (any whitelisted address)
-    //////////////////////////////////////////////////////////////*/
-
-    function addWhitelisted(address account) external onlyWhitelisted {
-        _setWhitelisted(account, true);
-    }
-
-    function removeWhitelisted(address account) external onlyWhitelisted {
-        _setWhitelisted(account, false);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                              READ FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Returns every address currently in the rekt list.
-    function isRekt() external view returns (address[] memory) {
-        return _rektList;
-    }
-
-    /// @notice Returns the full details of a removal proposal.
-    function getProposal(uint256 id)
-        external
-        view
-        returns (address proposer, bool executed, address[] memory targets)
-    {
-        RemovalProposal storage p = _proposals[id];
-        return (p.proposer, p.executed, p.targets);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                             WRITE FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Add addresses to the rekt list. Caller must be whitelisted.
-    ///         Duplicates (within the call or already present) are silently skipped.
-    function addRekt(address[] calldata targets) external onlyWhitelisted {
-        uint256 len = targets.length;
-        for (uint256 i; i < len; ++i) {
-            _addToRekt(targets[i]);
-        }
-    }
-
-    /// @notice Propose the removal of one or more addresses from the rekt list.
-    ///         A different whitelisted address must call executeRemoval() to carry it out.
-    /// @return id  The proposal ID to pass to executeRemoval().
-    function proposeRemoval(address[] calldata targets) external onlyWhitelisted returns (uint256 id) {
-        id = proposalCount;
-        unchecked { ++proposalCount; }
-
-        RemovalProposal storage p = _proposals[id];
-        p.proposer = msg.sender;
-
-        uint256 len = targets.length;
-        for (uint256 i; i < len; ++i) {
-            p.targets.push(targets[i]);
-        }
-
-        emit RemovalProposed(id, msg.sender, targets);
-    }
-
-    /// @notice Execute a pending removal proposal. Caller must be whitelisted and
-    ///         must not be the same address that proposed it.
-    ///         Addresses no longer in the rekt list are silently skipped.
-    function executeRemoval(uint256 id) external onlyWhitelisted {
-        RemovalProposal storage p = _proposals[id];
-        if (p.proposer == address(0)) revert ProposalNotFound();
-        if (p.proposer == msg.sender) revert CannotSelfExecute();
-        if (p.executed)               revert AlreadyExecuted();
-
-        p.executed = true;
-
-        uint256 len = p.targets.length;
-        for (uint256 i; i < len; ++i) {
-            _removeFromRekt(p.targets[i]);
-        }
-
-        emit RemovalExecuted(id, msg.sender);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                               MODIFIERS
+                                MODIFIERS
     //////////////////////////////////////////////////////////////*/
 
     modifier onlyWhitelisted() {
@@ -153,36 +119,200 @@ contract ThatsRekt {
     }
 
     /*//////////////////////////////////////////////////////////////
-                            INTERNAL HELPERS
+                          OWNER (whitelist mgmt)
     //////////////////////////////////////////////////////////////*/
 
-    function _setWhitelisted(address account, bool status) internal {
-        isWhitelisted[account] = status;
-        emit WhitelistUpdated(account, status);
-    }
-
-    function _addToRekt(address target) internal {
-        if (_isRekt[target]) return;
-        _isRekt[target] = true;
-        _rektList.push(target);
-        _rektIndex[target] = _rektList.length; // 1-indexed
-        emit AddedRekt(target);
-    }
-
-    /// @dev O(1) removal via swap-and-pop using the 1-indexed _rektIndex mapping.
-    function _removeFromRekt(address target) internal {
-        uint256 idx = _rektIndex[target]; // 1-indexed; 0 = not present
-        if (idx == 0) return;
-
-        uint256 lastIdx = _rektList.length;
-        if (idx != lastIdx) {
-            address last = _rektList[lastIdx - 1];
-            _rektList[idx - 1] = last;
-            _rektIndex[last]   = idx;
+    function addWhitelisted(address account) external onlyOwner {
+        if (!isWhitelisted[account]) {
+            isWhitelisted[account] = true;
+            emit WhitelistUpdated(account, true);
         }
-        _rektList.pop();
-        delete _rektIndex[target];
-        delete _isRekt[target];
-        emit RemovedRekt(target);
+    }
+
+    function removeWhitelisted(address account) external onlyOwner {
+        if (isWhitelisted[account]) {
+            isWhitelisted[account] = false;
+            emit WhitelistUpdated(account, false);
+        }
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          WHITELISTED (post + vote)
+    //////////////////////////////////////////////////////////////*/
+
+    function post(
+        address[] calldata attackers_,
+        address[] calldata victims_,
+        string   calldata note
+    ) external onlyWhitelisted returns (uint256 id) {
+        uint256 totalAddrs = attackers_.length + victims_.length;
+        if (totalAddrs > MAX_ADDRESSES_PER_POST) revert PostTooLarge();
+        if (totalAddrs == 0 && bytes(note).length == 0) revert EmptyPost();
+
+        unchecked { id = ++postCount; }
+
+        Post storage p = _posts[id];
+        p.poster    = msg.sender;
+        p.timestamp = uint64(block.timestamp);
+
+        uint256 aLen = attackers_.length;
+        for (uint256 i; i < aLen; ++i) {
+            p.attackers.push(attackers_[i]);
+            unchecked { ++attackerAppearances[attackers_[i]]; }
+        }
+        uint256 vLen = victims_.length;
+        for (uint256 i; i < vLen; ++i) {
+            address v = victims_[i];
+            p.victims.push(v);
+            unchecked { ++_victimActivePosts[v]; }
+            if (_victimActivePosts[v] == 1) isVictim[v] = true;
+        }
+
+        _insertActiveTail(id);
+
+        emit PostCreated(id, msg.sender, uint64(block.timestamp), attackers_, victims_, note);
+    }
+
+    function _insertActiveTail(uint256 id) internal {
+        if (tailPostId == 0) {
+            headPostId = id;
+            tailPostId = id;
+        } else {
+            prevPostId[id]         = tailPostId;
+            nextPostId[tailPostId] = id;
+            tailPostId             = id;
+        }
+    }
+
+    function vote(uint256 postId, int8 direction) external onlyWhitelisted {
+        if (direction < -1 || direction > 1) revert InvalidDirection();
+
+        Post storage p = _posts[postId];
+        if (p.poster == address(0))   revert PostNotFound();
+        if (p.removed)                revert PostIsRemoved();
+        if (p.poster == msg.sender)   revert PosterCannotVote();
+
+        int8 oldDir = voteOf[postId][msg.sender];
+        if (oldDir == direction)      revert NoVoteChange();
+
+        if (oldDir == 1)        { p.upvotes   -= 1; }
+        else if (oldDir == -1)  { p.downvotes -= 1; }
+        if (direction == 1)     { p.upvotes   += 1; }
+        else if (direction == -1) { p.downvotes += 1; }
+
+        int256 delta = int256(direction) - int256(oldDir);
+
+        uint256 aLen = p.attackers.length;
+        for (uint256 i; i < aLen; ++i) {
+            attackerScore[p.attackers[i]] += delta;
+        }
+
+        voteOf[postId][msg.sender] = direction;
+
+        emit Voted(postId, msg.sender, oldDir, direction);
+
+        if (int256(uint256(p.downvotes)) - int256(uint256(p.upvotes)) >= int256(REMOVAL_THRESHOLD)) {
+            _removePost(postId, RemovalReason.AutoDownvote);
+        }
+    }
+
+    function _removePost(uint256 id, RemovalReason reason) internal {
+        Post storage p = _posts[id];
+
+        int256 net = int256(uint256(p.upvotes)) - int256(uint256(p.downvotes));
+
+        // 1. reverse attacker aggregates
+        uint256 aLen = p.attackers.length;
+        for (uint256 i; i < aLen; ++i) {
+            address a = p.attackers[i];
+            attackerScore[a] -= net;
+            unchecked { --attackerAppearances[a]; }
+        }
+
+        // 2. reverse victim aggregates
+        uint256 vLen = p.victims.length;
+        for (uint256 i; i < vLen; ++i) {
+            address v = p.victims[i];
+            unchecked { --_victimActivePosts[v]; }
+            if (_victimActivePosts[v] == 0) isVictim[v] = false;
+        }
+
+        // 3. unlink from active-post linked list
+        uint256 prev = prevPostId[id];
+        uint256 next = nextPostId[id];
+        if (prev != 0) nextPostId[prev] = next; else headPostId = next;
+        if (next != 0) prevPostId[next] = prev; else tailPostId = prev;
+        delete prevPostId[id];
+        delete nextPostId[id];
+
+        // 4. mark removed
+        p.removed = true;
+
+        emit PostRemoved(id, reason);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          POSTER (retract)
+    //////////////////////////////////////////////////////////////*/
+
+    function retract(uint256 postId) external {
+        Post storage p = _posts[postId];
+        if (p.poster == address(0))     revert PostNotFound();
+        if (p.poster != msg.sender)     revert NotPoster();
+        if (p.removed)                  revert PostIsRemoved();
+        _removePost(postId, RemovalReason.PosterRetract);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                  READS
+    //////////////////////////////////////////////////////////////*/
+
+    function getPost(uint256 id) external view returns (
+        address  poster,
+        uint64   timestamp,
+        uint32   upvotes,
+        uint32   downvotes,
+        bool     removed,
+        address[] memory attackers_,
+        address[] memory victims_
+    ) {
+        Post storage p = _posts[id];
+        if (p.poster == address(0)) revert PostNotFound();
+        return (p.poster, p.timestamp, p.upvotes, p.downvotes, p.removed, p.attackers, p.victims);
+    }
+
+    function attackerReport(address a) external view returns (int256 score, uint256 appearances) {
+        return (attackerScore[a], attackerAppearances[a]);
+    }
+
+    function recentActivePosts(uint256 limit) external view returns (uint256[] memory ids) {
+        if (limit > MAX_VIEW_LIMIT) limit = MAX_VIEW_LIMIT;
+        uint256[] memory tmp = new uint256[](limit);
+        uint256 cur = tailPostId;
+        uint256 i;
+        while (cur != 0 && i < limit) {
+            tmp[i] = cur;
+            cur = prevPostId[cur];
+            unchecked { ++i; }
+        }
+        ids = new uint256[](i);
+        for (uint256 j; j < i; ++j) ids[j] = tmp[j];
+    }
+
+    function activePostsBefore(uint256 beforeId, uint256 limit) external view returns (uint256[] memory ids) {
+        Post storage anchor = _posts[beforeId];
+        if (anchor.poster == address(0) || anchor.removed) revert PostNotFound();
+        if (limit > MAX_VIEW_LIMIT) limit = MAX_VIEW_LIMIT;
+
+        uint256[] memory tmp = new uint256[](limit);
+        uint256 cur = prevPostId[beforeId];
+        uint256 i;
+        while (cur != 0 && i < limit) {
+            tmp[i] = cur;
+            cur = prevPostId[cur];
+            unchecked { ++i; }
+        }
+        ids = new uint256[](i);
+        for (uint256 j; j < i; ++j) ids[j] = tmp[j];
     }
 }
