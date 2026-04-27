@@ -1,3 +1,17 @@
+x-indexer: &indexer
+  build:
+    context: .
+    dockerfile: Dockerfile
+  environment:
+    DB_HOST: db
+    DB_PORT: 5432
+    DB_NAME: ${DB_NAME:-squid}
+    DB_USER: ${DB_USER:-postgres}
+    DB_PASS: ${DB_PASS:-postgres}
+  depends_on:
+    db:
+      condition: service_healthy
+
 services:
   db:
     image: postgres:16-alpine
@@ -14,6 +28,53 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # One-shot: applies committed migrations against the freshly-started db.
+  # Has to complete successfully before processor + api come up.
+  migrate:
+    <<: *indexer
+    command: ['npx', 'squid-typeorm-migration', 'apply']
+    restart: 'no'
+
+  # Indexes blocks. Restarts on failure (RPC blips, reorgs handled by Subsquid).
+  processor:
+    <<: *indexer
+    command: ['node', 'lib/main.js']
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-squid}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-postgres}
+      RPC_SEPOLIA_HTTP: ${RPC_SEPOLIA_HTTP:-https://eth-sepolia.public.blastapi.io}
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:-0x0000000000000000000000000000000000000000}
+      START_BLOCK: ${START_BLOCK:-0}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # GraphQL server. Reads schema.graphql + DB; serves on GQL_PORT (default 4350).
+  api:
+    <<: *indexer
+    command: ['npx', 'squid-graphql-server']
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-squid}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-postgres}
+      GQL_PORT: ${GQL_PORT:-4350}
+    ports:
+      - '${GQL_PORT:-4350}:${GQL_PORT:-4350}'
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   pgdata:

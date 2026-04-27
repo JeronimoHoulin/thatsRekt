@@ -15,35 +15,50 @@ TypeScript indexer of `thatsRekt` contract events. Persists state into Postgres 
 - pnpm ≥ 10
 - Docker (for the local Postgres dev container)
 
-## Quickstart
+## Quickstart — full Docker stack
+
+The whole indexer (postgres + migrations + processor + GraphQL API) runs in Docker. Single command from a clean checkout:
 
 ```bash
-# Install deps
-pnpm install
-
-# Generate ABI types + TypeORM models from schema.graphql
-pnpm codegen
-
-# Compile
-pnpm build
-
-# Start Postgres locally
-docker compose up -d
-
-# Copy env template, set RPC + contract address + start block
 cp .env.example .env
-$EDITOR .env
+$EDITOR .env  # set CONTRACT_ADDRESS + START_BLOCK once the contract is deployed
+docker compose up -d --build
+```
 
-# Apply migrations (first run only — see "Database migrations" below)
-pnpm db:create  # generate migration from schema
-pnpm db:migrate # apply
+What that brings up:
 
-# Run the processor (indexes blocks)
-pnpm process
+| Service | Image | Role |
+|---------|-------|------|
+| `db` | `postgres:16-alpine` | Postgres on port 5432 |
+| `migrate` | `indexer-migrate` (built) | One-shot — applies committed migrations against the fresh db, then exits |
+| `processor` | `indexer-processor` (built) | Long-running — indexes blocks |
+| `api` | `indexer-api` (built) | GraphQL server on port 4350 |
 
-# In a separate terminal: start the GraphQL server
-pnpm serve
-# Open http://localhost:4350/graphql
+GraphQL endpoint: <http://localhost:4350/graphql>.
+
+Image size: ~204 MB per service (alpine + Node 20 + production node_modules + compiled JS).
+
+```bash
+docker compose ps                # check status
+docker compose logs -f processor # tail processor logs
+docker compose logs -f api       # tail api logs
+docker compose down              # stop, keep volume
+docker compose down -v           # stop and wipe data
+```
+
+## Local dev (without Docker for the indexer)
+
+If you'd rather run the processor + api on the host while only Postgres lives in Docker:
+
+```bash
+docker compose up -d db
+pnpm install
+pnpm codegen
+pnpm build
+cp .env.example .env  # ensure DB_HOST=localhost
+pnpm db:migrate
+pnpm process    # one terminal
+pnpm serve      # another — http://localhost:4350/graphql
 ```
 
 ## Configuration
