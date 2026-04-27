@@ -28,7 +28,7 @@ contract ThatsRektTest is Test {
     }
 
     /// helper - create a basic post with at most one attacker and/or one victim.
-    /// detectedAt defaults to the current block timestamp (zero detection latency).
+    /// attackedAt defaults to the current block timestamp (attack and post in the same block).
     function _post(address poster, address atk0, address vic0) internal returns (uint256 id) {
         address[] memory atk = new address[](atk0 == address(0) ? 0 : 1);
         address[] memory vic = new address[](vic0 == address(0) ? 0 : 1);
@@ -99,15 +99,15 @@ contract ThatsRektTest is Test {
         address[] memory atk = new address[](1); atk[0] = bob;
         address[] memory vic = new address[](1); vic[0] = carol;
 
-        // warp forward so detectedAt = (now - 1 hour) is a valid past time.
+        // warp forward so attackedAt = (now - 1 hour) is a valid past time.
         vm.warp(10_000_000);
-        uint64 detected = uint64(block.timestamp - 1 hours);
+        uint64 attacked = uint64(block.timestamp - 1 hours);
 
         vm.expectEmit(true, true, false, true);
-        emit ThatsRekt.PostCreated(1, alice, detected, atk, vic, "rekt");
+        emit ThatsRekt.PostCreated(1, alice, attacked, atk, vic, "rekt");
 
         vm.prank(alice);
-        reg.post(atk, vic, "rekt", detected);
+        reg.post(atk, vic, "rekt", attacked);
     }
 
     function test_post_storesFields() public {
@@ -116,16 +116,16 @@ contract ThatsRektTest is Test {
         address[] memory vic = new address[](1); vic[0] = dave;
 
         vm.warp(123_456_789);
-        // detectedAt deliberately distinct from block.timestamp to prove the
+        // attackedAt deliberately distinct from block.timestamp to prove the
         // stored value is the poster-supplied one, not the block timestamp.
-        uint64 detected = uint64(123_456_700);
+        uint64 attacked = uint64(123_456_700);
 
         vm.prank(alice);
-        uint256 id = reg.post(atk, vic, "", detected);
+        uint256 id = reg.post(atk, vic, "", attacked);
 
         (
             address poster,
-            uint64 detectedAt,
+            uint64 attackedAt,
             uint32 up,
             uint32 down,
             bool removed,
@@ -134,7 +134,7 @@ contract ThatsRektTest is Test {
         ) = reg.getPost(id);
 
         assertEq(poster, alice);
-        assertEq(detectedAt, detected);
+        assertEq(attackedAt, attacked);
         assertEq(up, 0);
         assertEq(down, 0);
         assertFalse(removed);
@@ -198,20 +198,20 @@ contract ThatsRektTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-                  PHASE 3.5 - detectedAt VALIDATION
+                  PHASE 3.5 - attackedAt VALIDATION
     //////////////////////////////////////////////////////////////*/
 
-    function test_post_revertsIfDetectedAtZero() public {
+    function test_post_revertsIfAttackedAtZero() public {
         _whitelist(alice);
         address[] memory atk = new address[](1); atk[0] = bob;
         address[] memory vic = new address[](0);
 
-        vm.expectRevert(ThatsRekt.InvalidDetectedAt.selector);
+        vm.expectRevert(ThatsRekt.InvalidAttackedAt.selector);
         vm.prank(alice);
         reg.post(atk, vic, "", 0);
     }
 
-    function test_post_revertsIfDetectedAtInFuture() public {
+    function test_post_revertsIfAttackedAtInFuture() public {
         _whitelist(alice);
         address[] memory atk = new address[](1); atk[0] = bob;
         address[] memory vic = new address[](0);
@@ -219,12 +219,12 @@ contract ThatsRektTest is Test {
         // any value strictly greater than block.timestamp is a future claim
         uint64 future = uint64(block.timestamp + 1);
 
-        vm.expectRevert(ThatsRekt.InvalidDetectedAt.selector);
+        vm.expectRevert(ThatsRekt.InvalidAttackedAt.selector);
         vm.prank(alice);
         reg.post(atk, vic, "", future);
     }
 
-    function test_post_acceptsDetectedAtEqualToBlockTimestamp() public {
+    function test_post_acceptsAttackedAtEqualToBlockTimestamp() public {
         _whitelist(alice);
         address[] memory atk = new address[](1); atk[0] = bob;
         address[] memory vic = new address[](0);
@@ -234,8 +234,8 @@ contract ThatsRektTest is Test {
         assertEq(id, 1);
     }
 
-    function test_post_acceptsAncientDetectedAt() public {
-        // detectedAt = 1 (very old, but valid: > 0 and <= block.timestamp).
+    function test_post_acceptsAncientAttackedAt() public {
+        // attackedAt = 1 (very old, but valid: > 0 and <= block.timestamp).
         _whitelist(alice);
         address[] memory atk = new address[](1); atk[0] = bob;
         address[] memory vic = new address[](0);
@@ -245,23 +245,23 @@ contract ThatsRektTest is Test {
         uint256 id = reg.post(atk, vic, "", 1);
         assertEq(id, 1);
 
-        (, uint64 detectedAt, , , , , ) = reg.getPost(id);
-        assertEq(detectedAt, 1);
+        (, uint64 attackedAt, , , , , ) = reg.getPost(id);
+        assertEq(attackedAt, 1);
     }
 
-    function test_getPost_returnsDetectedAtVerbatim() public {
+    function test_getPost_returnsAttackedAtVerbatim() public {
         _whitelist(alice);
         address[] memory atk = new address[](1); atk[0] = bob;
         address[] memory vic = new address[](0);
 
         vm.warp(2_000_000);
-        uint64 detected = uint64(1_999_500);
+        uint64 attacked = uint64(1_999_500);
 
         vm.prank(alice);
-        uint256 id = reg.post(atk, vic, "", detected);
+        uint256 id = reg.post(atk, vic, "", attacked);
 
         (, uint64 stored, , , , , ) = reg.getPost(id);
-        assertEq(stored, detected);
+        assertEq(stored, attacked);
     }
 
     /*//////////////////////////////////////////////////////////////
