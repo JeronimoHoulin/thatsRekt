@@ -4,7 +4,7 @@ import { fetchPostDetail } from '../lib/queries'
 import { AddressLabel } from '../components/AddressLabel'
 import { Timeline } from '../components/Timeline'
 import { EmptyState } from '../components/EmptyState'
-import { formatTimestamp, relativeTime, scoreColor } from '../lib/format'
+import { formatTimestamp, relativeTime } from '../lib/format'
 
 export function PostDetail() {
   const { id } = useParams<{ id: string }>()
@@ -17,14 +17,18 @@ export function PostDetail() {
   })
 
   if (isLoading) {
-    return <p className="text-sm text-neutral-500">Loading post #{postId}…</p>
+    return (
+      <p className="text-xs uppercase tracking-widest text-neutral-700">
+        loading post #{postId}…
+      </p>
+    )
   }
 
   if (error) {
     return (
       <EmptyState
-        title="Couldn't load this post."
-        hint={`Error: ${(error as Error).message}`}
+        title="couldn't load this post."
+        hint={(error as Error).message}
       />
     )
   }
@@ -32,89 +36,95 @@ export function PostDetail() {
   if (!data) {
     return (
       <EmptyState
-        title={`Post #${postId} not found.`}
-        hint="The id may be wrong, or the post hasn't been indexed yet."
+        title={`post #${postId} not found.`}
+        hint="the id may be wrong, or the post hasn't been indexed yet."
       />
     )
   }
 
   return (
-    <article className="space-y-8">
-      <Link to="/" className="text-xs text-neutral-500 hover:text-neutral-300">
+    <article className="space-y-10">
+      <Link
+        to="/"
+        className="inline-block text-xs uppercase tracking-widest rekt-link"
+      >
         ← back to feed
       </Link>
 
-      <header className="flex flex-col gap-2">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">Post #{data.id}</h1>
+      <header className="space-y-4 border-b-2 border-black pb-6">
+        <div className="flex items-center gap-3 text-[10px] uppercase tracking-widest">
+          <span className="font-black">#{data.id}</span>
+          <span className="text-neutral-700">·</span>
           {data.removed ? (
-            <span className="rounded bg-rose-900/40 px-2 py-0.5 text-xs text-rose-300">
+            <span className="border border-red-600 px-2 py-0.5 font-black text-red-600">
               retracted
             </span>
           ) : (
-            <span className="rounded bg-emerald-900/30 px-2 py-0.5 text-xs text-emerald-300">
+            <span className="border border-emerald-700 px-2 py-0.5 font-black text-emerald-700">
               active
             </span>
           )}
-          <div className={`ml-auto text-2xl font-semibold tabular-nums ${scoreColor(data.netScore)}`}>
-            {data.netScore > 0 ? `+${data.netScore}` : data.netScore}
-            <span className="ml-2 font-mono text-xs text-neutral-500">
-              <span className="text-emerald-400">{data.upvotes}↑</span>{' '}
-              <span className="text-rose-400">{data.downvotes}↓</span>
-            </span>
-          </div>
+          <span className="text-neutral-700">·</span>
+          <span title={formatTimestamp(data.attackedAt)}>
+            attacked {relativeTime(data.attackedAt)}
+          </span>
+          <span className="ml-auto">
+            <ScoreLine net={data.netScore} up={data.upvotes} down={data.downvotes} />
+          </span>
         </div>
-        <dl className="grid grid-cols-1 gap-1 text-xs text-neutral-500 sm:grid-cols-2">
-          <Field label="Posted by">
+
+        <h1 className="font-black uppercase tracking-tighter text-4xl leading-none">
+          {firstLine(data.note) || 'untitled alert'}
+        </h1>
+
+        <dl className="grid grid-cols-1 gap-1 text-xs uppercase tracking-widest text-neutral-700 sm:grid-cols-2">
+          <Field label="poster">
             <AddressLabel addr={data.poster.id} />
           </Field>
-          <Field label="Attacked at" tooltip={formatTimestamp(data.attackedAt)}>
-            {relativeTime(data.attackedAt)}
-          </Field>
-          <Field label="Posted on-chain" tooltip={formatTimestamp(data.createdAtTimestamp)}>
+          <Field label="posted on-chain" tooltip={formatTimestamp(data.createdAtTimestamp)}>
             {relativeTime(data.createdAtTimestamp)}
           </Field>
-          <Field label="Last updated" tooltip={formatTimestamp(data.lastUpdatedAt)}>
+          <Field label="last updated" tooltip={formatTimestamp(data.lastUpdatedAt)}>
             {relativeTime(data.lastUpdatedAt)}
           </Field>
           {data.removed && data.removedAtTimestamp && (
-            <Field label="Retracted" tooltip={formatTimestamp(data.removedAtTimestamp)}>
+            <Field label="retracted" tooltip={formatTimestamp(data.removedAtTimestamp)}>
               {relativeTime(data.removedAtTimestamp)}
             </Field>
           )}
         </dl>
       </header>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400">
-          Note
-        </h2>
-        <p className="rounded-md border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-200 whitespace-pre-wrap">
+      <section>
+        <SectionLabel>note</SectionLabel>
+        <p className="mt-3 text-base leading-relaxed text-neutral-800 whitespace-pre-wrap">
           {data.note || '(no note)'}
         </p>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400">
-          Attackers ({data.attackerLinks.length})
-        </h2>
+      <section>
+        <SectionLabel>
+          attackers <span className="text-neutral-700">[{data.attackerLinks.length}]</span>
+        </SectionLabel>
         {data.attackerLinks.length === 0 ? (
-          <p className="text-sm text-neutral-500">None listed.</p>
+          <p className="mt-2 text-xs uppercase tracking-widest text-neutral-700">
+            none listed.
+          </p>
         ) : (
-          <ul className="space-y-1">
+          <ul className="mt-3 divide-y divide-black border-y-2 border-black">
             {data.attackerLinks.map((link) => (
               <li
                 key={link.address.id}
-                className="flex items-baseline justify-between rounded border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm"
+                className="flex items-baseline justify-between gap-3 py-2"
               >
                 <AddressLabel addr={link.address.id} full />
-                <div className="flex gap-3 font-mono text-xs">
-                  <span className={scoreColor(Number(link.address.attackerScore))}>
+                <div className="flex gap-3 text-xs uppercase tracking-widest">
+                  <span className={scoreTextColor(Number(link.address.attackerScore))}>
                     score {link.address.attackerScore}
                   </span>
                   {link.address.attackerAppearances != null && (
-                    <span className="text-neutral-500">
-                      {link.address.attackerAppearances} post(s)
+                    <span className="text-neutral-700">
+                      [{link.address.attackerAppearances} post(s)]
                     </span>
                   )}
                 </div>
@@ -124,22 +134,24 @@ export function PostDetail() {
         )}
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400">
-          Victims ({data.victimLinks.length})
-        </h2>
+      <section>
+        <SectionLabel>
+          victims <span className="text-neutral-700">[{data.victimLinks.length}]</span>
+        </SectionLabel>
         {data.victimLinks.length === 0 ? (
-          <p className="text-sm text-neutral-500">None listed.</p>
+          <p className="mt-2 text-xs uppercase tracking-widest text-neutral-700">
+            none listed.
+          </p>
         ) : (
-          <ul className="space-y-1">
+          <ul className="mt-3 divide-y divide-black border-y-2 border-black">
             {data.victimLinks.map((link) => (
               <li
                 key={link.address.id}
-                className="flex items-baseline justify-between rounded border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm"
+                className="flex items-baseline justify-between gap-3 py-2"
               >
                 <AddressLabel addr={link.address.id} full />
-                <span className="font-mono text-xs text-neutral-500">
-                  {link.address.isVictim ? 'flagged' : 'cleared'}
+                <span className="text-xs uppercase tracking-widest text-neutral-700">
+                  [{link.address.isVictim ? 'flagged' : 'cleared'}]
                 </span>
               </li>
             ))}
@@ -147,14 +159,37 @@ export function PostDetail() {
         )}
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400">
-          Timeline
-        </h2>
-        <Timeline votes={data.votes} edits={data.edits} />
+      <section>
+        <SectionLabel>timeline</SectionLabel>
+        <div className="mt-3">
+          <Timeline votes={data.votes} edits={data.edits} />
+        </div>
       </section>
     </article>
   )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="font-black uppercase tracking-widest text-sm">{children}</h2>
+  )
+}
+
+function ScoreLine({ net, up, down }: { net: number; up: number; down: number }) {
+  return (
+    <span className="font-mono">
+      <span className={`font-black ${scoreTextColor(net)}`}>
+        {net >= 0 ? `+${net}` : net}
+      </span>{' '}
+      <span className="text-neutral-700">({up}↑/{down}↓)</span>
+    </span>
+  )
+}
+
+function scoreTextColor(score: number): string {
+  if (score > 0) return 'text-emerald-700'
+  if (score < 0) return 'text-red-600'
+  return 'text-neutral-700'
 }
 
 function Field({
@@ -168,8 +203,15 @@ function Field({
 }) {
   return (
     <div className="flex gap-2" title={tooltip}>
-      <dt className="w-32 shrink-0 text-neutral-500">{label}</dt>
-      <dd className="text-neutral-300">{children}</dd>
+      <dt className="w-32 shrink-0">[{label}]</dt>
+      <dd className="text-black normal-case tracking-normal">{children}</dd>
     </div>
   )
+}
+
+function firstLine(s: string): string {
+  if (!s) return ''
+  const idx = s.indexOf('.')
+  const slice = idx > 0 ? s.slice(0, idx) : s
+  return slice.length > 120 ? slice.slice(0, 117) + '…' : slice
 }

@@ -1,47 +1,68 @@
 import { Link } from 'react-router-dom'
 import type { FeedPost } from '../lib/queries'
-import { relativeTime, scoreColor } from '../lib/format'
-import { AddressLabel } from './AddressLabel'
+import { relativeTime, shortAddress } from '../lib/format'
 
 export function PostCard({ post }: { post: FeedPost }) {
+  const tags = [
+    `poster: ${shortAddress(post.poster.id)}`,
+    `${post.attackerLinks.length} attacker${post.attackerLinks.length === 1 ? '' : 's'}`,
+    `${post.victimLinks.length} victim${post.victimLinks.length === 1 ? '' : 's'}`,
+  ]
+
   return (
-    <Link
-      to={`/post/${post.id}`}
-      className="block rounded-md border border-neutral-800 bg-neutral-950 p-4 transition hover:border-neutral-700"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2 text-xs text-neutral-500">
-            <span>#{post.id}</span>
-            <span>·</span>
-            <span>by</span>
-            <AddressLabel addr={post.poster.id} />
-            <span>·</span>
-            <span>attacked {relativeTime(post.attackedAt)}</span>
-          </div>
-          <p className="line-clamp-3 text-sm text-neutral-200">{post.note || '(no note)'}</p>
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
-            <span>
-              <span className="text-neutral-300">{post.attackerLinks.length}</span>{' '}
-              attacker{post.attackerLinks.length === 1 ? '' : 's'}
-            </span>
-            <span>
-              <span className="text-neutral-300">{post.victimLinks.length}</span>{' '}
-              victim{post.victimLinks.length === 1 ? '' : 's'}
-            </span>
-            <span>{relativeTime(post.createdAtTimestamp)} on-chain</span>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <div className={`text-2xl font-semibold tabular-nums ${scoreColor(post.netScore)}`}>
-            {post.netScore > 0 ? `+${post.netScore}` : post.netScore}
-          </div>
-          <div className="font-mono text-xs text-neutral-500">
-            <span className="text-emerald-400">{post.upvotes}↑</span>{' '}
-            <span className="text-rose-400">{post.downvotes}↓</span>
-          </div>
-        </div>
+    <article className="space-y-3">
+      <Link
+        to={`/post/${post.id}`}
+        className="block group"
+      >
+        <h2 className="font-black uppercase tracking-tight text-3xl leading-tight group-hover:text-red-600">
+          #{post.id} —{' '}
+          <span className="text-neutral-800 group-hover:text-red-600">
+            {firstLine(post.note) || 'untitled alert'}
+          </span>
+        </h2>
+      </Link>
+
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs uppercase tracking-widest text-neutral-700">
+        <span>attacked {relativeTime(post.attackedAt)}</span>
+        {tags.map((tag, i) => (
+          <span key={i}>
+            <span className="text-neutral-400">·</span>{' '}
+            <span>[{tag}]</span>
+          </span>
+        ))}
+        <span>
+          <span className="text-neutral-400">·</span>{' '}
+          <ScoreBadge net={post.netScore} up={post.upvotes} down={post.downvotes} />
+        </span>
       </div>
-    </Link>
+
+      <p className="text-base leading-relaxed text-neutral-800 line-clamp-3">
+        {post.note || '(no note)'}
+      </p>
+
+      <Link
+        to={`/post/${post.id}`}
+        className="inline-block text-xs font-black uppercase tracking-widest rekt-link"
+      >
+        more →
+      </Link>
+    </article>
   )
+}
+
+function ScoreBadge({ net, up, down }: { net: number; up: number; down: number }) {
+  const color = net > 0 ? 'text-emerald-700' : net < 0 ? 'text-red-600' : 'text-neutral-700'
+  return (
+    <span className={`font-mono ${color}`}>
+      {net >= 0 ? `+${net}` : net} ({up}↑/{down}↓)
+    </span>
+  )
+}
+
+function firstLine(s: string): string {
+  if (!s) return ''
+  const idx = s.indexOf('.')
+  const slice = idx > 0 ? s.slice(0, idx) : s
+  return slice.length > 100 ? slice.slice(0, 97) + '…' : slice
 }

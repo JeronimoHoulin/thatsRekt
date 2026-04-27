@@ -20,77 +20,66 @@ export function Timeline({
 
   if (items.length === 0) {
     return (
-      <p className="text-sm text-neutral-500">No activity on this post yet.</p>
+      <p className="text-xs uppercase tracking-widest text-neutral-700">
+        no activity on this post yet.
+      </p>
     )
   }
 
   return (
-    <ul className="space-y-2">
-      {items.map((item) => (
+    <ol className="space-y-4">
+      {items.map((item, i) => (
         <li
           key={`${item.kind}-${item.data.id}`}
-          className="rounded-md border border-neutral-800 bg-neutral-950 p-3"
+          className="border-l-2 border-black pl-4"
         >
+          <div className="flex items-baseline gap-2 text-[10px] uppercase tracking-widest text-neutral-700">
+            <span className="font-black text-black">{String(i + 1).padStart(2, '0')}</span>
+            <span title={formatTimestamp(item.data.timestamp)}>
+              block {item.data.blockNumber} · {relativeTime(item.data.timestamp)}
+            </span>
+          </div>
           {item.kind === 'vote' ? <VoteRow vote={item.data} /> : <EditRow edit={item.data} />}
         </li>
       ))}
-    </ul>
+    </ol>
   )
 }
 
 function VoteRow({ vote }: { vote: VoteEntity }) {
   const action = describeVote(vote.oldDirection, vote.newDirection)
   return (
-    <div className="flex items-baseline justify-between gap-3 text-sm">
-      <div className="flex items-center gap-2">
-        <span className={`font-mono text-xs ${voteColor(vote.newDirection, vote.oldDirection)}`}>
-          {action.icon}
-        </span>
-        <AddressLabel addr={vote.voter.id} />
-        <span className="text-neutral-400">{action.label}</span>
-      </div>
-      <span
-        className="font-mono text-xs text-neutral-500"
-        title={formatTimestamp(vote.timestamp)}
-      >
-        block {vote.blockNumber} · {relativeTime(vote.timestamp)}
+    <p className="mt-1 text-sm">
+      <AddressLabel addr={vote.voter.id} />{' '}
+      <span className={`font-black uppercase tracking-tight ${voteColor(vote.newDirection)}`}>
+        {action.icon} {action.label}
       </span>
-    </div>
+    </p>
   )
 }
 
 function EditRow({ edit }: { edit: EditEntity }) {
   return (
-    <div className="space-y-1">
-      <div className="flex items-baseline justify-between gap-3 text-sm">
-        <span className="text-neutral-300">{describeEditKind(edit.kind)}</span>
-        <span
-          className="font-mono text-xs text-neutral-500"
-          title={formatTimestamp(edit.timestamp)}
-        >
-          block {edit.blockNumber} · {relativeTime(edit.timestamp)}
-        </span>
-      </div>
+    <div className="mt-1 space-y-1">
+      <p className="text-sm font-black uppercase tracking-tight">
+        {describeEditKind(edit.kind)}
+      </p>
       {edit.kind === 'AmendNote' && edit.newNote != null && (
-        <p className="text-sm text-neutral-200">{edit.newNote}</p>
+        <p className="text-sm leading-relaxed text-neutral-800">{edit.newNote}</p>
       )}
       {edit.kind === 'AddAttackers' && edit.addedAttackers && (
-        <div className="flex flex-wrap gap-1 text-xs">
+        <ul className="space-y-0.5 text-xs font-mono">
           {edit.addedAttackers.map((a) => (
-            <code key={a} className="rounded bg-neutral-900 px-2 py-0.5 font-mono">
-              {a}
-            </code>
+            <li key={a}>+ {a}</li>
           ))}
-        </div>
+        </ul>
       )}
       {edit.kind === 'AddVictims' && edit.addedVictims && (
-        <div className="flex flex-wrap gap-1 text-xs">
+        <ul className="space-y-0.5 text-xs font-mono">
           {edit.addedVictims.map((v) => (
-            <code key={v} className="rounded bg-neutral-900 px-2 py-0.5 font-mono">
-              {v}
-            </code>
+            <li key={v}>+ {v}</li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   )
@@ -110,20 +99,20 @@ function describeVote(
   return { icon: '·', label: `${oldDir} → ${newDir}` }
 }
 
-function voteColor(newDir: string, oldDir: string): string {
-  if (newDir === 'None') return 'text-neutral-500'
-  if (newDir === 'Upvote') return 'text-emerald-400'
-  if (newDir === 'Downvote') return 'text-rose-400'
-  return 'text-neutral-400'
+function voteColor(newDir: string): string {
+  if (newDir === 'None') return 'text-neutral-700'
+  if (newDir === 'Upvote') return 'text-emerald-700'
+  if (newDir === 'Downvote') return 'text-red-600'
+  return 'text-neutral-700'
 }
 
 function describeEditKind(kind: EditEntity['kind']): string {
   switch (kind) {
     case 'AmendNote':
-      return 'Note amended'
+      return 'note amended'
     case 'AddAttackers':
-      return 'Attackers added'
+      return 'attackers added'
     case 'AddVictims':
-      return 'Victims added'
+      return 'victims added'
   }
 }

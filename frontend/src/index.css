@@ -9,9 +9,10 @@ body,
 }
 
 body {
-  background: #0a0a0a;
-  color: #e5e5e5;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f5f4ee;
+  color: #0a0a0a;
+  font-family: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-feature-settings: 'ss01', 'cv01';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -19,4 +20,23 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* Newspaper-style horizontal divider used between feed cards. */
+.rekt-divider {
+  text-align: center;
+  letter-spacing: 1em;
+  font-weight: 700;
+  color: #0a0a0a;
+  user-select: none;
+  padding: 1.25rem 0;
+}
+
+/* Underline-on-hover for inline links. */
+.rekt-link {
+  border-bottom: 1px solid currentColor;
+}
+.rekt-link:hover {
+  background: #0a0a0a;
+  color: #f5f4ee;
 }

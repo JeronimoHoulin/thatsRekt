@@ -1,4 +1,8 @@
 import { gqlClient } from './client'
+import { mockFetchFeed, mockFetchPostDetail } from './mock'
+
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true'
+export const IS_MOCK_MODE = USE_MOCK
 
 // ---- shared types (mirror schema.graphql) ----
 
@@ -72,9 +76,18 @@ export interface PostDetail {
 
 // ---- queries ----
 
+// ---- sort options exposed in the UI ----
+
+export type SortOption = 'newest' | 'oldest'
+
+const SORT_TO_ORDER_BY: Record<SortOption, string> = {
+  newest: 'createdAtBlock_DESC',
+  oldest: 'createdAtBlock_ASC',
+}
+
 const FEED_QUERY = /* GraphQL */ `
-  query Feed($limit: Int!) {
-    posts(orderBy: createdAtBlock_DESC, limit: $limit, where: { removed_eq: false }) {
+  query Feed($limit: Int!, $orderBy: [PostOrderByInput!]!) {
+    posts(orderBy: $orderBy, limit: $limit, where: { removed_eq: false }) {
       id
       poster {
         id
@@ -153,12 +166,20 @@ const POST_DETAIL_QUERY = /* GraphQL */ `
   }
 `
 
-export async function fetchFeed(limit = 50): Promise<FeedPost[]> {
-  const data = await gqlClient.request<{ posts: FeedPost[] }>(FEED_QUERY, { limit })
+export async function fetchFeed(
+  limit = 50,
+  sort: SortOption = 'newest',
+): Promise<FeedPost[]> {
+  if (USE_MOCK) return mockFetchFeed(limit, sort)
+  const data = await gqlClient.request<{ posts: FeedPost[] }>(FEED_QUERY, {
+    limit,
+    orderBy: [SORT_TO_ORDER_BY[sort]],
+  })
   return data.posts
 }
 
 export async function fetchPostDetail(id: string): Promise<PostDetail | null> {
+  if (USE_MOCK) return mockFetchPostDetail(id)
   const data = await gqlClient.request<{ postById: PostDetail | null }>(POST_DETAIL_QUERY, { id })
   return data.postById
 }
