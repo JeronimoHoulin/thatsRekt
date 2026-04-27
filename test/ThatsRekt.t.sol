@@ -2,6 +2,7 @@
 pragma solidity 0.8.25;
 
 import {Test} from "forge-std/Test.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ThatsRekt} from "../src/ThatsRekt.sol";
 
 contract ThatsRektTest is Test {
@@ -14,11 +15,21 @@ contract ThatsRektTest is Test {
 
     function setUp() public virtual {
         governance = makeAddr("governance");
-        reg = new ThatsRekt(governance);
+        reg = _deployProxied(governance);
         alice = makeAddr("alice");
         bob   = makeAddr("bob");
         carol = makeAddr("carol");
         dave  = makeAddr("dave");
+    }
+
+    /// @dev Deploys a fresh impl + ERC1967Proxy initialized to `owner_`.
+    ///      Casting through the proxy address keeps every test call
+    ///      delegating to the impl while exercising the upgradeable layout.
+    function _deployProxied(address owner_) internal returns (ThatsRekt) {
+        ThatsRekt impl = new ThatsRekt();
+        bytes memory initCalldata = abi.encodeCall(ThatsRekt.initialize, (owner_));
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initCalldata);
+        return ThatsRekt(address(proxy));
     }
 
     /// helper - whitelist via owner prank
@@ -1084,15 +1095,20 @@ contract ThatsRektTest is Test {
                      PHASE 11 - OWNERSHIP / GOVERNANCE
     //////////////////////////////////////////////////////////////*/
 
-    function test_constructor_setsInitialOwner() public {
+    function test_initialize_setsInitialOwner() public {
         address newOwner = makeAddr("newOwner");
-        ThatsRekt fresh = new ThatsRekt(newOwner);
+        ThatsRekt fresh = _deployProxied(newOwner);
         assertEq(fresh.owner(), newOwner);
     }
 
-    function test_constructor_revertsOnZeroOwner() public {
-        vm.expectRevert();   // OwnableInvalidOwner(address(0))
-        new ThatsRekt(address(0));
+    function test_initialize_revertsOnZeroOwner() public {
+        ThatsRekt impl = new ThatsRekt();
+        bytes memory initCalldata = abi.encodeCall(ThatsRekt.initialize, (address(0)));
+        // ERC1967Proxy delegates init in the constructor; a revert in
+        // the delegated call bubbles up as the proxy ctor revert.
+        // OwnableInvalidOwner(address(0)) from OwnableUpgradeable.
+        vm.expectRevert();
+        new ERC1967Proxy(address(impl), initCalldata);
     }
 
     /// Governance can be rotated via Ownable2Step's two-step transfer.
