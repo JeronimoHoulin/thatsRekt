@@ -389,93 +389,48 @@ contract ThatsRektTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-                       PHASE 6 - AUTO REMOVAL
+                       PHASE 6 - NO AUTO REMOVAL
     //////////////////////////////////////////////////////////////*/
 
-    function test_autoRemoval_triggersAtThreshold() public {
+    /// Heavily-downvoted posts must NOT be auto-removed. Consumers that want
+    /// to gate on community sentiment should read `attackerScore` and pick
+    /// their own threshold. Removal is now poster-driven only (retract).
+    function test_heavilyDownvotedPost_isNotAutoRemoved() public {
         _whitelist(alice);
-        _whitelist(bob);
-        _whitelist(carol);
-        _whitelist(dave);
-        uint256 id = _post(alice, makeAddr("attacker"), address(0));
-
-        vm.prank(bob);   reg.vote(id, -1);
-        vm.prank(carol); reg.vote(id, -1);
-
-        (, , , , bool removed1, , ) = reg.getPost(id);
-        assertFalse(removed1);
-
-        vm.expectEmit(true, false, false, true);
-        emit ThatsRekt.PostRemoved(id, ThatsRekt.RemovalReason.AutoDownvote);
-
-        vm.prank(dave);  reg.vote(id, -1);
-
-        (, , , , bool removed2, , ) = reg.getPost(id);
-        assertTrue(removed2);
-    }
-
-    function test_autoRemoval_reversesAttackerScore() public {
-        _whitelist(alice);
-        _whitelist(bob);
-        _whitelist(carol);
-        _whitelist(dave);
         address attacker = makeAddr("attacker");
         uint256 id = _post(alice, attacker, address(0));
 
-        vm.prank(bob);   reg.vote(id, -1);
-        vm.prank(carol); reg.vote(id, -1);
-        vm.prank(dave);  reg.vote(id, -1);
+        // 10 voters, all downvoting -> net score -10 but post stays active.
+        for (uint256 i; i < 10; ++i) {
+            address voter = address(uint160(uint256(0xD000) + i));
+            _whitelist(voter);
+            vm.prank(voter);
+            reg.vote(id, -1);
+        }
 
-        assertEq(reg.attackerScore(attacker), 0);
-        assertEq(reg.attackerAppearances(attacker), 0);
+        (, , uint32 up, uint32 down, bool removed, , ) = reg.getPost(id);
+        assertEq(up, 0);
+        assertEq(down, 10);
+        assertFalse(removed, "post must NOT be auto-removed by downvotes");
+
+        // post is still in the active linked list (head == tail == id)
+        assertEq(reg.headPostId(), id);
+        assertEq(reg.tailPostId(), id);
+
+        // attackerScore reflects negative sentiment, post stays alive
+        assertEq(reg.attackerScore(attacker), -10);
+        assertEq(reg.attackerAppearances(attacker), 1);
     }
 
-    function test_autoRemoval_unsetsIsVictim_whenLastActivePost() public {
-        _whitelist(alice);
-        _whitelist(bob);
-        _whitelist(carol);
-        _whitelist(dave);
-        address victim = makeAddr("victim");
-        uint256 id = _post(alice, address(0), victim);
-
-        assertTrue(reg.isVictim(victim));
-
-        vm.prank(bob);   reg.vote(id, -1);
-        vm.prank(carol); reg.vote(id, -1);
-        vm.prank(dave);  reg.vote(id, -1);
-
-        assertFalse(reg.isVictim(victim));
-    }
-
-    function test_autoRemoval_keepsIsVictim_whenOtherPostsActive() public {
-        _whitelist(alice);
-        _whitelist(bob);
-        _whitelist(carol);
-        _whitelist(dave);
-        address victim = makeAddr("victim");
-
-        uint256 id1 = _post(alice, address(0), victim);
-        uint256 id2 = _post(alice, address(0), victim);
-
-        vm.prank(bob);   reg.vote(id1, -1);
-        vm.prank(carol); reg.vote(id1, -1);
-        vm.prank(dave);  reg.vote(id1, -1);
-
-        assertTrue(reg.isVictim(victim));
-        (, , , , bool r2, , ) = reg.getPost(id2);
-        assertFalse(r2);
-    }
-
+    /// After a post is retracted (removed), further votes must revert.
+    /// Removal is now poster-only (no auto-removal); the path under test
+    /// here is retract() -> subsequent vote() -> PostIsRemoved.
     function test_voteOnRemovedPost_reverts() public {
         _whitelist(alice);
-        _whitelist(bob);
-        _whitelist(carol);
-        _whitelist(dave);
         uint256 id = _post(alice, makeAddr("attacker"), address(0));
 
-        vm.prank(bob);   reg.vote(id, -1);
-        vm.prank(carol); reg.vote(id, -1);
-        vm.prank(dave);  reg.vote(id, -1);
+        vm.prank(alice);
+        reg.retract(id);
 
         address eve = makeAddr("eve");
         _whitelist(eve);
@@ -495,7 +450,7 @@ contract ThatsRektTest is Test {
         uint256 id = _post(alice, attacker, address(0));
 
         vm.expectEmit(true, false, false, true);
-        emit ThatsRekt.PostRemoved(id, ThatsRekt.RemovalReason.PosterRetract);
+        emit ThatsRekt.PostRemoved(id, ThatsRekt.RemovalReason.Retracted);
 
         vm.prank(alice);
         reg.retract(id);

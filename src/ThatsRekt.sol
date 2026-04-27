@@ -16,9 +16,6 @@ contract ThatsRekt is Ownable2Step {
                                  CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice (downvotes - upvotes) >= this triggers auto-removal at end of vote().
-    uint256 public constant REMOVAL_THRESHOLD = 3;
-
     /// @notice Hard cap on attackers.length + victims.length per post.
     uint256 public constant MAX_ADDRESSES_PER_POST = 32;
 
@@ -80,7 +77,9 @@ contract ThatsRekt is Ownable2Step {
         int8            newDirection
     );
 
-    enum RemovalReason { AutoDownvote, PosterRetract }
+    /// @dev Single variant today; kept as an enum for forward extensibility
+    ///      (e.g. owner-driven moderation) without ABI churn for indexers.
+    enum RemovalReason { Retracted }
     event PostRemoved(uint256 indexed postId, RemovalReason reason);
 
     /*//////////////////////////////////////////////////////////////
@@ -210,10 +209,6 @@ contract ThatsRekt is Ownable2Step {
         voteOf[postId][msg.sender] = direction;
 
         emit Voted(postId, msg.sender, oldDir, direction);
-
-        if (int256(uint256(p.downvotes)) - int256(uint256(p.upvotes)) >= int256(REMOVAL_THRESHOLD)) {
-            _removePost(postId, RemovalReason.AutoDownvote);
-        }
     }
 
     function _removePost(uint256 id, RemovalReason reason) internal {
@@ -260,7 +255,7 @@ contract ThatsRekt is Ownable2Step {
         if (p.poster == address(0))     revert PostNotFound();
         if (p.poster != msg.sender)     revert NotPoster();
         if (p.removed)                  revert PostIsRemoved();
-        _removePost(postId, RemovalReason.PosterRetract);
+        _removePost(postId, RemovalReason.Retracted);
     }
 
     /*//////////////////////////////////////////////////////////////
