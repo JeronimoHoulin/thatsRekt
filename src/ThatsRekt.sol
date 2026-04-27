@@ -2,6 +2,7 @@
 pragma solidity 0.8.25;
 
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title  ThatsRekt - On-chain hack-alert registry (v0)
 /// @notice Whitelisted operators post structured alerts identifying attacker
@@ -12,6 +13,8 @@ import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step
 ///         the singleton CREATE2 factory. See tasks/v0-impl-plan.md and the
 ///         design spec in DAMMfi-knowledge-base for the full architecture.
 contract ThatsRekt is Ownable2Step {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
     /*//////////////////////////////////////////////////////////////
                                  CONSTANTS
     //////////////////////////////////////////////////////////////*/
@@ -62,6 +65,15 @@ contract ThatsRekt is Ownable2Step {
     uint256 public postCount;
     mapping(uint256 => Post) private _posts;
     mapping(uint256 => mapping(address => VoteDirection)) public voteOf;
+
+    /// @dev Per-post enumerable voter sets. Kept in lockstep with the
+    ///      `voteOf` mapping and the per-post `upvotes`/`downvotes` counters
+    ///      via `_applyVoterSetChange`. Exposed through `getUpvoters` /
+    ///      `getDownvoters` so consumers can answer "who voted on this post?"
+    ///      on-chain — useful when integrators want to gate on a trusted
+    ///      subset of whitelisters rather than the raw aggregate score.
+    mapping(uint256 => EnumerableSet.AddressSet) private _upvoters;
+    mapping(uint256 => EnumerableSet.AddressSet) private _downvoters;
 
     mapping(address => int256)  public attackerScore;
     mapping(address => uint256) public attackerAppearances;
@@ -226,6 +238,25 @@ contract ThatsRekt is Ownable2Step {
         return int8(0);
     }
 
+    /// @notice Keep the per-post upvoter/downvoter sets in sync with a vote
+    ///         transition (`oldVote -> newVote`).
+    /// @dev    Removes the voter from the set matching `oldVote` (if any) and
+    ///         adds them to the set matching `newVote` (if any). `None` slots
+    ///         on either side are no-ops, which makes this helper correct for
+    ///         fresh votes, flips, and unvotes alike.
+    function _applyVoterSetChange(
+        uint256 postId,
+        address voter,
+        VoteDirection oldVote,
+        VoteDirection newVote
+    ) internal {
+        if (oldVote == VoteDirection.Upvote)        _upvoters[postId].remove(voter);
+        else if (oldVote == VoteDirection.Downvote) _downvoters[postId].remove(voter);
+
+        if (newVote == VoteDirection.Upvote)        _upvoters[postId].add(voter);
+        else if (newVote == VoteDirection.Downvote) _downvoters[postId].add(voter);
+    }
+
     /// @param postId    Target post id.
     /// @param direction `Upvote` (+1) or `Downvote` (-1). `None` is rejected;
     ///                  use `unvote()` to clear an existing vote.
@@ -256,6 +287,7 @@ contract ThatsRekt is Ownable2Step {
         }
 
         voteOf[postId][msg.sender] = direction;
+        _applyVoterSetChange(postId, msg.sender, oldDir, direction);
 
         emit Voted(postId, msg.sender, oldDir, direction);
     }
@@ -286,6 +318,7 @@ contract ThatsRekt is Ownable2Step {
         }
 
         voteOf[postId][msg.sender] = VoteDirection.None;
+        _applyVoterSetChange(postId, msg.sender, oldDir, VoteDirection.None);
 
         emit Voted(postId, msg.sender, oldDir, VoteDirection.None);
     }
@@ -388,5 +421,32 @@ contract ThatsRekt is Ownable2Step {
         }
         ids = new uint256[](i);
         for (uint256 j; j < i; ++j) ids[j] = tmp[j];
+    }
+
+    /// @notice Full set of upvoters on `postId`, in insertion order (per
+    ///         OpenZeppelin EnumerableSet.values()).
+    /// @dev    Unbounded by design: caller picks the gas budget at the
+    ///         eth_call layer. For very large voter sets, paginate at the
+    ///         consumer level.
+    function getUpvoters(uint256 postId) external view returns (address[] memory) {
+        return _upvoters[postId].values();
+    }
+
+    /// @notice Full set of downvoters on `postId`, same semantics as
+    ///         `getUpvoters`.
+    function getDownvoters(uint256 postId) external view returns (address[] memory) {
+        return _downvoters[postId].values();
+    }
+
+    /// @notice Cardinality of the upvoter set for `postId`. Equal to the
+    ///         post's `upvotes` counter as an invariant.
+    function getUpvoterCount(uint256 postId) external view returns (uint256) {
+        return _upvoters[postId].length();
+    }
+
+    /// @notice Cardinality of the downvoter set for `postId`. Equal to the
+    ///         post's `downvotes` counter as an invariant.
+    function getDownvoterCount(uint256 postId) external view returns (uint256) {
+        return _downvoters[postId].length();
     }
 }

@@ -874,6 +874,160 @@ contract ThatsRektTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+                  PHASE 9.5 - ENUMERABLE VOTER SETS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_getUpvoters_emptyForFreshPost() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, carol, address(0));
+
+        address[] memory ups   = reg.getUpvoters(id);
+        address[] memory downs = reg.getDownvoters(id);
+        assertEq(ups.length, 0);
+        assertEq(downs.length, 0);
+        assertEq(reg.getUpvoterCount(id), 0);
+        assertEq(reg.getDownvoterCount(id), 0);
+    }
+
+    function test_getUpvoters_returnsExactSet_afterMixedVoting() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, carol, address(0));
+
+        // 3 upvoters, 2 downvoters, then one upvoter flips to downvote.
+        // Final tally: 2 upvoters (u2, u3) and 3 downvoters (d1, d2, u1).
+        address u1 = makeAddr("u1");
+        address u2 = makeAddr("u2");
+        address u3 = makeAddr("u3");
+        address d1 = makeAddr("d1");
+        address d2 = makeAddr("d2");
+
+        _whitelist(u1); _whitelist(u2); _whitelist(u3);
+        _whitelist(d1); _whitelist(d2);
+
+        vm.prank(u1); reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        vm.prank(u2); reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        vm.prank(u3); reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        vm.prank(d1); reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+        vm.prank(d2); reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+
+        // u1 flips up -> down
+        vm.prank(u1); reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+
+        address[] memory ups   = reg.getUpvoters(id);
+        address[] memory downs = reg.getDownvoters(id);
+
+        assertEq(ups.length,   2);
+        assertEq(downs.length, 3);
+        assertEq(reg.getUpvoterCount(id),   2);
+        assertEq(reg.getDownvoterCount(id), 3);
+
+        assertTrue(_contains(ups, u2));
+        assertTrue(_contains(ups, u3));
+        assertFalse(_contains(ups, u1));
+
+        assertTrue(_contains(downs, d1));
+        assertTrue(_contains(downs, d2));
+        assertTrue(_contains(downs, u1));
+    }
+
+    function test_voterSets_consistentAfterUnvote() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.prank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+
+        address[] memory ups = reg.getUpvoters(id);
+        assertEq(ups.length, 1);
+        assertEq(ups[0], bob);
+
+        vm.prank(bob);
+        reg.unvote(id);
+
+        ups = reg.getUpvoters(id);
+        assertEq(ups.length, 0);
+        assertEq(reg.getUpvoterCount(id), 0);
+    }
+
+    function test_voterSets_consistentAfterDownvoteUnvote() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.prank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+
+        address[] memory downs = reg.getDownvoters(id);
+        assertEq(downs.length, 1);
+        assertEq(downs[0], bob);
+
+        vm.prank(bob);
+        reg.unvote(id);
+
+        downs = reg.getDownvoters(id);
+        assertEq(downs.length, 0);
+        assertEq(reg.getDownvoterCount(id), 0);
+    }
+
+    function test_voterSets_consistentAfterFlip() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.startPrank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+        vm.stopPrank();
+
+        address[] memory ups   = reg.getUpvoters(id);
+        address[] memory downs = reg.getDownvoters(id);
+        assertEq(ups.length,   0);
+        assertEq(downs.length, 1);
+        assertEq(downs[0], bob);
+    }
+
+    function test_voterSets_consistentAfterDownToUpFlip() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.startPrank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        vm.stopPrank();
+
+        address[] memory ups   = reg.getUpvoters(id);
+        address[] memory downs = reg.getDownvoters(id);
+        assertEq(ups.length,   1);
+        assertEq(downs.length, 0);
+        assertEq(ups[0], bob);
+    }
+
+    function test_getUpvoterCount_matchesArrayLength() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, carol, address(0));
+
+        // 4 distinct upvoters
+        for (uint256 i; i < 4; ++i) {
+            address voter = address(uint160(0xE000 + i));
+            _whitelist(voter);
+            vm.prank(voter);
+            reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        }
+
+        assertEq(reg.getUpvoterCount(id), reg.getUpvoters(id).length);
+        assertEq(reg.getUpvoterCount(id), 4);
+    }
+
+    function _contains(address[] memory arr, address needle) internal pure returns (bool) {
+        for (uint256 i; i < arr.length; ++i) {
+            if (arr[i] == needle) return true;
+        }
+        return false;
+    }
+
+    /*//////////////////////////////////////////////////////////////
                      PHASE 11 - OWNERSHIP / GOVERNANCE
     //////////////////////////////////////////////////////////////*/
 
