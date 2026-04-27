@@ -94,7 +94,6 @@ contract ThatsRekt is Ownable2Step {
     error PosterCannotVote();
     error PostIsRemoved();
     error PostNotFound();
-    error InvalidDirection();
     error NoVoteChange();
     error EmptyPost();
     error PostTooLarge();
@@ -198,32 +197,36 @@ contract ThatsRekt is Ownable2Step {
         }
     }
 
-    function vote(uint256 postId, int8 direction) external onlyWhitelisted {
-        if (direction < -1 || direction > 1) revert InvalidDirection();
-
+    /// @param isUpvote true to upvote (+1 weight), false to downvote (-1 weight).
+    /// @dev   The internal storage `voteOf` stays int8 to encode three states:
+    ///        no vote (0), upvote (+1), downvote (-1). The public signature is
+    ///        bool to keep callers from having to reason about magic ints.
+    ///        Note: a voter cannot retract a vote in v1 — only flip up<->down.
+    function vote(uint256 postId, bool isUpvote) external onlyWhitelisted {
         Post storage p = _posts[postId];
         if (p.poster == address(0))   revert PostNotFound();
         if (p.removed)                revert PostIsRemoved();
         if (p.poster == msg.sender)   revert PosterCannotVote();
 
-        int8 oldDir = voteOf[postId][msg.sender];
-        if (oldDir == direction)      revert NoVoteChange();
+        int8 newVote = isUpvote ? int8(1) : int8(-1);
+        int8 oldDir  = voteOf[postId][msg.sender];
+        if (oldDir == newVote)        revert NoVoteChange();
 
         if (oldDir == 1)        { p.upvotes   -= 1; }
         else if (oldDir == -1)  { p.downvotes -= 1; }
-        if (direction == 1)     { p.upvotes   += 1; }
-        else if (direction == -1) { p.downvotes += 1; }
+        if (newVote == 1)       { p.upvotes   += 1; }
+        else                    { p.downvotes += 1; }
 
-        int256 delta = int256(direction) - int256(oldDir);
+        int256 delta = int256(newVote) - int256(oldDir);
 
         uint256 aLen = p.attackers.length;
         for (uint256 i; i < aLen; ++i) {
             attackerScore[p.attackers[i]] += delta;
         }
 
-        voteOf[postId][msg.sender] = direction;
+        voteOf[postId][msg.sender] = newVote;
 
-        emit Voted(postId, msg.sender, oldDir, direction);
+        emit Voted(postId, msg.sender, oldDir, newVote);
     }
 
     function _removePost(uint256 id, RemovalReason reason) internal {

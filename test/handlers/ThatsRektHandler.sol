@@ -37,14 +37,12 @@ contract ThatsRektHandler is Test {
         } catch { /* expected: NotWhitelisted, etc. */ }
     }
 
-    function fuzz_vote(uint256 actorSeed, uint256 postSeed, int8 dir) external {
+    function fuzz_vote(uint256 actorSeed, uint256 postSeed, bool isUpvote) external {
         if (livePostIds.length == 0) return;
         address voter = _actor(actorSeed);
         uint256 id = livePostIds[postSeed % livePostIds.length];
-        // Clamp dir to {-1, 0, 1} to focus fuzzing on valid directions
-        int8 clamped = int8(int256(uint256(uint8(dir)) % 3) - 1);
         vm.prank(voter);
-        try reg.vote(id, clamped) {} catch { /* PosterCannotVote, NoVoteChange, PostIsRemoved, NotWhitelisted ok */ }
+        try reg.vote(id, isUpvote) {} catch { /* PosterCannotVote, NoVoteChange, PostIsRemoved, NotWhitelisted ok */ }
     }
 
     function fuzz_retract(uint256 actorSeed, uint256 postSeed) external {
