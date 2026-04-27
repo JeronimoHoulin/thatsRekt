@@ -1,0 +1,59 @@
+# =============================================================================
+# Compose overlay — adds an Anvil service forking Sepolia.
+# =============================================================================
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.anvil.yml up -d anvil
+#   ../contracts/script/anvil/bootstrap.sh   # deploys thatsRekt onto anvil
+#
+# Once bootstrap.sh has populated indexer/.env with CONTRACT_ANVIL +
+# START_BLOCK_ANVIL, you can bring up the indexer slice:
+#   docker compose -f docker-compose.yml -f docker-compose.anvil.yml up -d \
+#       migrate-anvil processor-anvil graphql-anvil
+#
+# The anvil chain id is 31337 (Anvil default), distinct from real Sepolia
+# (11155111) so the indexer registry correctly treats it as a separate chain
+# even though we fork Sepolia state.
+# =============================================================================
+
+services:
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    # The image's default ENTRYPOINT runs `forge` — override to anvil.
+    entrypoint: anvil
+    command:
+      - --fork-url=${ANVIL_FORK_URL:?ANVIL_FORK_URL must be set in .env (typically the same value as RPC_SEPOLIA_HTTP)}
+      - --host=0.0.0.0
+      - --chain-id=31337
+      - --block-time=2
+      - --port=8545
+    ports:
+      # Exposed to host so the bootstrap script (running on the host) can
+      # talk to anvil at localhost:8545. Phase 6 LAN overlay will widen
+      # this to 0.0.0.0 binding for LAN devices.
+      - '127.0.0.1:8545:8545'
+    healthcheck:
+      test: ['CMD-SHELL', 'cast chain-id --rpc-url http://localhost:8545 | grep -q 31337']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Override the per-anvil indexer services to depend on the anvil container
+  # being healthy and to point their RPC at the in-network anvil hostname.
+  migrate-anvil:
+    depends_on:
+      db:
+        condition: service_healthy
+      anvil:
+        condition: service_healthy
+
+  processor-anvil:
+    environment:
+      # Inside the compose network, anvil is reachable as `anvil:8545`.
+      RPC_ANVIL_HTTP: http://anvil:8545
+    depends_on:
+      db:
+        condition: service_healthy
+      anvil:
+        condition: service_healthy
+      migrate-anvil:
+        condition: service_completed_successfully

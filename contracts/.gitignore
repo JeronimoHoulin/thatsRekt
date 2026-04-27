@@ -10,3 +10,6 @@ broadcast/
 
 # Forge install lockfile (deps are vendored; lockfile is local-only)
 foundry.lock
+
+# Anvil bootstrap output — local deploy state, varies per machine
+script/anvil/.deployed.json
