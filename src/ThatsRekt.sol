@@ -2,6 +2,7 @@
 pragma solidity 0.8.25;
 
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title  ThatsRekt - On-chain hack-alert registry (v0)
 /// @notice Whitelisted operators post structured alerts identifying attacker
@@ -12,12 +13,11 @@ import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step
 ///         the singleton CREATE2 factory. See tasks/v0-impl-plan.md and the
 ///         design spec in DAMMfi-knowledge-base for the full architecture.
 contract ThatsRekt is Ownable2Step {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
     /*//////////////////////////////////////////////////////////////
                                  CONSTANTS
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice (downvotes - upvotes) >= this triggers auto-removal at end of vote().
-    uint256 public constant REMOVAL_THRESHOLD = 3;
 
     /// @notice Hard cap on attackers.length + victims.length per post.
     uint256 public constant MAX_ADDRESSES_PER_POST = 32;
@@ -26,12 +26,29 @@ contract ThatsRekt is Ownable2Step {
     uint256 public constant MAX_VIEW_LIMIT = 100;
 
     /*//////////////////////////////////////////////////////////////
+                                   ENUMS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Direction of a voter's vote on a post.
+    /// @dev    `None` is the zero value (default for unset mapping slots),
+    ///         which lets `voteOf[postId][voter] == None` serve as the natural
+    ///         "no vote yet" sentinel without an extra storage flag.
+    enum VoteDirection { None, Upvote, Downvote }
+
+    /*//////////////////////////////////////////////////////////////
                                   STRUCTS
     //////////////////////////////////////////////////////////////*/
 
     struct Post {
         address  poster;
-        uint64   timestamp;
+        /// @dev Poster-supplied UTC second timestamp marking when the
+        ///      on-chain attack itself happened (e.g. the malicious
+        ///      transaction's block.timestamp). Distinct from the post
+        ///      tx's block.timestamp — operator detection time is implicit
+        ///      in the post tx and indexers already see it for free, so
+        ///      this field carries the *attack* time as the informational
+        ///      datum (not a tamper-proof one).
+        uint64   attackedAt;
         uint32   upvotes;
         uint32   downvotes;
         bool     removed;
@@ -47,7 +64,16 @@ contract ThatsRekt is Ownable2Step {
 
     uint256 public postCount;
     mapping(uint256 => Post) private _posts;
-    mapping(uint256 => mapping(address => int8)) public voteOf;
+    mapping(uint256 => mapping(address => VoteDirection)) public voteOf;
+
+    /// @dev Per-post enumerable voter sets. Kept in lockstep with the
+    ///      `voteOf` mapping and the per-post `upvotes`/`downvotes` counters
+    ///      via `_applyVoterSetChange`. Exposed through `getUpvoters` /
+    ///      `getDownvoters` so consumers can answer "who voted on this post?"
+    ///      on-chain — useful when integrators want to gate on a trusted
+    ///      subset of whitelisters rather than the raw aggregate score.
+    mapping(uint256 => EnumerableSet.AddressSet) private _upvoters;
+    mapping(uint256 => EnumerableSet.AddressSet) private _downvoters;
 
     mapping(address => int256)  public attackerScore;
     mapping(address => uint256) public attackerAppearances;
@@ -68,7 +94,7 @@ contract ThatsRekt is Ownable2Step {
     event PostCreated(
         uint256 indexed id,
         address indexed poster,
-        uint64          timestamp,
+        uint64          attackedAt,
         address[]       attackers,
         address[]       victims,
         string          note
@@ -76,11 +102,13 @@ contract ThatsRekt is Ownable2Step {
     event Voted(
         uint256 indexed postId,
         address indexed voter,
-        int8            oldDirection,
-        int8            newDirection
+        VoteDirection   oldDirection,
+        VoteDirection   newDirection
     );
 
-    enum RemovalReason { AutoDownvote, PosterRetract }
+    /// @dev Single variant today; kept as an enum for forward extensibility
+    ///      (e.g. owner-driven moderation) without ABI churn for indexers.
+    enum RemovalReason { Retracted }
     event PostRemoved(uint256 indexed postId, RemovalReason reason);
 
     /*//////////////////////////////////////////////////////////////
@@ -91,11 +119,13 @@ contract ThatsRekt is Ownable2Step {
     error PosterCannotVote();
     error PostIsRemoved();
     error PostNotFound();
-    error InvalidDirection();
     error NoVoteChange();
     error EmptyPost();
     error PostTooLarge();
     error NotPoster();
+    error InvalidAttackedAt();
+    error InvalidVoteDirection();
+    error NoVoteToRetract();
 
     /*//////////////////////////////////////////////////////////////
                                 CONSTRUCTOR
@@ -140,11 +170,26 @@ contract ThatsRekt is Ownable2Step {
                           WHITELISTED (post + vote)
     //////////////////////////////////////////////////////////////*/
 
+    /// @param attackedAt UTC second timestamp of the on-chain attack itself
+    ///                   (e.g. the malicious transaction's block.timestamp).
+    ///                   Must be > 0 and not in the future (relative to
+    ///                   block.timestamp) — a hack cannot have happened
+    ///                   after the post tx was mined. Operator detection
+    ///                   time is implicit in the post tx's block.timestamp,
+    ///                   already available to indexers for free, so it is
+    ///                   not stored explicitly. Combined with the post's
+    ///                   block timestamp this still gives an attack-to-post
+    ///                   latency useful for operator reputation tracking
+    ///                   and integrator signals.
     function post(
         address[] calldata attackers_,
         address[] calldata victims_,
-        string   calldata note
+        string   calldata note,
+        uint64            attackedAt
     ) external onlyWhitelisted returns (uint256 id) {
+        if (attackedAt == 0)                        revert InvalidAttackedAt();
+        if (attackedAt > uint64(block.timestamp))   revert InvalidAttackedAt();
+
         uint256 totalAddrs = attackers_.length + victims_.length;
         if (totalAddrs > MAX_ADDRESSES_PER_POST) revert PostTooLarge();
         if (totalAddrs == 0 && bytes(note).length == 0) revert EmptyPost();
@@ -152,8 +197,8 @@ contract ThatsRekt is Ownable2Step {
         unchecked { id = ++postCount; }
 
         Post storage p = _posts[id];
-        p.poster    = msg.sender;
-        p.timestamp = uint64(block.timestamp);
+        p.poster     = msg.sender;
+        p.attackedAt = attackedAt;
 
         uint256 aLen = attackers_.length;
         for (uint256 i; i < aLen; ++i) {
@@ -170,7 +215,7 @@ contract ThatsRekt is Ownable2Step {
 
         _insertActiveTail(id);
 
-        emit PostCreated(id, msg.sender, uint64(block.timestamp), attackers_, victims_, note);
+        emit PostCreated(id, msg.sender, attackedAt, attackers_, victims_, note);
     }
 
     function _insertActiveTail(uint256 id) internal {
@@ -184,23 +229,57 @@ contract ThatsRekt is Ownable2Step {
         }
     }
 
-    function vote(uint256 postId, int8 direction) external onlyWhitelisted {
-        if (direction < -1 || direction > 1) revert InvalidDirection();
+    /// @notice Map a `VoteDirection` to its signed weight for aggregate math.
+    /// @dev    Upvote -> +1, Downvote -> -1, None -> 0. Pure helper used to
+    ///         compute deltas in `vote()` and reversal in `unvote()`.
+    function _voteWeight(VoteDirection d) internal pure returns (int8) {
+        if (d == VoteDirection.Upvote)   return int8(1);
+        if (d == VoteDirection.Downvote) return int8(-1);
+        return int8(0);
+    }
+
+    /// @notice Keep the per-post upvoter/downvoter sets in sync with a vote
+    ///         transition (`oldVote -> newVote`).
+    /// @dev    Removes the voter from the set matching `oldVote` (if any) and
+    ///         adds them to the set matching `newVote` (if any). `None` slots
+    ///         on either side are no-ops, which makes this helper correct for
+    ///         fresh votes, flips, and unvotes alike.
+    function _applyVoterSetChange(
+        uint256 postId,
+        address voter,
+        VoteDirection oldVote,
+        VoteDirection newVote
+    ) internal {
+        if (oldVote == VoteDirection.Upvote)        _upvoters[postId].remove(voter);
+        else if (oldVote == VoteDirection.Downvote) _downvoters[postId].remove(voter);
+
+        if (newVote == VoteDirection.Upvote)        _upvoters[postId].add(voter);
+        else if (newVote == VoteDirection.Downvote) _downvoters[postId].add(voter);
+    }
+
+    /// @param postId    Target post id.
+    /// @param direction `Upvote` (+1) or `Downvote` (-1). `None` is rejected;
+    ///                  use `unvote()` to clear an existing vote.
+    /// @dev   `voteOf[postId][voter]` is `VoteDirection`, with `None` (= 0) as
+    ///        the implicit "no vote yet" default. Callers can flip up<->down
+    ///        via this entry point; clearing back to `None` lives on `unvote()`.
+    function vote(uint256 postId, VoteDirection direction) external onlyWhitelisted {
+        if (direction == VoteDirection.None) revert InvalidVoteDirection();
 
         Post storage p = _posts[postId];
         if (p.poster == address(0))   revert PostNotFound();
         if (p.removed)                revert PostIsRemoved();
         if (p.poster == msg.sender)   revert PosterCannotVote();
 
-        int8 oldDir = voteOf[postId][msg.sender];
+        VoteDirection oldDir = voteOf[postId][msg.sender];
         if (oldDir == direction)      revert NoVoteChange();
 
-        if (oldDir == 1)        { p.upvotes   -= 1; }
-        else if (oldDir == -1)  { p.downvotes -= 1; }
-        if (direction == 1)     { p.upvotes   += 1; }
-        else if (direction == -1) { p.downvotes += 1; }
+        if (oldDir == VoteDirection.Upvote)        { p.upvotes   -= 1; }
+        else if (oldDir == VoteDirection.Downvote) { p.downvotes -= 1; }
+        if (direction == VoteDirection.Upvote)     { p.upvotes   += 1; }
+        else                                       { p.downvotes += 1; }
 
-        int256 delta = int256(direction) - int256(oldDir);
+        int256 delta = int256(_voteWeight(direction)) - int256(_voteWeight(oldDir));
 
         uint256 aLen = p.attackers.length;
         for (uint256 i; i < aLen; ++i) {
@@ -208,12 +287,40 @@ contract ThatsRekt is Ownable2Step {
         }
 
         voteOf[postId][msg.sender] = direction;
+        _applyVoterSetChange(postId, msg.sender, oldDir, direction);
 
         emit Voted(postId, msg.sender, oldDir, direction);
+    }
 
-        if (int256(uint256(p.downvotes)) - int256(uint256(p.upvotes)) >= int256(REMOVAL_THRESHOLD)) {
-            _removePost(postId, RemovalReason.AutoDownvote);
+    /// @notice Retract a previously cast vote on `postId`, restoring storage
+    ///         to the "no vote" state and reversing the aggregate impact.
+    /// @dev    Reverts if the caller never voted on this post (`NoVoteToRetract`),
+    ///         if the post does not exist (`PostNotFound`), or if it has already
+    ///         been removed (`PostIsRemoved`). Only whitelisters can call —
+    ///         a de-whitelisted account cannot rewrite history.
+    function unvote(uint256 postId) external onlyWhitelisted {
+        Post storage p = _posts[postId];
+        if (p.poster == address(0)) revert PostNotFound();
+        if (p.removed)              revert PostIsRemoved();
+
+        VoteDirection oldDir = voteOf[postId][msg.sender];
+        if (oldDir == VoteDirection.None) revert NoVoteToRetract();
+
+        // Reverse per-post counters.
+        if (oldDir == VoteDirection.Upvote) { p.upvotes   -= 1; }
+        else                                { p.downvotes -= 1; }
+
+        // Reverse attacker aggregate score: subtract the old weight.
+        int256 oldWeight = int256(_voteWeight(oldDir));
+        uint256 aLen = p.attackers.length;
+        for (uint256 i; i < aLen; ++i) {
+            attackerScore[p.attackers[i]] -= oldWeight;
         }
+
+        voteOf[postId][msg.sender] = VoteDirection.None;
+        _applyVoterSetChange(postId, msg.sender, oldDir, VoteDirection.None);
+
+        emit Voted(postId, msg.sender, oldDir, VoteDirection.None);
     }
 
     function _removePost(uint256 id, RemovalReason reason) internal {
@@ -260,7 +367,7 @@ contract ThatsRekt is Ownable2Step {
         if (p.poster == address(0))     revert PostNotFound();
         if (p.poster != msg.sender)     revert NotPoster();
         if (p.removed)                  revert PostIsRemoved();
-        _removePost(postId, RemovalReason.PosterRetract);
+        _removePost(postId, RemovalReason.Retracted);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -269,7 +376,7 @@ contract ThatsRekt is Ownable2Step {
 
     function getPost(uint256 id) external view returns (
         address  poster,
-        uint64   timestamp,
+        uint64   attackedAt,
         uint32   upvotes,
         uint32   downvotes,
         bool     removed,
@@ -278,7 +385,7 @@ contract ThatsRekt is Ownable2Step {
     ) {
         Post storage p = _posts[id];
         if (p.poster == address(0)) revert PostNotFound();
-        return (p.poster, p.timestamp, p.upvotes, p.downvotes, p.removed, p.attackers, p.victims);
+        return (p.poster, p.attackedAt, p.upvotes, p.downvotes, p.removed, p.attackers, p.victims);
     }
 
     function attackerReport(address a) external view returns (int256 score, uint256 appearances) {
@@ -314,5 +421,32 @@ contract ThatsRekt is Ownable2Step {
         }
         ids = new uint256[](i);
         for (uint256 j; j < i; ++j) ids[j] = tmp[j];
+    }
+
+    /// @notice Full set of upvoters on `postId`, in insertion order (per
+    ///         OpenZeppelin EnumerableSet.values()).
+    /// @dev    Unbounded by design: caller picks the gas budget at the
+    ///         eth_call layer. For very large voter sets, paginate at the
+    ///         consumer level.
+    function getUpvoters(uint256 postId) external view returns (address[] memory) {
+        return _upvoters[postId].values();
+    }
+
+    /// @notice Full set of downvoters on `postId`, same semantics as
+    ///         `getUpvoters`.
+    function getDownvoters(uint256 postId) external view returns (address[] memory) {
+        return _downvoters[postId].values();
+    }
+
+    /// @notice Cardinality of the upvoter set for `postId`. Equal to the
+    ///         post's `upvotes` counter as an invariant.
+    function getUpvoterCount(uint256 postId) external view returns (uint256) {
+        return _upvoters[postId].length();
+    }
+
+    /// @notice Cardinality of the downvoter set for `postId`. Equal to the
+    ///         post's `downvotes` counter as an invariant.
+    function getDownvoterCount(uint256 postId) external view returns (uint256) {
+        return _downvoters[postId].length();
     }
 }

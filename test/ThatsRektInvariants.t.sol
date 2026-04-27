@@ -73,7 +73,23 @@ contract ThatsRektInvariants is Test {
         for (uint256 id = 1; id <= max; ++id) {
             (address poster, , , , , , ) = reg.getPost(id);
             if (poster == address(0)) continue;
-            assertEq(reg.voteOf(id, poster), 0, "poster voted on own post");
+            assertTrue(
+                reg.voteOf(id, poster) == ThatsRekt.VoteDirection.None,
+                "poster voted on own post"
+            );
+        }
+    }
+
+    /// I15: per-post upvoter/downvoter set cardinality must match the
+    /// `upvotes`/`downvotes` counters across every vote, flip, and unvote.
+    function invariant_voterSetLengthsMatchCounters() public view {
+        uint256 max = reg.postCount();
+        if (max > 50) max = 50;
+        for (uint256 id = 1; id <= max; ++id) {
+            (address poster, , uint32 up, uint32 down, , , ) = reg.getPost(id);
+            if (poster == address(0)) continue;
+            assertEq(reg.getUpvoterCount(id),   uint256(up),   "upvoter set length must equal post.upvotes");
+            assertEq(reg.getDownvoterCount(id), uint256(down), "downvoter set length must equal post.downvotes");
         }
     }
 }

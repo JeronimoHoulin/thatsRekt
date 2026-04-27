@@ -28,13 +28,14 @@ contract ThatsRektTest is Test {
     }
 
     /// helper - create a basic post with at most one attacker and/or one victim.
+    /// attackedAt defaults to the current block timestamp (attack and post in the same block).
     function _post(address poster, address atk0, address vic0) internal returns (uint256 id) {
         address[] memory atk = new address[](atk0 == address(0) ? 0 : 1);
         address[] memory vic = new address[](vic0 == address(0) ? 0 : 1);
         if (atk0 != address(0)) atk[0] = atk0;
         if (vic0 != address(0)) vic[0] = vic0;
         vm.prank(poster);
-        id = reg.post(atk, vic, "");
+        id = reg.post(atk, vic, "", uint64(block.timestamp));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -87,7 +88,7 @@ contract ThatsRektTest is Test {
         address[] memory vic = new address[](0);
 
         vm.prank(alice);
-        uint256 id = reg.post(atk, vic, "exploit on bob's vault");
+        uint256 id = reg.post(atk, vic, "exploit on bob's vault", uint64(block.timestamp));
 
         assertEq(id, 1);
         assertEq(reg.postCount(), 1);
@@ -98,11 +99,15 @@ contract ThatsRektTest is Test {
         address[] memory atk = new address[](1); atk[0] = bob;
         address[] memory vic = new address[](1); vic[0] = carol;
 
+        // warp forward so attackedAt = (now - 1 hour) is a valid past time.
+        vm.warp(10_000_000);
+        uint64 attacked = uint64(block.timestamp - 1 hours);
+
         vm.expectEmit(true, true, false, true);
-        emit ThatsRekt.PostCreated(1, alice, uint64(block.timestamp), atk, vic, "rekt");
+        emit ThatsRekt.PostCreated(1, alice, attacked, atk, vic, "rekt");
 
         vm.prank(alice);
-        reg.post(atk, vic, "rekt");
+        reg.post(atk, vic, "rekt", attacked);
     }
 
     function test_post_storesFields() public {
@@ -111,12 +116,16 @@ contract ThatsRektTest is Test {
         address[] memory vic = new address[](1); vic[0] = dave;
 
         vm.warp(123_456_789);
+        // attackedAt deliberately distinct from block.timestamp to prove the
+        // stored value is the poster-supplied one, not the block timestamp.
+        uint64 attacked = uint64(123_456_700);
+
         vm.prank(alice);
-        uint256 id = reg.post(atk, vic, "");
+        uint256 id = reg.post(atk, vic, "", attacked);
 
         (
             address poster,
-            uint64 ts,
+            uint64 attackedAt,
             uint32 up,
             uint32 down,
             bool removed,
@@ -125,7 +134,7 @@ contract ThatsRektTest is Test {
         ) = reg.getPost(id);
 
         assertEq(poster, alice);
-        assertEq(ts, 123_456_789);
+        assertEq(attackedAt, attacked);
         assertEq(up, 0);
         assertEq(down, 0);
         assertFalse(removed);
@@ -142,7 +151,7 @@ contract ThatsRektTest is Test {
 
         vm.expectRevert(ThatsRekt.NotWhitelisted.selector);
         vm.prank(alice);
-        reg.post(atk, vic, "no auth");
+        reg.post(atk, vic, "no auth", uint64(block.timestamp));
     }
 
     function test_post_revertsIfEmpty() public {
@@ -152,7 +161,7 @@ contract ThatsRektTest is Test {
 
         vm.expectRevert(ThatsRekt.EmptyPost.selector);
         vm.prank(alice);
-        reg.post(atk, vic, "");
+        reg.post(atk, vic, "", uint64(block.timestamp));
     }
 
     function test_post_acceptsNoteOnly() public {
@@ -161,7 +170,7 @@ contract ThatsRektTest is Test {
         address[] memory vic = new address[](0);
 
         vm.prank(alice);
-        uint256 id = reg.post(atk, vic, "Twitter says protocol X is being drained");
+        uint256 id = reg.post(atk, vic, "Twitter says protocol X is being drained", uint64(block.timestamp));
         assertEq(id, 1);
     }
 
@@ -174,7 +183,7 @@ contract ThatsRektTest is Test {
 
         vm.expectRevert(ThatsRekt.PostTooLarge.selector);
         vm.prank(alice);
-        reg.post(atk, vic, "");
+        reg.post(atk, vic, "", uint64(block.timestamp));
     }
 
     function test_post_acceptsExactlyCap() public {
@@ -185,7 +194,74 @@ contract ThatsRektTest is Test {
         address[] memory vic = new address[](0);
 
         vm.prank(alice);
-        reg.post(atk, vic, "");
+        reg.post(atk, vic, "", uint64(block.timestamp));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                  PHASE 3.5 - attackedAt VALIDATION
+    //////////////////////////////////////////////////////////////*/
+
+    function test_post_revertsIfAttackedAtZero() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](1); atk[0] = bob;
+        address[] memory vic = new address[](0);
+
+        vm.expectRevert(ThatsRekt.InvalidAttackedAt.selector);
+        vm.prank(alice);
+        reg.post(atk, vic, "", 0);
+    }
+
+    function test_post_revertsIfAttackedAtInFuture() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](1); atk[0] = bob;
+        address[] memory vic = new address[](0);
+
+        // any value strictly greater than block.timestamp is a future claim
+        uint64 future = uint64(block.timestamp + 1);
+
+        vm.expectRevert(ThatsRekt.InvalidAttackedAt.selector);
+        vm.prank(alice);
+        reg.post(atk, vic, "", future);
+    }
+
+    function test_post_acceptsAttackedAtEqualToBlockTimestamp() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](1); atk[0] = bob;
+        address[] memory vic = new address[](0);
+
+        vm.prank(alice);
+        uint256 id = reg.post(atk, vic, "", uint64(block.timestamp));
+        assertEq(id, 1);
+    }
+
+    function test_post_acceptsAncientAttackedAt() public {
+        // attackedAt = 1 (very old, but valid: > 0 and <= block.timestamp).
+        _whitelist(alice);
+        address[] memory atk = new address[](1); atk[0] = bob;
+        address[] memory vic = new address[](0);
+
+        vm.warp(1_000_000);
+        vm.prank(alice);
+        uint256 id = reg.post(atk, vic, "", 1);
+        assertEq(id, 1);
+
+        (, uint64 attackedAt, , , , , ) = reg.getPost(id);
+        assertEq(attackedAt, 1);
+    }
+
+    function test_getPost_returnsAttackedAtVerbatim() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](1); atk[0] = bob;
+        address[] memory vic = new address[](0);
+
+        vm.warp(2_000_000);
+        uint64 attacked = uint64(1_999_500);
+
+        vm.prank(alice);
+        uint256 id = reg.post(atk, vic, "", attacked);
+
+        (, uint64 stored, , , , , ) = reg.getPost(id);
+        assertEq(stored, attacked);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -198,7 +274,7 @@ contract ThatsRektTest is Test {
         address[] memory vic = new address[](0);
 
         vm.prank(alice);
-        reg.post(atk, vic, "");
+        reg.post(atk, vic, "", uint64(block.timestamp));
 
         assertEq(reg.attackerAppearances(bob), 1);
         assertEq(reg.attackerAppearances(carol), 1);
@@ -211,7 +287,7 @@ contract ThatsRektTest is Test {
         address[] memory vic = new address[](0);
 
         vm.prank(alice);
-        reg.post(atk, vic, "");
+        reg.post(atk, vic, "", uint64(block.timestamp));
 
         assertEq(reg.attackerAppearances(bob), 2);
     }
@@ -222,7 +298,7 @@ contract ThatsRektTest is Test {
         address[] memory vic = new address[](1); vic[0] = bob;
 
         vm.prank(alice);
-        reg.post(atk, vic, "");
+        reg.post(atk, vic, "", uint64(block.timestamp));
 
         assertTrue(reg.isVictim(bob));
     }
@@ -233,8 +309,8 @@ contract ThatsRektTest is Test {
         address[] memory vic = new address[](1); vic[0] = bob;
 
         vm.startPrank(alice);
-        reg.post(atk, vic, "");
-        reg.post(atk, vic, "");
+        reg.post(atk, vic, "", uint64(block.timestamp));
+        reg.post(atk, vic, "", uint64(block.timestamp));
         vm.stopPrank();
 
         assertTrue(reg.isVictim(bob));
@@ -244,31 +320,11 @@ contract ThatsRektTest is Test {
                             PHASE 5 - vote()
     //////////////////////////////////////////////////////////////*/
 
-    function test_vote_revertsOnInvalidDirection_2() public {
-        _whitelist(alice);
-        _whitelist(bob);
-        uint256 id = _post(alice, carol, address(0));
-
-        vm.expectRevert(ThatsRekt.InvalidDirection.selector);
-        vm.prank(bob);
-        reg.vote(id, 2);
-    }
-
-    function test_vote_revertsOnInvalidDirection_neg2() public {
-        _whitelist(alice);
-        _whitelist(bob);
-        uint256 id = _post(alice, carol, address(0));
-
-        vm.expectRevert(ThatsRekt.InvalidDirection.selector);
-        vm.prank(bob);
-        reg.vote(id, -2);
-    }
-
     function test_vote_revertsOnPostNotFound() public {
         _whitelist(alice);
         vm.expectRevert(ThatsRekt.PostNotFound.selector);
         vm.prank(alice);
-        reg.vote(99, 1);
+        reg.vote(99, ThatsRekt.VoteDirection.Upvote);
     }
 
     function test_vote_posterCannotVoteOwnPost() public {
@@ -277,7 +333,7 @@ contract ThatsRektTest is Test {
 
         vm.expectRevert(ThatsRekt.PosterCannotVote.selector);
         vm.prank(alice);
-        reg.vote(id, 1);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
     }
 
     function test_vote_revertsIfSameDirection() public {
@@ -286,11 +342,21 @@ contract ThatsRektTest is Test {
         uint256 id = _post(alice, carol, address(0));
 
         vm.prank(bob);
-        reg.vote(id, 1);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
 
         vm.expectRevert(ThatsRekt.NoVoteChange.selector);
         vm.prank(bob);
-        reg.vote(id, 1);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+    }
+
+    function test_vote_revertsOnVoteDirectionNone() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.expectRevert(ThatsRekt.InvalidVoteDirection.selector);
+        vm.prank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.None);
     }
 
     function test_vote_onlyWhitelisted() public {
@@ -299,7 +365,7 @@ contract ThatsRektTest is Test {
 
         vm.expectRevert(ThatsRekt.NotWhitelisted.selector);
         vm.prank(bob);
-        reg.vote(id, 1);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
     }
 
     function test_vote_upvote_incrementsCounters() public {
@@ -308,13 +374,13 @@ contract ThatsRektTest is Test {
         uint256 id = _post(alice, carol, address(0));
 
         vm.prank(bob);
-        reg.vote(id, 1);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
 
         (, , uint32 up, uint32 down, , , ) = reg.getPost(id);
         assertEq(up, 1);
         assertEq(down, 0);
         assertEq(reg.attackerScore(carol), 1);
-        assertEq(reg.voteOf(id, bob), 1);
+        assertTrue(reg.voteOf(id, bob) == ThatsRekt.VoteDirection.Upvote);
     }
 
     function test_vote_downvote_incrementsCounters() public {
@@ -323,13 +389,13 @@ contract ThatsRektTest is Test {
         uint256 id = _post(alice, carol, address(0));
 
         vm.prank(bob);
-        reg.vote(id, -1);
+        reg.vote(id, ThatsRekt.VoteDirection.Downvote);
 
         (, , uint32 up, uint32 down, , , ) = reg.getPost(id);
         assertEq(up, 0);
         assertEq(down, 1);
         assertEq(reg.attackerScore(carol), -1);
-        assertEq(reg.voteOf(id, bob), -1);
+        assertTrue(reg.voteOf(id, bob) == ThatsRekt.VoteDirection.Downvote);
     }
 
     function test_vote_flip_upToDown() public {
@@ -338,8 +404,8 @@ contract ThatsRektTest is Test {
         uint256 id = _post(alice, carol, address(0));
 
         vm.startPrank(bob);
-        reg.vote(id, 1);
-        reg.vote(id, -1);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        reg.vote(id, ThatsRekt.VoteDirection.Downvote);
         vm.stopPrank();
 
         (, , uint32 up, uint32 down, , , ) = reg.getPost(id);
@@ -348,32 +414,22 @@ contract ThatsRektTest is Test {
         assertEq(reg.attackerScore(carol), -1);
     }
 
-    function test_vote_retract_upToZero() public {
-        _whitelist(alice);
-        _whitelist(bob);
-        uint256 id = _post(alice, carol, address(0));
-
-        vm.startPrank(bob);
-        reg.vote(id, 1);
-        reg.vote(id, 0);
-        vm.stopPrank();
-
-        (, , uint32 up, uint32 down, , , ) = reg.getPost(id);
-        assertEq(up, 0);
-        assertEq(down, 0);
-        assertEq(reg.attackerScore(carol), 0);
-        assertEq(reg.voteOf(id, bob), 0);
-    }
-
+    /// The Voted event now emits VoteDirection (uint8 in the ABI) for both
+    /// the old and new direction — None=0, Upvote=1, Downvote=2.
     function test_vote_emitsVotedWithOldAndNew() public {
         _whitelist(alice);
         _whitelist(bob);
         uint256 id = _post(alice, carol, address(0));
 
         vm.expectEmit(true, true, false, true);
-        emit ThatsRekt.Voted(id, bob, int8(0), int8(1));
+        emit ThatsRekt.Voted(
+            id,
+            bob,
+            ThatsRekt.VoteDirection.None,
+            ThatsRekt.VoteDirection.Upvote
+        );
         vm.prank(bob);
-        reg.vote(id, 1);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
     }
 
     function test_vote_multipleVoters_aggregateScore() public {
@@ -382,107 +438,197 @@ contract ThatsRektTest is Test {
         _whitelist(carol);
         uint256 id = _post(alice, dave, address(0));
 
-        vm.prank(bob);   reg.vote(id, 1);
-        vm.prank(carol); reg.vote(id, 1);
+        vm.prank(bob);   reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        vm.prank(carol); reg.vote(id, ThatsRekt.VoteDirection.Upvote);
 
         assertEq(reg.attackerScore(dave), 2);
     }
 
     /*//////////////////////////////////////////////////////////////
-                       PHASE 6 - AUTO REMOVAL
+                          PHASE 5.5 - unvote()
     //////////////////////////////////////////////////////////////*/
 
-    function test_autoRemoval_triggersAtThreshold() public {
+    function test_unvote_clearsVoteAndReversesAggregates() public {
         _whitelist(alice);
         _whitelist(bob);
-        _whitelist(carol);
-        _whitelist(dave);
-        uint256 id = _post(alice, makeAddr("attacker"), address(0));
+        uint256 id = _post(alice, carol, address(0));
 
-        vm.prank(bob);   reg.vote(id, -1);
-        vm.prank(carol); reg.vote(id, -1);
+        vm.startPrank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        // baseline pre-unvote: score == +1, up == 1
+        assertEq(reg.attackerScore(carol), 1);
+        reg.unvote(id);
+        vm.stopPrank();
 
-        (, , , , bool removed1, , ) = reg.getPost(id);
-        assertFalse(removed1);
-
-        vm.expectEmit(true, false, false, true);
-        emit ThatsRekt.PostRemoved(id, ThatsRekt.RemovalReason.AutoDownvote);
-
-        vm.prank(dave);  reg.vote(id, -1);
-
-        (, , , , bool removed2, , ) = reg.getPost(id);
-        assertTrue(removed2);
+        (, , uint32 up, uint32 down, , , ) = reg.getPost(id);
+        assertEq(up, 0);
+        assertEq(down, 0);
+        assertEq(reg.attackerScore(carol), 0);
+        assertTrue(reg.voteOf(id, bob) == ThatsRekt.VoteDirection.None);
     }
 
-    function test_autoRemoval_reversesAttackerScore() public {
+    function test_unvote_clearsDownvoteAndReversesAggregates() public {
         _whitelist(alice);
         _whitelist(bob);
-        _whitelist(carol);
-        _whitelist(dave);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.startPrank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+        assertEq(reg.attackerScore(carol), -1);
+        reg.unvote(id);
+        vm.stopPrank();
+
+        (, , uint32 up, uint32 down, , , ) = reg.getPost(id);
+        assertEq(up, 0);
+        assertEq(down, 0);
+        assertEq(reg.attackerScore(carol), 0);
+        assertTrue(reg.voteOf(id, bob) == ThatsRekt.VoteDirection.None);
+    }
+
+    function test_unvote_revertsIfNoVoteExists() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.expectRevert(ThatsRekt.NoVoteToRetract.selector);
+        vm.prank(bob);
+        reg.unvote(id);
+    }
+
+    function test_unvote_revertsForNonWhitelisted() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.expectRevert(ThatsRekt.NotWhitelisted.selector);
+        vm.prank(bob);
+        reg.unvote(id);
+    }
+
+    function test_unvote_revertsOnNonExistentPost() public {
+        _whitelist(alice);
+
+        vm.expectRevert(ThatsRekt.PostNotFound.selector);
+        vm.prank(alice);
+        reg.unvote(99);
+    }
+
+    function test_unvote_revertsOnRemovedPost() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        // bob votes, alice retracts the post, bob then tries to unvote
+        vm.prank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+
+        vm.prank(alice);
+        reg.retract(id);
+
+        vm.expectRevert(ThatsRekt.PostIsRemoved.selector);
+        vm.prank(bob);
+        reg.unvote(id);
+    }
+
+    function test_voteFlow_voteUpThenUnvoteThenVoteDown() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.startPrank(bob);
+
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        (, , uint32 up1, uint32 down1, , , ) = reg.getPost(id);
+        assertEq(up1, 1);
+        assertEq(down1, 0);
+        assertEq(reg.attackerScore(carol), 1);
+        assertTrue(reg.voteOf(id, bob) == ThatsRekt.VoteDirection.Upvote);
+
+        reg.unvote(id);
+        (, , uint32 up2, uint32 down2, , , ) = reg.getPost(id);
+        assertEq(up2, 0);
+        assertEq(down2, 0);
+        assertEq(reg.attackerScore(carol), 0);
+        assertTrue(reg.voteOf(id, bob) == ThatsRekt.VoteDirection.None);
+
+        reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+        (, , uint32 up3, uint32 down3, , , ) = reg.getPost(id);
+        assertEq(up3, 0);
+        assertEq(down3, 1);
+        assertEq(reg.attackerScore(carol), -1);
+        assertTrue(reg.voteOf(id, bob) == ThatsRekt.VoteDirection.Downvote);
+
+        vm.stopPrank();
+    }
+
+    function test_unvote_emitsVotedEventWithNoneTransition() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.prank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+
+        vm.expectEmit(true, true, false, true);
+        emit ThatsRekt.Voted(
+            id,
+            bob,
+            ThatsRekt.VoteDirection.Upvote,
+            ThatsRekt.VoteDirection.None
+        );
+        vm.prank(bob);
+        reg.unvote(id);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                       PHASE 6 - NO AUTO REMOVAL
+    //////////////////////////////////////////////////////////////*/
+
+    /// Heavily-downvoted posts must NOT be auto-removed. Consumers that want
+    /// to gate on community sentiment should read `attackerScore` and pick
+    /// their own threshold. Removal is now poster-driven only (retract).
+    function test_heavilyDownvotedPost_isNotAutoRemoved() public {
+        _whitelist(alice);
         address attacker = makeAddr("attacker");
         uint256 id = _post(alice, attacker, address(0));
 
-        vm.prank(bob);   reg.vote(id, -1);
-        vm.prank(carol); reg.vote(id, -1);
-        vm.prank(dave);  reg.vote(id, -1);
+        // 10 voters, all downvoting -> net score -10 but post stays active.
+        for (uint256 i; i < 10; ++i) {
+            address voter = address(uint160(uint256(0xD000) + i));
+            _whitelist(voter);
+            vm.prank(voter);
+            reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+        }
 
-        assertEq(reg.attackerScore(attacker), 0);
-        assertEq(reg.attackerAppearances(attacker), 0);
+        (, , uint32 up, uint32 down, bool removed, , ) = reg.getPost(id);
+        assertEq(up, 0);
+        assertEq(down, 10);
+        assertFalse(removed, "post must NOT be auto-removed by downvotes");
+
+        // post is still in the active linked list (head == tail == id)
+        assertEq(reg.headPostId(), id);
+        assertEq(reg.tailPostId(), id);
+
+        // attackerScore reflects negative sentiment, post stays alive
+        assertEq(reg.attackerScore(attacker), -10);
+        assertEq(reg.attackerAppearances(attacker), 1);
     }
 
-    function test_autoRemoval_unsetsIsVictim_whenLastActivePost() public {
-        _whitelist(alice);
-        _whitelist(bob);
-        _whitelist(carol);
-        _whitelist(dave);
-        address victim = makeAddr("victim");
-        uint256 id = _post(alice, address(0), victim);
-
-        assertTrue(reg.isVictim(victim));
-
-        vm.prank(bob);   reg.vote(id, -1);
-        vm.prank(carol); reg.vote(id, -1);
-        vm.prank(dave);  reg.vote(id, -1);
-
-        assertFalse(reg.isVictim(victim));
-    }
-
-    function test_autoRemoval_keepsIsVictim_whenOtherPostsActive() public {
-        _whitelist(alice);
-        _whitelist(bob);
-        _whitelist(carol);
-        _whitelist(dave);
-        address victim = makeAddr("victim");
-
-        uint256 id1 = _post(alice, address(0), victim);
-        uint256 id2 = _post(alice, address(0), victim);
-
-        vm.prank(bob);   reg.vote(id1, -1);
-        vm.prank(carol); reg.vote(id1, -1);
-        vm.prank(dave);  reg.vote(id1, -1);
-
-        assertTrue(reg.isVictim(victim));
-        (, , , , bool r2, , ) = reg.getPost(id2);
-        assertFalse(r2);
-    }
-
+    /// After a post is retracted (removed), further votes must revert.
+    /// Removal is now poster-only (no auto-removal); the path under test
+    /// here is retract() -> subsequent vote() -> PostIsRemoved.
     function test_voteOnRemovedPost_reverts() public {
         _whitelist(alice);
-        _whitelist(bob);
-        _whitelist(carol);
-        _whitelist(dave);
         uint256 id = _post(alice, makeAddr("attacker"), address(0));
 
-        vm.prank(bob);   reg.vote(id, -1);
-        vm.prank(carol); reg.vote(id, -1);
-        vm.prank(dave);  reg.vote(id, -1);
+        vm.prank(alice);
+        reg.retract(id);
 
         address eve = makeAddr("eve");
         _whitelist(eve);
 
         vm.expectRevert(ThatsRekt.PostIsRemoved.selector);
         vm.prank(eve);
-        reg.vote(id, 1);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -495,7 +641,7 @@ contract ThatsRektTest is Test {
         uint256 id = _post(alice, attacker, address(0));
 
         vm.expectEmit(true, false, false, true);
-        emit ThatsRekt.PostRemoved(id, ThatsRekt.RemovalReason.PosterRetract);
+        emit ThatsRekt.PostRemoved(id, ThatsRekt.RemovalReason.Retracted);
 
         vm.prank(alice);
         reg.retract(id);
@@ -649,7 +795,7 @@ contract ThatsRektTest is Test {
         uint256 id = _post(alice, atk, address(0));
 
         vm.prank(bob);
-        reg.vote(id, 1);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
 
         (int256 score, uint256 appearances) = reg.attackerReport(atk);
         assertEq(score, 1);
@@ -725,6 +871,160 @@ contract ThatsRektTest is Test {
 
         vm.expectRevert(ThatsRekt.PostNotFound.selector);
         reg.activePostsBefore(id1, 10);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                  PHASE 9.5 - ENUMERABLE VOTER SETS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_getUpvoters_emptyForFreshPost() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, carol, address(0));
+
+        address[] memory ups   = reg.getUpvoters(id);
+        address[] memory downs = reg.getDownvoters(id);
+        assertEq(ups.length, 0);
+        assertEq(downs.length, 0);
+        assertEq(reg.getUpvoterCount(id), 0);
+        assertEq(reg.getDownvoterCount(id), 0);
+    }
+
+    function test_getUpvoters_returnsExactSet_afterMixedVoting() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, carol, address(0));
+
+        // 3 upvoters, 2 downvoters, then one upvoter flips to downvote.
+        // Final tally: 2 upvoters (u2, u3) and 3 downvoters (d1, d2, u1).
+        address u1 = makeAddr("u1");
+        address u2 = makeAddr("u2");
+        address u3 = makeAddr("u3");
+        address d1 = makeAddr("d1");
+        address d2 = makeAddr("d2");
+
+        _whitelist(u1); _whitelist(u2); _whitelist(u3);
+        _whitelist(d1); _whitelist(d2);
+
+        vm.prank(u1); reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        vm.prank(u2); reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        vm.prank(u3); reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        vm.prank(d1); reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+        vm.prank(d2); reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+
+        // u1 flips up -> down
+        vm.prank(u1); reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+
+        address[] memory ups   = reg.getUpvoters(id);
+        address[] memory downs = reg.getDownvoters(id);
+
+        assertEq(ups.length,   2);
+        assertEq(downs.length, 3);
+        assertEq(reg.getUpvoterCount(id),   2);
+        assertEq(reg.getDownvoterCount(id), 3);
+
+        assertTrue(_contains(ups, u2));
+        assertTrue(_contains(ups, u3));
+        assertFalse(_contains(ups, u1));
+
+        assertTrue(_contains(downs, d1));
+        assertTrue(_contains(downs, d2));
+        assertTrue(_contains(downs, u1));
+    }
+
+    function test_voterSets_consistentAfterUnvote() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.prank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+
+        address[] memory ups = reg.getUpvoters(id);
+        assertEq(ups.length, 1);
+        assertEq(ups[0], bob);
+
+        vm.prank(bob);
+        reg.unvote(id);
+
+        ups = reg.getUpvoters(id);
+        assertEq(ups.length, 0);
+        assertEq(reg.getUpvoterCount(id), 0);
+    }
+
+    function test_voterSets_consistentAfterDownvoteUnvote() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.prank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+
+        address[] memory downs = reg.getDownvoters(id);
+        assertEq(downs.length, 1);
+        assertEq(downs[0], bob);
+
+        vm.prank(bob);
+        reg.unvote(id);
+
+        downs = reg.getDownvoters(id);
+        assertEq(downs.length, 0);
+        assertEq(reg.getDownvoterCount(id), 0);
+    }
+
+    function test_voterSets_consistentAfterFlip() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.startPrank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+        vm.stopPrank();
+
+        address[] memory ups   = reg.getUpvoters(id);
+        address[] memory downs = reg.getDownvoters(id);
+        assertEq(ups.length,   0);
+        assertEq(downs.length, 1);
+        assertEq(downs[0], bob);
+    }
+
+    function test_voterSets_consistentAfterDownToUpFlip() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.startPrank(bob);
+        reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        vm.stopPrank();
+
+        address[] memory ups   = reg.getUpvoters(id);
+        address[] memory downs = reg.getDownvoters(id);
+        assertEq(ups.length,   1);
+        assertEq(downs.length, 0);
+        assertEq(ups[0], bob);
+    }
+
+    function test_getUpvoterCount_matchesArrayLength() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, carol, address(0));
+
+        // 4 distinct upvoters
+        for (uint256 i; i < 4; ++i) {
+            address voter = address(uint160(0xE000 + i));
+            _whitelist(voter);
+            vm.prank(voter);
+            reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        }
+
+        assertEq(reg.getUpvoterCount(id), reg.getUpvoters(id).length);
+        assertEq(reg.getUpvoterCount(id), 4);
+    }
+
+    function _contains(address[] memory arr, address needle) internal pure returns (bool) {
+        for (uint256 i; i < arr.length; ++i) {
+            if (arr[i] == needle) return true;
+        }
+        return false;
     }
 
     /*//////////////////////////////////////////////////////////////
