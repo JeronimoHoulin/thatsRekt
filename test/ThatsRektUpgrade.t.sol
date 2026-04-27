@@ -9,6 +9,7 @@ import {TimelockController} from "@openzeppelin/contracts/governance/TimelockCon
 
 import {ThatsRekt} from "../src/ThatsRekt.sol";
 import {ThatsRektV1_1Mock} from "./mocks/ThatsRektV1_1Mock.sol";
+import {ThatsRektV1_2Mock} from "./mocks/ThatsRektV1_2Mock.sol";
 
 /// @notice Upgrade-flow tests for the UUPS-upgradeable ThatsRekt.
 ///
@@ -204,6 +205,80 @@ contract ThatsRektUpgradeTest is Test {
             bytes32 v = vm.load(address(reg), bytes32(GAP_START + i));
             assertEq(uint256(v), 0, "gap slot is non-zero on fresh proxy");
         }
+    }
+
+    /// @notice Exercise the *purpose* of `__gap`: a real upgrade that
+    ///         introduces new state in the child impl must (a) not collide
+    ///         with any pre-upgrade state and (b) be readable + writable
+    ///         through the proxy after the swap.
+    ///
+    /// @dev    `test_storageGap_isZeroedOnFreshProxy` only confirms the gap
+    ///         starts empty. This test goes further: deploy v1.0 -> plant
+    ///         state -> upgrade to a v1.2 mock that adds a new mapping
+    ///         (`postCountByPoster`) -> assert pre-upgrade state survives
+    ///         AND the new field works via the proxy. This is what the
+    ///         gap exists for, and the test guards against future regressions
+    ///         (e.g. an upgrade author forgetting to shrink the gap or
+    ///         appending new state above it).
+    function test_upgradeWithNewState_preservesPriorStateAndAddsNewField() public {
+        // Stand up v1.0 behind the timelocked proxy.
+        (ThatsRekt reg, TimelockController timelock) = _deployTimelockedProxy();
+
+        // Whitelist a poster + voter so we can plant state to read back later.
+        address poster = makeAddr("poster_v1_2");
+        address voter = makeAddr("voter_v1_2");
+        address attackerAddr = makeAddr("attacker_v1_2");
+        _whitelistViaTimelock(reg, timelock, poster);
+        _whitelistViaTimelock(reg, timelock, voter);
+
+        // Plant a post + an upvote so attackerScore > 0 and postCount == 1.
+        address[] memory atks = new address[](1);
+        atks[0] = attackerAddr;
+        address[] memory vics = new address[](0);
+        vm.prank(poster);
+        uint256 postId = reg.post(atks, vics, "pre-v1.2-upgrade", uint64(block.timestamp));
+
+        vm.prank(voter);
+        reg.vote(postId, ThatsRekt.VoteDirection.Upvote);
+
+        // Snapshot pre-upgrade state.
+        PostSnapshot memory pre = _snapshotPost(reg, postId);
+        int256 preScore = reg.attackerScore(attackerAddr);
+        uint256 prePostCount = reg.postCount();
+        assertEq(prePostCount, 1, "sanity: postCount==1 pre-upgrade");
+        assertEq(preScore, int256(1), "sanity: attackerScore==1 pre-upgrade");
+
+        // Upgrade to v1.2 (adds `postCountByPoster` mapping by claiming one
+        // slot from `__gap`). Use the standard timelocked path.
+        ThatsRektV1_2Mock newImpl = new ThatsRektV1_2Mock();
+        bytes memory upgradeCall = abi.encodeCall(reg.upgradeToAndCall, (address(newImpl), ""));
+        _scheduleAndExecute(timelock, address(reg), upgradeCall);
+
+        // 1. Pre-upgrade state preserved through the proxy.
+        PostSnapshot memory post_ = _snapshotPost(reg, postId);
+        assertEq(post_.poster, pre.poster, "post.poster preserved");
+        assertEq(post_.upvotes, pre.upvotes, "post.upvotes preserved");
+        assertEq(post_.downvotes, pre.downvotes, "post.downvotes preserved");
+        assertEq(post_.removed, pre.removed, "post.removed preserved");
+        assertEq(post_.attackedAt, pre.attackedAt, "post.attackedAt preserved");
+        assertEq(post_.lastUpdatedAt, pre.lastUpdatedAt, "post.lastUpdatedAt preserved");
+        assertEq(reg.attackerScore(attackerAddr), preScore, "attackerScore preserved");
+        assertEq(reg.postCount(), prePostCount, "postCount preserved");
+
+        // 2. New field starts at zero (the gap slot was never written before
+        //    the upgrade, so the "no collision" property is observable).
+        ThatsRektV1_2Mock proxied = ThatsRektV1_2Mock(address(reg));
+        assertEq(proxied.postCountByPoster(poster), 0, "new field starts at zero");
+
+        // 3. New field is functional through the proxy: write then read.
+        proxied.bumpPosterCount(poster);
+        assertEq(proxied.postCountByPoster(poster), 1, "new field writable via proxy");
+
+        // 4. Pre-existing state is still mutable via the proxy too — confirm
+        //    by retracting the original post and checking aggregates reverse.
+        vm.prank(poster);
+        proxied.retract(postId);
+        assertEq(proxied.attackerScore(attackerAddr), 0, "post-upgrade retract reverses score");
     }
 
     /*//////////////////////////////////////////////////////////////
