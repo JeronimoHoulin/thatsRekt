@@ -67,7 +67,7 @@ pnpm serve      # another — http://localhost:4350/graphql
 
 | Variable | Purpose |
 |----------|---------|
-| `RPC_SEPOLIA_HTTP` | EVM RPC endpoint (default: Sepolia public) |
+| `RPC_SEPOLIA_HTTP` | EVM RPC endpoint. Default points at routeme.sh (load-balanced multi-provider). Pattern: `https://lb.routeme.sh/rpc/{chainId}/{api-key}`. The api-key lives in DAMM's secrets store — never commit it. |
 | `CONTRACT_ADDRESS` | The thatsRekt **proxy** address (canonical, identical across chains) |
 | `START_BLOCK` | First block to index — typically the proxy's deploy block |
 | `DB_*`, `GQL_PORT` | Postgres + GraphQL server ports |
