@@ -1,18 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-/// @title  ThatsRekt - On-chain hack-alert registry (v0)
+/// @title  ThatsRekt - On-chain hack-alert registry (v1)
 /// @notice Whitelisted operators post structured alerts identifying attacker
 ///         addresses, victim contracts, and free-form context. Other whitelisters
 ///         vouch (upvote) or refute (downvote). Aggregates exposed as O(1) reads
 ///         so any contract can plug in and inline-blacklist.
-/// @dev    Single immutable contract. Cross-chain identical-address deploy via
-///         the singleton CREATE2 factory. See tasks/v0-impl-plan.md and the
-///         design spec in DAMMfi-knowledge-base for the full architecture.
-contract ThatsRekt is Ownable2Step {
+/// @dev    UUPS upgradeable. The implementation lives behind an ERC1967Proxy;
+///         the proxy is the canonical permanent address (cross-chain identical
+///         via CREATE2 with a constant salt). Upgrades are gated by the
+///         proxy's owner, which production deploys set to a TimelockController
+///         (multisig proposes -> 7-day delay -> multisig executes). See
+///         tasks/upgradeable-plan.md and the design notes in
+///         DAMMfi-knowledge-base for the full architecture.
+contract ThatsRekt is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /*//////////////////////////////////////////////////////////////
@@ -159,16 +166,45 @@ contract ThatsRekt is Ownable2Step {
     error ZeroAddress();
 
     /*//////////////////////////////////////////////////////////////
-                                CONSTRUCTOR
+                          CONSTRUCTOR / INITIALIZER
     //////////////////////////////////////////////////////////////*/
 
-    /// @param initialOwner The Safe multisig (or any contract / EOA) that will
-    ///                     own the whitelist at deploy time. The owner role
-    ///                     is fully transferable via the inherited Ownable2Step
-    ///                     two-step flow (`transferOwnership` -> `acceptOwnership`),
-    ///                     so the governance keys can be rotated freely. Reverts
-    ///                     if zero (Ownable check).
-    constructor(address initialOwner) Ownable(initialOwner) {}
+    /// @dev    The implementation contract is never initialized — only the
+    ///         proxy is. Calling `_disableInitializers()` here permanently
+    ///         locks `initialize` against direct invocation on the impl,
+    ///         which would otherwise be a foothold for taking over the
+    ///         logic contract's owner slot.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Proxy entry point. Sets the initial owner of the proxy and
+    ///         primes the inherited base contracts.
+    /// @param  initialOwner The address that will own upgrade authority on
+    ///                      the proxy. Production deploys set this to a
+    ///                      TimelockController (which itself is held by the
+    ///                      multisig). Reverts on `address(0)` via the
+    ///                      OwnableUpgradeable check.
+    /// @dev    Idempotency is enforced by `Initializable` — re-calling
+    ///         `initialize` on an already-initialized proxy reverts with
+    ///         `InvalidInitialization()`. The owner role is fully
+    ///         transferable via the inherited Ownable2Step two-step flow
+    ///         (`transferOwnership` -> `acceptOwnership`).
+    function initialize(address initialOwner) external initializer {
+        __Ownable_init(initialOwner);
+        __Ownable2Step_init();
+        // UUPSUpgradeable has no `__UUPSUpgradeable_init` in OZ 5.x — it
+        // holds no state, so there is nothing to wire up here. The
+        // upgrade authority is enforced solely by `_authorizeUpgrade`.
+    }
+
+    /// @notice UUPS upgrade authorization hook. Only the owner (i.e. the
+    ///         TimelockController in production) can install a new impl.
+    /// @dev    Empty body — the `onlyOwner` modifier is the entire policy.
+    ///         The OZ `UUPSUpgradeable.upgradeToAndCall` entry point is
+    ///         what callers actually invoke; this hook just gates it.
+    function _authorizeUpgrade(address /* newImplementation */) internal override onlyOwner {}
 
     /*//////////////////////////////////////////////////////////////
                                 MODIFIERS
@@ -645,4 +681,17 @@ contract ThatsRekt is Ownable2Step {
     function getDownvoterCount(uint256 postId) external view returns (uint256) {
         return _downvoters[postId].length();
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            STORAGE GAP
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Reserved for future upgrades. When adding new state variables
+    ///      in a future implementation, append them above this line and
+    ///      shrink the gap by the number of slots consumed (e.g. add one
+    ///      `uint256` field -> reduce the gap to `[49]`). The OZ inherited
+    ///      contracts (Ownable, Ownable2Step, UUPS) use ERC-7201 namespaced
+    ///      storage internally, so they do not collide with this sequential
+    ///      layout.
+    uint256[50] private __gap;
 }

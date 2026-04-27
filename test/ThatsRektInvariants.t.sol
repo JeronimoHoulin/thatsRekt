@@ -2,6 +2,7 @@
 pragma solidity 0.8.25;
 
 import {Test} from "forge-std/Test.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ThatsRekt} from "../src/ThatsRekt.sol";
 import {ThatsRektHandler} from "./handlers/ThatsRektHandler.sol";
 
@@ -13,7 +14,10 @@ contract ThatsRektInvariants is Test {
 
     function setUp() public {
         governance = makeAddr("governance");
-        reg = new ThatsRekt(governance);
+        ThatsRekt impl = new ThatsRekt();
+        bytes memory initCalldata = abi.encodeCall(ThatsRekt.initialize, (governance));
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initCalldata);
+        reg = ThatsRekt(address(proxy));
 
         for (uint256 i; i < 5; ++i) {
             address a = address(uint160(0xACC0 + i));
