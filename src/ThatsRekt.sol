@@ -131,6 +131,14 @@ contract ThatsRekt is Ownable2Step {
     ///         emit, so duplicating it would be dead weight for indexers.
     event PostNoteAmended(uint256 indexed postId, address indexed amender, string newNote);
 
+    /// @notice Emitted when the poster appends new attackers to a post.
+    /// @dev    `lastUpdatedAt` is omitted (deducible from `block.timestamp`).
+    event AttackersAdded(uint256 indexed postId, address indexed amender, address[] newAttackers);
+
+    /// @notice Emitted when the poster appends new victims to a post.
+    /// @dev    `lastUpdatedAt` is omitted (deducible from `block.timestamp`).
+    event VictimsAdded(uint256 indexed postId, address indexed amender, address[] newVictims);
+
     /*//////////////////////////////////////////////////////////////
                                   ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -146,6 +154,9 @@ contract ThatsRekt is Ownable2Step {
     error InvalidAttackedAt();
     error InvalidVoteDirection();
     error NoVoteToRetract();
+    error EmptyAdditions();
+    error DuplicateAddress();
+    error ZeroAddress();
 
     /*//////////////////////////////////////////////////////////////
                                 CONSTRUCTOR
@@ -419,6 +430,130 @@ contract ThatsRekt is Ownable2Step {
         p.lastUpdatedAt = uint64(block.timestamp);
 
         emit PostNoteAmended(postId, msg.sender, newNote);
+    }
+
+    /// @notice Append new attackers to an existing post. Additive only —
+    ///         attackers cannot be removed via any path other than
+    ///         `retract()` + re-post.
+    /// @dev    Each new attacker inherits the post's *current* net karma
+    ///         (`upvotes - downvotes`) at the moment of addition. From
+    ///         that point on, subsequent votes / unvotes update all
+    ///         listed attackers (original + newly added) uniformly,
+    ///         preserving v1's single-aggregate model.
+    ///
+    ///         Bait-and-switch resistance: the additive-only design means
+    ///         a poster cannot swap an innocent address into a karma-laden
+    ///         post. They CAN add a fresh address that inherits karma —
+    ///         that's a known and intentional limit (mitigated by
+    ///         downvotes from peers if the addition looks bogus).
+    ///
+    ///         Strict no-duplicates: rejects (a) duplicates within the
+    ///         input batch, (b) addresses already in the post's attacker
+    ///         array, and (c) addresses already in the post's victim
+    ///         array. Asymmetric with `post()` (which permits intra-post
+    ///         duplicates for legacy reasons) — by the time we're in v1
+    ///         edit territory, we have the chance to enforce a cleaner
+    ///         invariant on the additive path.
+    /// @param postId        Target post id.
+    /// @param newAttackers  Non-empty array of unique, non-zero addresses.
+    function addAttackers(uint256 postId, address[] calldata newAttackers) external onlyWhitelisted {
+        Post storage p = _posts[postId];
+        if (p.poster == address(0))   revert PostNotFound();
+        if (p.poster != msg.sender)   revert NotPoster();
+        if (p.removed)                revert PostIsRemoved();
+        if (newAttackers.length == 0) revert EmptyAdditions();
+        // Cap is total addresses (attackers + victims), matching `post()`.
+        // Checking only one array would let the post grow past the cap by
+        // unbalancing the split.
+        if (p.attackers.length + p.victims.length + newAttackers.length > MAX_ADDRESSES_PER_POST) {
+            revert PostTooLarge();
+        }
+
+        int256 currentNet = int256(uint256(p.upvotes)) - int256(uint256(p.downvotes));
+
+        uint256 nNew = newAttackers.length;
+        for (uint256 i; i < nNew; ++i) {
+            address a = newAttackers[i];
+            if (a == address(0)) revert ZeroAddress();
+            _requireNotInPost(p, a);
+            _requireNotInBatch(newAttackers, i, a);
+
+            p.attackers.push(a);
+            attackerScore[a]   += currentNet;
+            unchecked { ++attackerAppearances[a]; }
+        }
+
+        p.lastUpdatedAt = uint64(block.timestamp);
+
+        emit AttackersAdded(postId, msg.sender, newAttackers);
+    }
+
+    /// @notice Append new victims to an existing post. Additive only —
+    ///         victims cannot be removed via any path other than
+    ///         `retract()` + re-post.
+    /// @dev    Mirrors `addAttackers` semantics: same authz, same
+    ///         lifecycle checks, same strict no-duplicate rules across
+    ///         (input batch | attacker array | victim array). Victims
+    ///         do not have a karma aggregate, so the per-victim side
+    ///         effect is purely the `_victimActivePosts` increment and
+    ///         `isVictim[v] = true` flip on first inclusion.
+    /// @param postId      Target post id.
+    /// @param newVictims  Non-empty array of unique, non-zero addresses.
+    function addVictims(uint256 postId, address[] calldata newVictims) external onlyWhitelisted {
+        Post storage p = _posts[postId];
+        if (p.poster == address(0))   revert PostNotFound();
+        if (p.poster != msg.sender)   revert NotPoster();
+        if (p.removed)                revert PostIsRemoved();
+        if (newVictims.length == 0)   revert EmptyAdditions();
+        // Cap is total addresses across both arrays — see `addAttackers`.
+        if (p.attackers.length + p.victims.length + newVictims.length > MAX_ADDRESSES_PER_POST) {
+            revert PostTooLarge();
+        }
+
+        uint256 nNew = newVictims.length;
+        for (uint256 i; i < nNew; ++i) {
+            address v = newVictims[i];
+            if (v == address(0)) revert ZeroAddress();
+            _requireNotInPost(p, v);
+            _requireNotInBatch(newVictims, i, v);
+
+            p.victims.push(v);
+            unchecked { ++_victimActivePosts[v]; }
+            if (_victimActivePosts[v] == 1) isVictim[v] = true;
+        }
+
+        p.lastUpdatedAt = uint64(block.timestamp);
+
+        emit VictimsAdded(postId, msg.sender, newVictims);
+    }
+
+    /// @dev Reverts with `DuplicateAddress` if `a` is already listed in
+    ///      either of the post's attacker or victim arrays. Used by the
+    ///      additive edit paths (`addAttackers` / `addVictims`) to
+    ///      enforce the cross-array uniqueness invariant.
+    function _requireNotInPost(Post storage p, address a) internal view {
+        uint256 aLen = p.attackers.length;
+        for (uint256 j; j < aLen; ++j) {
+            if (p.attackers[j] == a) revert DuplicateAddress();
+        }
+        uint256 vLen = p.victims.length;
+        for (uint256 j; j < vLen; ++j) {
+            if (p.victims[j] == a) revert DuplicateAddress();
+        }
+    }
+
+    /// @dev Reverts with `DuplicateAddress` if `a` appears earlier in
+    ///      the same input batch (indexes [0, upTo)). Catches caller
+    ///      mistakes like `[X, X]` without the gas cost of a fresh
+    ///      memory set.
+    function _requireNotInBatch(
+        address[] calldata batch,
+        uint256 upTo,
+        address a
+    ) internal pure {
+        for (uint256 j; j < upTo; ++j) {
+            if (batch[j] == a) revert DuplicateAddress();
+        }
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -1237,4 +1237,569 @@ contract ThatsRektTest is Test {
         vm.prank(alice);
         reg.amendNote(id, "");
     }
+
+    /*//////////////////////////////////////////////////////////////
+              PHASE 13 - addAttackers() / addVictims()
+    //////////////////////////////////////////////////////////////*/
+
+    /*------------------ addAttackers: happy paths ------------------*/
+
+    function test_addAttackers_posterCanAdd() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, address(0));
+        address newAtk = makeAddr("newAtk");
+
+        // jump forward so lastUpdatedAt strictly differs from creation
+        vm.warp(block.timestamp + 1 hours);
+
+        address[] memory adds = new address[](1);
+        adds[0] = newAtk;
+
+        vm.expectEmit(true, true, false, true);
+        emit ThatsRekt.AttackersAdded(id, alice, adds);
+
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+
+        (, , , , , address[] memory attackers, , uint64 lastUpdatedAt) = reg.getPost(id);
+        assertEq(attackers.length, 2);
+        assertEq(attackers[0], bob);
+        assertEq(attackers[1], newAtk);
+        assertEq(reg.attackerAppearances(newAtk), 1);
+        // no votes yet, so karma inherited == 0
+        assertEq(reg.attackerScore(newAtk), 0);
+        assertEq(lastUpdatedAt, uint64(block.timestamp));
+    }
+
+    function test_addAttackers_batchOf3() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, address(0));
+
+        address a1 = makeAddr("atk1");
+        address a2 = makeAddr("atk2");
+        address a3 = makeAddr("atk3");
+
+        address[] memory adds = new address[](3);
+        adds[0] = a1; adds[1] = a2; adds[2] = a3;
+
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+
+        (, , , , , address[] memory attackers, , ) = reg.getPost(id);
+        assertEq(attackers.length, 4);
+        assertEq(attackers[1], a1);
+        assertEq(attackers[2], a2);
+        assertEq(attackers[3], a3);
+
+        assertEq(reg.attackerAppearances(a1), 1);
+        assertEq(reg.attackerAppearances(a2), 1);
+        assertEq(reg.attackerAppearances(a3), 1);
+    }
+
+    /// New attackers inherit the post's net karma at the moment of addition.
+    /// Post starts with bob attacker, gets net +4 (5 up, 1 down), then
+    /// `newAtk` is added -> attackerScore[newAtk] == +4.
+    function test_addAttackers_inheritsCurrentKarma() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, address(0));
+
+        // 5 upvoters, 1 downvoter -> net +4
+        for (uint256 i; i < 5; ++i) {
+            address voter = address(uint160(0xC100 + i));
+            _whitelist(voter);
+            vm.prank(voter);
+            reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        }
+        address downer = address(uint160(0xC200));
+        _whitelist(downer);
+        vm.prank(downer);
+        reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+
+        // baseline: bob has karma == +4
+        assertEq(reg.attackerScore(bob), 4);
+
+        address newAtk = makeAddr("newAtk");
+        address[] memory adds = new address[](1);
+        adds[0] = newAtk;
+
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+
+        // newAtk inherits exactly the current net karma
+        assertEq(reg.attackerScore(newAtk), 4);
+        // and existing attacker karma is untouched
+        assertEq(reg.attackerScore(bob), 4);
+    }
+
+    /// Net negative case: post with 1 up, 3 down -> net -2; new attacker
+    /// inherits -2 (signed math).
+    function test_addAttackers_inheritsCurrentKarmaWithMixedVotes() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, address(0));
+
+        address u1 = address(uint160(0xC301));
+        _whitelist(u1);
+        vm.prank(u1);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+
+        for (uint256 i; i < 3; ++i) {
+            address d = address(uint160(0xC400 + i));
+            _whitelist(d);
+            vm.prank(d);
+            reg.vote(id, ThatsRekt.VoteDirection.Downvote);
+        }
+
+        assertEq(reg.attackerScore(bob), -2);
+
+        address newAtk = makeAddr("newAtkNeg");
+        address[] memory adds = new address[](1);
+        adds[0] = newAtk;
+
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+
+        assertEq(reg.attackerScore(newAtk), -2);
+    }
+
+    /// After addition, a new attacker moves in lockstep with the existing
+    /// attackers — subsequent votes update both uniformly.
+    function test_addAttackers_subsequentVotesAffectNewAttacker() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, address(0));
+
+        // 3 upvoters -> net +3
+        for (uint256 i; i < 3; ++i) {
+            address voter = address(uint160(0xC500 + i));
+            _whitelist(voter);
+            vm.prank(voter);
+            reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        }
+        assertEq(reg.attackerScore(bob), 3);
+
+        address newAtk = makeAddr("newAtkLockstep");
+        address[] memory adds = new address[](1);
+        adds[0] = newAtk;
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+
+        assertEq(reg.attackerScore(newAtk), 3);
+
+        // one more upvote -> both move to 4
+        address late = address(uint160(0xC600));
+        _whitelist(late);
+        vm.prank(late);
+        reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+
+        assertEq(reg.attackerScore(bob), 4);
+        assertEq(reg.attackerScore(newAtk), 4);
+    }
+
+    /*------------------ addVictims: happy paths ------------------*/
+
+    function test_addVictims_posterCanAdd() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, address(0), bob);
+        address newVic = makeAddr("newVic");
+
+        vm.warp(block.timestamp + 1 hours);
+
+        address[] memory adds = new address[](1);
+        adds[0] = newVic;
+
+        assertFalse(reg.isVictim(newVic));
+
+        vm.expectEmit(true, true, false, true);
+        emit ThatsRekt.VictimsAdded(id, alice, adds);
+
+        vm.prank(alice);
+        reg.addVictims(id, adds);
+
+        (, , , , , , address[] memory victims, uint64 lastUpdatedAt) = reg.getPost(id);
+        assertEq(victims.length, 2);
+        assertEq(victims[0], bob);
+        assertEq(victims[1], newVic);
+        assertTrue(reg.isVictim(newVic));
+        assertEq(lastUpdatedAt, uint64(block.timestamp));
+    }
+
+    function test_addVictims_batchOf3() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, address(0), bob);
+
+        address v1 = makeAddr("vic1");
+        address v2 = makeAddr("vic2");
+        address v3 = makeAddr("vic3");
+
+        address[] memory adds = new address[](3);
+        adds[0] = v1; adds[1] = v2; adds[2] = v3;
+
+        vm.prank(alice);
+        reg.addVictims(id, adds);
+
+        (, , , , , , address[] memory victims, ) = reg.getPost(id);
+        assertEq(victims.length, 4);
+        assertTrue(reg.isVictim(v1));
+        assertTrue(reg.isVictim(v2));
+        assertTrue(reg.isVictim(v3));
+    }
+
+    /*------------------ addAttackers: revert paths ------------------*/
+
+    function test_addAttackers_revertsForNonPoster() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, carol, address(0));
+
+        address[] memory adds = new address[](1);
+        adds[0] = makeAddr("x");
+
+        vm.expectRevert(ThatsRekt.NotPoster.selector);
+        vm.prank(bob);
+        reg.addAttackers(id, adds);
+    }
+
+    function test_addAttackers_revertsForNonWhitelisted() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, carol, address(0));
+
+        // alice is the poster but loses whitelist -> NotWhitelisted fires first
+        vm.prank(governance);
+        reg.removeWhitelisted(alice);
+
+        address[] memory adds = new address[](1);
+        adds[0] = makeAddr("x");
+
+        vm.expectRevert(ThatsRekt.NotWhitelisted.selector);
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+    }
+
+    function test_addAttackers_revertsOnRemovedPost() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, carol, address(0));
+
+        vm.prank(alice);
+        reg.retract(id);
+
+        address[] memory adds = new address[](1);
+        adds[0] = makeAddr("x");
+
+        vm.expectRevert(ThatsRekt.PostIsRemoved.selector);
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+    }
+
+    function test_addAttackers_revertsOnNonExistentPost() public {
+        _whitelist(alice);
+
+        address[] memory adds = new address[](1);
+        adds[0] = makeAddr("x");
+
+        vm.expectRevert(ThatsRekt.PostNotFound.selector);
+        vm.prank(alice);
+        reg.addAttackers(99, adds);
+    }
+
+    function test_addAttackers_revertsOnEmptyArray() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, address(0));
+        address[] memory adds = new address[](0);
+
+        vm.expectRevert(ThatsRekt.EmptyAdditions.selector);
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+    }
+
+    function test_addAttackers_revertsOnDuplicateInExistingAttackers() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, address(0));
+
+        address[] memory adds = new address[](1);
+        adds[0] = bob; // already in attackers
+
+        vm.expectRevert(ThatsRekt.DuplicateAddress.selector);
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+    }
+
+    function test_addAttackers_revertsOnDuplicateInVictims() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, carol); // carol is a victim
+
+        address[] memory adds = new address[](1);
+        adds[0] = carol; // already in victims of same post
+
+        vm.expectRevert(ThatsRekt.DuplicateAddress.selector);
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+    }
+
+    function test_addAttackers_revertsOnDuplicateInBatch() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, address(0));
+
+        address dup = makeAddr("dupAtk");
+        address[] memory adds = new address[](2);
+        adds[0] = dup;
+        adds[1] = dup;
+
+        vm.expectRevert(ThatsRekt.DuplicateAddress.selector);
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+    }
+
+    function test_addAttackers_revertsOnZeroAddress() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, address(0));
+
+        address[] memory adds = new address[](1);
+        adds[0] = address(0);
+
+        vm.expectRevert(ThatsRekt.ZeroAddress.selector);
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+    }
+
+    /// Post is at 99 attackers; adding 2 must revert (would land at 101 > cap).
+    function test_addAttackers_revertsOnCapBreached() public {
+        _whitelist(alice);
+
+        // initial post with 99 distinct attackers
+        address[] memory atk = new address[](99);
+        for (uint256 i; i < 99; ++i) atk[i] = address(uint160(0xD000 + i));
+        address[] memory vic = new address[](0);
+        vm.prank(alice);
+        uint256 id = reg.post(atk, vic, "", uint64(block.timestamp));
+
+        // add 2 more -> would push to 101 attackers -> reverts
+        address[] memory adds = new address[](2);
+        adds[0] = address(uint160(0xD0FF));
+        adds[1] = address(uint160(0xD100));
+
+        vm.expectRevert(ThatsRekt.PostTooLarge.selector);
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+    }
+
+    /// Mixed-array cap check: 50 attackers + 50 victims = cap; one more
+    /// attacker must revert.
+    function test_addAttackers_revertsOnCapBreachedAcrossBothArrays() public {
+        _whitelist(alice);
+
+        address[] memory atk = new address[](50);
+        for (uint256 i; i < 50; ++i) atk[i] = address(uint160(0xD200 + i));
+        address[] memory vic = new address[](50);
+        for (uint256 i; i < 50; ++i) vic[i] = address(uint160(0xD300 + i));
+
+        vm.prank(alice);
+        uint256 id = reg.post(atk, vic, "", uint64(block.timestamp));
+
+        address[] memory adds = new address[](1);
+        adds[0] = address(uint160(0xD3FF));
+
+        vm.expectRevert(ThatsRekt.PostTooLarge.selector);
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+    }
+
+    /*------------------ addVictims: revert paths ------------------*/
+
+    function test_addVictims_revertsForNonPoster() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        uint256 id = _post(alice, address(0), carol);
+
+        address[] memory adds = new address[](1);
+        adds[0] = makeAddr("x");
+
+        vm.expectRevert(ThatsRekt.NotPoster.selector);
+        vm.prank(bob);
+        reg.addVictims(id, adds);
+    }
+
+    function test_addVictims_revertsForNonWhitelisted() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, address(0), carol);
+
+        vm.prank(governance);
+        reg.removeWhitelisted(alice);
+
+        address[] memory adds = new address[](1);
+        adds[0] = makeAddr("x");
+
+        vm.expectRevert(ThatsRekt.NotWhitelisted.selector);
+        vm.prank(alice);
+        reg.addVictims(id, adds);
+    }
+
+    function test_addVictims_revertsOnRemovedPost() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, address(0), carol);
+
+        vm.prank(alice);
+        reg.retract(id);
+
+        address[] memory adds = new address[](1);
+        adds[0] = makeAddr("x");
+
+        vm.expectRevert(ThatsRekt.PostIsRemoved.selector);
+        vm.prank(alice);
+        reg.addVictims(id, adds);
+    }
+
+    function test_addVictims_revertsOnNonExistentPost() public {
+        _whitelist(alice);
+
+        address[] memory adds = new address[](1);
+        adds[0] = makeAddr("x");
+
+        vm.expectRevert(ThatsRekt.PostNotFound.selector);
+        vm.prank(alice);
+        reg.addVictims(99, adds);
+    }
+
+    function test_addVictims_revertsOnEmptyArray() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, address(0), bob);
+        address[] memory adds = new address[](0);
+
+        vm.expectRevert(ThatsRekt.EmptyAdditions.selector);
+        vm.prank(alice);
+        reg.addVictims(id, adds);
+    }
+
+    function test_addVictims_revertsOnDuplicateInExistingVictims() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, address(0), bob);
+
+        address[] memory adds = new address[](1);
+        adds[0] = bob;
+
+        vm.expectRevert(ThatsRekt.DuplicateAddress.selector);
+        vm.prank(alice);
+        reg.addVictims(id, adds);
+    }
+
+    function test_addVictims_revertsOnDuplicateInAttackers() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, carol); // bob attacker, carol victim
+
+        address[] memory adds = new address[](1);
+        adds[0] = bob; // already in attackers of same post
+
+        vm.expectRevert(ThatsRekt.DuplicateAddress.selector);
+        vm.prank(alice);
+        reg.addVictims(id, adds);
+    }
+
+    function test_addVictims_revertsOnDuplicateInBatch() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, address(0), bob);
+
+        address dup = makeAddr("dupVic");
+        address[] memory adds = new address[](2);
+        adds[0] = dup;
+        adds[1] = dup;
+
+        vm.expectRevert(ThatsRekt.DuplicateAddress.selector);
+        vm.prank(alice);
+        reg.addVictims(id, adds);
+    }
+
+    function test_addVictims_revertsOnZeroAddress() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, address(0), bob);
+
+        address[] memory adds = new address[](1);
+        adds[0] = address(0);
+
+        vm.expectRevert(ThatsRekt.ZeroAddress.selector);
+        vm.prank(alice);
+        reg.addVictims(id, adds);
+    }
+
+    function test_addVictims_revertsOnCapBreached() public {
+        _whitelist(alice);
+
+        address[] memory atk = new address[](0);
+        address[] memory vic = new address[](99);
+        for (uint256 i; i < 99; ++i) vic[i] = address(uint160(0xD500 + i));
+        vm.prank(alice);
+        uint256 id = reg.post(atk, vic, "", uint64(block.timestamp));
+
+        address[] memory adds = new address[](2);
+        adds[0] = address(uint160(0xD5FF));
+        adds[1] = address(uint160(0xD600));
+
+        vm.expectRevert(ThatsRekt.PostTooLarge.selector);
+        vm.prank(alice);
+        reg.addVictims(id, adds);
+    }
+
+    /*------------------ state-sanity: victim liveness ------------------*/
+
+    function test_addVictims_makesAddressVictim() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, address(0));
+
+        address newVic = makeAddr("freshVic");
+        assertFalse(reg.isVictim(newVic));
+
+        address[] memory adds = new address[](1);
+        adds[0] = newVic;
+
+        vm.prank(alice);
+        reg.addVictims(id, adds);
+
+        assertTrue(reg.isVictim(newVic));
+    }
+
+    /// Adding then retracting clears isVictim back to false (consistent
+    /// with v0 retract semantics — _victimActivePosts goes 1 -> 0).
+    function test_addVictims_isVictimGoesFalseWhenPostRetracted() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, address(0));
+
+        address newVic = makeAddr("freshVic2");
+        address[] memory adds = new address[](1);
+        adds[0] = newVic;
+
+        vm.prank(alice);
+        reg.addVictims(id, adds);
+        assertTrue(reg.isVictim(newVic));
+
+        vm.prank(alice);
+        reg.retract(id);
+
+        assertFalse(reg.isVictim(newVic));
+    }
+
+    /// Retracting after addAttackers reverses the inherited karma —
+    /// the new attacker's score returns to 0 net.
+    function test_addAttackers_retractReversesInheritedKarma() public {
+        _whitelist(alice);
+        uint256 id = _post(alice, bob, address(0));
+
+        // build net +2 on the post
+        address u1 = address(uint160(0xC700));
+        address u2 = address(uint160(0xC701));
+        _whitelist(u1); _whitelist(u2);
+        vm.prank(u1); reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+        vm.prank(u2); reg.vote(id, ThatsRekt.VoteDirection.Upvote);
+
+        address newAtk = makeAddr("retractMe");
+        address[] memory adds = new address[](1);
+        adds[0] = newAtk;
+        vm.prank(alice);
+        reg.addAttackers(id, adds);
+        assertEq(reg.attackerScore(newAtk), 2);
+        assertEq(reg.attackerAppearances(newAtk), 1);
+
+        vm.prank(alice);
+        reg.retract(id);
+
+        // _removePost subtracts net (+2) from each attacker and decs appearances
+        assertEq(reg.attackerScore(newAtk), 0);
+        assertEq(reg.attackerAppearances(newAtk), 0);
+    }
 }
