@@ -28,10 +28,16 @@ export class Post {
     attackedAt!: Date
 
     /**
-     * updated on amendNote / addAttackers / addVictims; mirrors on-chain field
+     * updated on amendTitle / amendNote / addAttackers / addVictims; mirrors on-chain field
      */
     @DateTimeColumn_({nullable: false})
     lastUpdatedAt!: Date
+
+    /**
+     * current title — required at post(), updatable via amendTitle()
+     */
+    @StringColumn_({nullable: false})
+    title!: string
 
     /**
      * latest note text — historical edits captured in Edit entities

@@ -33,6 +33,14 @@ contract ThatsRekt is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     ///      chain — even at the max-size 100/100 boundary the cost is bounded.
     uint256 public constant MAX_ADDRESSES_PER_POST = 100;
 
+    /// @notice Hard cap on a post's title length, in bytes.
+    /// @dev    UTF-8 byte count, not character count — a string of e.g.
+    ///         emoji will hit the cap sooner than a string of ASCII.
+    ///         Sized to keep titles headline-shaped (≈40-50 chars of
+    ///         English plus headroom for non-ASCII). Title is required;
+    ///         see `post()` and `amendTitle()`.
+    uint256 public constant MAX_TITLE_LENGTH = 200;
+
     /// @notice Pagination cap for view helpers (eth_call gas budget).
     uint256 public constant MAX_VIEW_LIMIT = 100;
 
@@ -113,6 +121,7 @@ contract ThatsRekt is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
         uint256 indexed id,
         address indexed poster,
         uint64          attackedAt,
+        string          title,
         address[]       attackers,
         address[]       victims,
         string          note
@@ -137,6 +146,13 @@ contract ThatsRekt is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     ///         params: it is implicitly equal to `block.timestamp` of the
     ///         emit, so duplicating it would be dead weight for indexers.
     event PostNoteAmended(uint256 indexed postId, address indexed amender, string newNote);
+
+    /// @notice Emitted when the poster amends a post's title.
+    /// @dev    Title IS in storage (`_postTitles[postId]`) — it is a
+    ///         required headline integrators may want to read on-chain,
+    ///         distinct from the longer-form `note` which only lives in
+    ///         events. `lastUpdatedAt` is bumped as a side effect.
+    event PostTitleAmended(uint256 indexed postId, address indexed amender, string newTitle);
 
     /// @notice Emitted when the poster appends new attackers to a post.
     /// @dev    `lastUpdatedAt` is omitted (deducible from `block.timestamp`).
@@ -164,6 +180,8 @@ contract ThatsRekt is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     error EmptyAdditions();
     error DuplicateAddress();
     error ZeroAddress();
+    error TitleEmpty();
+    error TitleTooLong();
 
     /*//////////////////////////////////////////////////////////////
                           CONSTRUCTOR / INITIALIZER
@@ -249,17 +267,26 @@ contract ThatsRekt is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     ///                   latency useful for operator reputation tracking
     ///                   and integrator signals.
     function post(
+        string   calldata title,
         address[] calldata attackers_,
         address[] calldata victims_,
         string   calldata note,
         uint64            attackedAt
     ) external onlyWhitelisted returns (uint256 id) {
+        // Title is required and bounded — see MAX_TITLE_LENGTH.
+        uint256 titleLen = bytes(title).length;
+        if (titleLen == 0)                          revert TitleEmpty();
+        if (titleLen > MAX_TITLE_LENGTH)            revert TitleTooLong();
+
         if (attackedAt == 0)                        revert InvalidAttackedAt();
         if (attackedAt > uint64(block.timestamp))   revert InvalidAttackedAt();
 
         uint256 totalAddrs = attackers_.length + victims_.length;
         if (totalAddrs > MAX_ADDRESSES_PER_POST) revert PostTooLarge();
-        if (totalAddrs == 0 && bytes(note).length == 0) revert EmptyPost();
+        // Title is required, so a post is never "empty" in v1.1 — but the
+        // intent of `EmptyPost` was to forbid zero-content posts. With
+        // title required, a post with no addresses and no note is still a
+        // pure-headline alert, which is acceptable. Drop the legacy check.
 
         unchecked { id = ++postCount; }
 
@@ -267,6 +294,9 @@ contract ThatsRekt is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
         p.poster        = msg.sender;
         p.attackedAt    = attackedAt;
         p.lastUpdatedAt = uint64(block.timestamp);
+
+        // Title goes in storage so it's readable on-chain without an indexer.
+        postTitle[id] = title;
 
         uint256 aLen = attackers_.length;
         for (uint256 i; i < aLen; ++i) {
@@ -283,7 +313,7 @@ contract ThatsRekt is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
 
         _insertActiveTail(id);
 
-        emit PostCreated(id, msg.sender, attackedAt, attackers_, victims_, note);
+        emit PostCreated(id, msg.sender, attackedAt, title, attackers_, victims_, note);
     }
 
     function _insertActiveTail(uint256 id) internal {
@@ -466,6 +496,28 @@ contract ThatsRekt is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
         p.lastUpdatedAt = uint64(block.timestamp);
 
         emit PostNoteAmended(postId, msg.sender, newNote);
+    }
+
+    /// @notice Update the title of an existing post. Poster only, not
+    ///         allowed once the post is removed.
+    /// @dev    Title remains required — empty strings are rejected even
+    ///         on amendment. Length cap matches `post()`.
+    /// @param postId   Target post id (must exist and be live).
+    /// @param newTitle New title (required, ≤ MAX_TITLE_LENGTH bytes).
+    function amendTitle(uint256 postId, string calldata newTitle) external onlyWhitelisted {
+        Post storage p = _posts[postId];
+        if (p.poster == address(0))   revert PostNotFound();
+        if (p.poster != msg.sender)   revert NotPoster();
+        if (p.removed)                revert PostIsRemoved();
+
+        uint256 titleLen = bytes(newTitle).length;
+        if (titleLen == 0)            revert TitleEmpty();
+        if (titleLen > MAX_TITLE_LENGTH) revert TitleTooLong();
+
+        postTitle[postId] = newTitle;
+        p.lastUpdatedAt = uint64(block.timestamp);
+
+        emit PostTitleAmended(postId, msg.sender, newTitle);
     }
 
     /// @notice Append new attackers to an existing post. Additive only —
@@ -683,15 +735,28 @@ contract ThatsRekt is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     }
 
     /*//////////////////////////////////////////////////////////////
+                            v1.1 STORAGE
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Per-post title — required, max length `MAX_TITLE_LENGTH`
+    ///         bytes, set on creation, mutable via `amendTitle()`.
+    /// @dev    Stored on-chain (unlike `note`, which lives only in events)
+    ///         so integrators can read titles without an indexer. Empty
+    ///         string is rejected on `post()` and `amendTitle()`.
+    /// @custom:storage-location v1.1
+    mapping(uint256 => string) public postTitle;
+
+    /*//////////////////////////////////////////////////////////////
                             STORAGE GAP
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Reserved for future upgrades. When adding new state variables
     ///      in a future implementation, append them above this line and
-    ///      shrink the gap by the number of slots consumed (e.g. add one
-    ///      `uint256` field -> reduce the gap to `[49]`). The OZ inherited
-    ///      contracts (Ownable, Ownable2Step, UUPS) use ERC-7201 namespaced
-    ///      storage internally, so they do not collide with this sequential
-    ///      layout.
-    uint256[50] private __gap;
+    ///      shrink the gap by the number of slots consumed. The OZ
+    ///      inherited contracts (Ownable, Ownable2Step, UUPS) use
+    ///      ERC-7201 namespaced storage internally, so they do not
+    ///      collide with this sequential layout.
+    ///      v1.0 gap was [50]; v1.1 added `postTitle` (1 slot for the
+    ///      mapping reference), so the gap is [49].
+    uint256[49] private __gap;
 }

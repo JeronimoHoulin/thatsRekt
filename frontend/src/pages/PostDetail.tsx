@@ -90,7 +90,7 @@ export function PostDetail() {
         </div>
 
         <h1 className="font-black tracking-tight text-3xl sm:text-4xl leading-tight text-neutral-900 whitespace-pre-wrap break-words">
-          {data.note?.trim() || '(no note attached)'}
+          {data.title?.trim() || '(untitled)'}
         </h1>
 
         <dl className="grid grid-cols-1 gap-1 text-xs uppercase tracking-widest text-neutral-700 sm:grid-cols-2">
@@ -110,6 +110,15 @@ export function PostDetail() {
           )}
         </dl>
       </header>
+
+      {data.note?.trim() && (
+        <section>
+          <SectionLabel>note</SectionLabel>
+          <p className="mt-3 text-base leading-relaxed text-neutral-800 whitespace-pre-wrap break-words">
+            {data.note}
+          </p>
+        </section>
+      )}
 
       <section>
         <SectionLabel>

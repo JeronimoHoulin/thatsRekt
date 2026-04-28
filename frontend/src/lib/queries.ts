@@ -7,7 +7,7 @@ export const IS_MOCK_MODE = USE_MOCK
 // ---- shared types (mirror schema.graphql) ----
 
 export type VoteDirection = 'None' | 'Upvote' | 'Downvote'
-export type EditKind = 'AmendNote' | 'AddAttackers' | 'AddVictims'
+export type EditKind = 'AmendNote' | 'AmendTitle' | 'AddAttackers' | 'AddVictims'
 
 export interface AddressEntity {
   id: string
@@ -35,6 +35,9 @@ export interface FeedPost {
   chain?: ChainInfo
   poster: { id: string }
   attackedAt: string
+  /** Required headline (set on post(), updatable via amendTitle()). */
+  title: string
+  /** Free-form body — optional. */
   note: string
   upvotes: number
   downvotes: number
@@ -57,6 +60,7 @@ export interface EditEntity {
   id: string
   kind: EditKind
   newNote: string | null
+  newTitle: string | null
   addedAttackers: string[] | null
   addedVictims: string[] | null
   blockNumber: number
@@ -68,6 +72,7 @@ export interface PostDetail {
   poster: { id: string }
   attackedAt: string
   lastUpdatedAt: string
+  title: string
   note: string
   upvotes: number
   downvotes: number
@@ -104,6 +109,7 @@ const FEED_QUERY = /* GraphQL */ `
         chain { chainId slug name }
         poster
         attackedAt
+        title
         note
         upvotes
         downvotes
@@ -133,6 +139,7 @@ interface MeshUnifiedPost {
   chain: ChainInfo
   poster: string
   attackedAt: string
+  title: string
   note: string
   upvotes: number
   downvotes: number
@@ -161,6 +168,7 @@ const buildPostDetailQuery = (prefix: string): string => /* GraphQL */ `
       poster { id }
       attackedAt
       lastUpdatedAt
+      title
       note
       upvotes
       downvotes
@@ -191,6 +199,7 @@ const buildPostDetailQuery = (prefix: string): string => /* GraphQL */ `
         id
         kind
         newNote
+        newTitle
         addedAttackers
         addedVictims
         blockNumber
@@ -265,6 +274,7 @@ const adaptMeshPostToFeedPost = (p: MeshUnifiedPost): FeedPost => ({
   chain: p.chain,
   poster: { id: p.poster },
   attackedAt: p.attackedAt,
+  title: p.title,
   note: p.note,
   upvotes: p.upvotes,
   downvotes: p.downvotes,

@@ -64,11 +64,12 @@ const e = (
   kind: EditKind,
   blockNumber: number,
   timestamp: string,
-  payload: Partial<Pick<EditEntity, 'newNote' | 'addedAttackers' | 'addedVictims'>> = {},
+  payload: Partial<Pick<EditEntity, 'newNote' | 'newTitle' | 'addedAttackers' | 'addedVictims'>> = {},
 ): EditEntity => ({
   id,
   kind,
   newNote: payload.newNote ?? null,
+  newTitle: payload.newTitle ?? null,
   addedAttackers: payload.addedAttackers ?? null,
   addedVictims: payload.addedVictims ?? null,
   blockNumber,
@@ -82,6 +83,7 @@ const POST_42: PostDetail = {
   poster: { id: SLOWMIST },
   attackedAt: iso(NOW - 6 * HOUR),
   lastUpdatedAt: iso(NOW - 1 * HOUR),
+  title: "Bridge exploit on Mochi vault",
   note:
     'Active bridge exploit in progress. Attacker drained ~$4.2M from the bridge contract on Base. Funds are being moved through ETH bridge — flagging the attacker EOA + downstream laundering addresses. Full thread incoming on our channel.',
   upvotes: 4,
@@ -119,6 +121,7 @@ const POST_41: PostDetail = {
   poster: { id: BLOCKSEC },
   attackedAt: iso(NOW - 30 * HOUR),
   lastUpdatedAt: iso(NOW - 28 * HOUR),
+  title: "Drainer detected on Aave v3",
   note:
     'Flash-loan based price manipulation against the lending pool. ~$1.1M lost. Attacker used a single tx to manipulate the oracle and liquidate underwater positions at a discount.',
   upvotes: 3,
@@ -143,6 +146,7 @@ const POST_40: PostDetail = {
   poster: { id: PECKSHIELD },
   attackedAt: iso(NOW - 3 * DAY),
   lastUpdatedAt: iso(NOW - 2.5 * DAY),
+  title: "Suspicious withdraw from Compound",
   note:
     'Re-entrancy on a yield vault — checks-effects-interactions ordering bug. Attacker withdrew ~$320k before the team could pause. Pause activated, recovery negotiations ongoing.',
   upvotes: 2,
@@ -173,6 +177,7 @@ const POST_39: PostDetail = {
   poster: { id: HIRYUU },
   attackedAt: iso(NOW - 4 * DAY),
   lastUpdatedAt: iso(NOW - 3.5 * DAY),
+  title: "Fake airdrop phishing wave",
   note:
     'Suspected exit scam from a small farm contract. Attacker drained the LP. Posting for visibility — TVL was modest (~$60k).',
   upvotes: 1,
@@ -198,6 +203,7 @@ const POST_38: PostDetail = {
   poster: { id: NUMEN },
   attackedAt: iso(NOW - 5 * DAY),
   lastUpdatedAt: iso(NOW - 4 * DAY),
+  title: "Retracted: false-positive migration",
   note: 'False alarm — turns out the suspicious tx was a legitimate migration. Retracting.',
   upvotes: 0,
   downvotes: 0,
@@ -217,6 +223,7 @@ const POST_37: PostDetail = {
   poster: { id: SLOWMIST },
   attackedAt: iso(NOW - 30 * 60 * 1000),
   lastUpdatedAt: iso(NOW - 25 * 60 * 1000),
+  title: "Test alert · seed",
   note:
     'Just-detected: anomalous outflow from a stablecoin issuer treasury. Investigating; will update.',
   upvotes: 0,
@@ -240,6 +247,7 @@ const toFeed = (p: PostDetail): FeedPost => ({
   id: p.id,
   poster: p.poster,
   attackedAt: p.attackedAt,
+  title: p.title,
   note: p.note,
   upvotes: p.upvotes,
   downvotes: p.downvotes,

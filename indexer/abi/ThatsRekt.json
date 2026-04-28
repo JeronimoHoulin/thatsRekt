@@ -19,6 +19,19 @@
   },
   {
     "type": "function",
+    "name": "MAX_TITLE_LENGTH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MAX_VIEW_LIMIT",
     "inputs": [],
     "outputs": [
@@ -134,6 +147,24 @@
       },
       {
         "name": "newNote",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "amendTitle",
+    "inputs": [
+      {
+        "name": "postId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "newTitle",
         "type": "string",
         "internalType": "string"
       }
@@ -447,6 +478,11 @@
     "name": "post",
     "inputs": [
       {
+        "name": "title",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
         "name": "attackers_",
         "type": "address[]",
         "internalType": "address[]"
@@ -485,6 +521,25 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "postTitle",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -771,6 +826,12 @@
         "internalType": "uint64"
       },
       {
+        "name": "title",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
         "name": "attackers",
         "type": "address[]",
         "indexed": false,
@@ -831,6 +892,31 @@
         "type": "uint8",
         "indexed": false,
         "internalType": "enum ThatsRekt.RemovalReason"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PostTitleAmended",
+    "inputs": [
+      {
+        "name": "postId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "amender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newTitle",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
       }
     ],
     "anonymous": false
@@ -1050,6 +1136,16 @@
   {
     "type": "error",
     "name": "PosterCannotVote",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TitleEmpty",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TitleTooLong",
     "inputs": []
   },
   {

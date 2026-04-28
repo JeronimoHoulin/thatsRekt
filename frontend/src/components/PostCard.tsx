@@ -6,11 +6,10 @@ import { ChainBadge } from './ChainBadge'
 
 export function PostCard({ post }: { post: FeedPost }) {
   const chainSlug = post.chain?.slug
-  // The contract has no "title" field — the note is the substantive
-  // user-authored content. We display it as the headline directly so the
-  // data lineage is honest. Post id + chain + metadata sit in the strip
-  // below.
-  const headline = post.note?.trim() || '(no note attached)'
+  // v1.1: title is a required on-chain field — it IS the headline.
+  // Note is the longer free-form body; previewed below the title.
+  const headline = post.title?.trim() || '(untitled)'
+  const body = post.note?.trim()
 
   return (
     <article className="space-y-3">
@@ -26,6 +25,12 @@ export function PostCard({ post }: { post: FeedPost }) {
           {headline}
         </h2>
       </Link>
+
+      {body && (
+        <p className="text-sm leading-relaxed text-neutral-700 line-clamp-3">
+          {body}
+        </p>
+      )}
 
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs uppercase tracking-widest text-neutral-700">
         <span className="inline-flex items-center gap-1">

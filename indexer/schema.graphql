@@ -37,8 +37,11 @@ type Post @entity {
   "poster-supplied — block.timestamp of the malicious tx itself"
   attackedAt: DateTime!
 
-  "updated on amendNote / addAttackers / addVictims; mirrors on-chain field"
+  "updated on amendTitle / amendNote / addAttackers / addVictims; mirrors on-chain field"
   lastUpdatedAt: DateTime!
+
+  "current title — required at post(), updatable via amendTitle()"
+  title: String!
 
   "latest note text — historical edits captured in Edit entities"
   note: String!
@@ -152,6 +155,9 @@ type Edit @entity {
   "populated when kind = AmendNote"
   newNote: String
 
+  "populated when kind = AmendTitle"
+  newTitle: String
+
   "populated when kind = AddAttackers — list of newly-added attacker addresses"
   addedAttackers: [String!]
 
@@ -165,6 +171,7 @@ type Edit @entity {
 
 enum EditKind {
   AmendNote
+  AmendTitle
   AddAttackers
   AddVictims
 }

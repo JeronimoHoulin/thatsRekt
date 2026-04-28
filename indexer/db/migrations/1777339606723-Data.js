@@ -1,5 +1,5 @@
-module.exports = class Data1777322644948 {
-    name = 'Data1777322644948'
+module.exports = class Data1777339606723 {
+    name = 'Data1777339606723'
 
     async up(db) {
         await db.query(`CREATE TABLE "post_victim" ("id" character varying NOT NULL, "created_at_block" integer NOT NULL, "post_id" character varying, "address_id" character varying, CONSTRAINT "PK_a91e426ba6050e975aa9a6da553" PRIMARY KEY ("id"))`)
@@ -12,9 +12,9 @@ module.exports = class Data1777322644948 {
         await db.query(`CREATE TABLE "vote" ("id" character varying NOT NULL, "old_direction" character varying(8) NOT NULL, "new_direction" character varying(8) NOT NULL, "block_number" integer NOT NULL, "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, "tx_hash" text NOT NULL, "post_id" character varying, "voter_id" character varying, CONSTRAINT "PK_2d5932d46afe39c8176f9d4be72" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "IDX_b7f5b42bfe9b12e0cf1de3290e" ON "vote" ("post_id") `)
         await db.query(`CREATE INDEX "IDX_f5c90d8438424ec0f044ef945a" ON "vote" ("voter_id") `)
-        await db.query(`CREATE TABLE "edit" ("id" character varying NOT NULL, "kind" character varying(12) NOT NULL, "new_note" text, "added_attackers" text array, "added_victims" text array, "block_number" integer NOT NULL, "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, "tx_hash" text NOT NULL, "post_id" character varying, CONSTRAINT "PK_062a4b68154c101205e4595810d" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "edit" ("id" character varying NOT NULL, "kind" character varying(12) NOT NULL, "new_note" text, "new_title" text, "added_attackers" text array, "added_victims" text array, "block_number" integer NOT NULL, "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, "tx_hash" text NOT NULL, "post_id" character varying, CONSTRAINT "PK_062a4b68154c101205e4595810d" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "IDX_8d773843cb3e251862f8a62f9a" ON "edit" ("post_id") `)
-        await db.query(`CREATE TABLE "post" ("id" character varying NOT NULL, "attacked_at" TIMESTAMP WITH TIME ZONE NOT NULL, "last_updated_at" TIMESTAMP WITH TIME ZONE NOT NULL, "note" text NOT NULL, "upvotes" integer NOT NULL, "downvotes" integer NOT NULL, "net_score" integer NOT NULL, "removed" boolean NOT NULL, "created_at_block" integer NOT NULL, "created_at_timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, "removed_at_block" integer, "removed_at_timestamp" TIMESTAMP WITH TIME ZONE, "poster_id" character varying, CONSTRAINT "PK_be5fda3aac270b134ff9c21cdee" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "post" ("id" character varying NOT NULL, "attacked_at" TIMESTAMP WITH TIME ZONE NOT NULL, "last_updated_at" TIMESTAMP WITH TIME ZONE NOT NULL, "title" text NOT NULL, "note" text NOT NULL, "upvotes" integer NOT NULL, "downvotes" integer NOT NULL, "net_score" integer NOT NULL, "removed" boolean NOT NULL, "created_at_block" integer NOT NULL, "created_at_timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, "removed_at_block" integer, "removed_at_timestamp" TIMESTAMP WITH TIME ZONE, "poster_id" character varying, CONSTRAINT "PK_be5fda3aac270b134ff9c21cdee" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "IDX_9a9e362dbd95ed3d070776e436" ON "post" ("poster_id") `)
         await db.query(`CREATE TABLE "whitelist_change" ("id" character varying NOT NULL, "added" boolean NOT NULL, "block_number" integer NOT NULL, "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, "tx_hash" text NOT NULL, "addr_id" character varying, CONSTRAINT "PK_c3394ea7514bb4a21b8ca6e13f7" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "IDX_d2b535d850a99527c8e73489e7" ON "whitelist_change" ("addr_id") `)

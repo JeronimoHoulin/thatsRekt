@@ -104,6 +104,9 @@ const additionalTypeDefs = /* GraphQL */ `
     chain: ChainInfo!
     poster: String!
     attackedAt: String!
+    """Required headline — set on post(), updatable via amendTitle()."""
+    title: String!
+    """Free-form note body — optional, updatable via amendNote()."""
     note: String!
     netScore: Int!
     upvotes: Int!
@@ -147,6 +150,7 @@ const RawPost = z.object({
   id: z.string(),
   poster: z.object({ id: z.string() }),
   attackedAt: z.string(),       // DateTime / BigInt scalars come over as strings
+  title: z.string(),
   note: z.string(),
   netScore: z.number().int(),
   upvotes: z.number().int(),
@@ -170,6 +174,7 @@ const FETCH_POSTS_QUERY = /* GraphQL */ `
       id
       poster { id }
       attackedAt
+      title
       note
       netScore
       upvotes
@@ -283,6 +288,7 @@ const buildAdditionalResolvers = (chains: readonly ChainEntry[]) => ({
         chain: { chainId: chain.chainId, slug: chain.slug, name: chain.name },
         poster: post.poster.id,
         attackedAt: post.attackedAt,
+        title: post.title,
         note: post.note,
         netScore: post.netScore,
         upvotes: post.upvotes,

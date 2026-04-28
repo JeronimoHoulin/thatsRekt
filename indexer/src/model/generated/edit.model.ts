@@ -28,6 +28,12 @@ export class Edit {
     newNote!: string | undefined | null
 
     /**
+     * populated when kind = AmendTitle
+     */
+    @StringColumn_({nullable: true})
+    newTitle!: string | undefined | null
+
+    /**
      * populated when kind = AddAttackers — list of newly-added attacker addresses
      */
     @StringColumn_({array: true, nullable: true})
