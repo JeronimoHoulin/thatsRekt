@@ -117,15 +117,46 @@ Cross-chain identical addresses require identical init code on every chain. Conc
 forge build
 forge test -vv
 forge test --match-contract ThatsRektInvariants -vv
+```
 
-# Deploy: pass the initial owner via the GOVERNANCE_OWNER env var.
+### Production deploy (mainnet) — `Deploy.s.sol`
+
+```bash
+# GOVERNANCE_OWNER MUST be a deployed contract (Safe multisig).
+# The script asserts code.length > 0 and reverts on EOAs.
 cp .env.example .env  # fill in PRIVATE_KEY, RPC_URL, ETHERSCAN_API_KEY, GOVERNANCE_OWNER
-GOVERNANCE_OWNER=0x...   forge script script/Deploy.s.sol \
+GOVERNANCE_OWNER=0x...<safe>...  forge script script/Deploy.s.sol \
     --rpc-url <chain-rpc> \
     --broadcast \
     --verify \
     -vvvv
 ```
+
+### Dev / testnet deploy — `DeployDev.s.sol`
+
+For local Anvil and testnet (Sepolia) where standing up a Safe is friction. Accepts an EOA as `GOVERNANCE_OWNER` and uses **distinct CREATE2 salts** (`thatsRekt.impl.dev.v1.0.0`, `thatsRekt.timelock.dev.v1`, `thatsRekt.proxy.dev`) so dev deploys can never collide with production addresses.
+
+The recommended dev EOA is **Anvil default account 0** (`0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`, mnemonic: `test test test test test test test test test test test junk`). Reproducible across machines, no secret to manage. Same EOA on Anvil + Sepolia ⇒ **identical thatsRekt address on both** — convenient for parity testing. **Never use this on mainnet.**
+
+```bash
+# Sepolia deploy
+ANVIL_DEFAULT_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+forge script script/DeployDev.s.sol \
+    --rpc-url https://lb.routeme.sh/rpc/11155111/<routeme-key> \
+    --private-key $ANVIL_DEFAULT_KEY \
+    --broadcast \
+    --verify \
+    -vvvv \
+    --sig 'run()' \
+    --slow              # space txs for testnet RPC stability
+GOVERNANCE_OWNER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+```
+
+(Set `GOVERNANCE_OWNER` in env before invoking, or use `--sig 'deploy(address)' 0xf39Fd6...` to bypass env reading entirely.)
+
+**Output:** the script logs the deployed proxy address and current block number. Copy them into `indexer/.env` as `CONTRACT_SEPOLIA` / `START_BLOCK_SEPOLIA` (or the equivalent for whichever chain).
+
+The dev deploy uses the same upgrade flow as production (proxy owned by timelock, 7-day delay). To exercise upgrades on Anvil, advance time with `evm_increaseTime` rather than shortening the delay — keeps testnet behavior matching mainnet.
 
 ## Spec + design history
 
