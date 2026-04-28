@@ -138,6 +138,9 @@ function EditRow({ edit }: { edit: EditEntity }) {
       {edit.kind === 'AmendNote' && edit.newNote != null && (
         <p className="text-sm leading-relaxed text-neutral-800">{edit.newNote}</p>
       )}
+      {edit.kind === 'AmendTitle' && edit.newTitle != null && (
+        <p className="text-sm font-black leading-relaxed text-neutral-800">{edit.newTitle}</p>
+      )}
       {edit.kind === 'AddAttackers' && edit.addedAttackers && (
         <ul className="space-y-0.5 text-xs font-mono">
           {edit.addedAttackers.map((a) => (
@@ -181,6 +184,8 @@ function describeEditKind(kind: EditEntity['kind']): string {
   switch (kind) {
     case 'AmendNote':
       return 'note amended'
+    case 'AmendTitle':
+      return 'title amended'
     case 'AddAttackers':
       return 'attackers added'
     case 'AddVictims':

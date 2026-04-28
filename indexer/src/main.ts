@@ -182,6 +182,7 @@ async function handlePostCreated(ctx: Ctx, caches: Caches, log: Log): Promise<vo
     poster,
     attackedAt: new Date(Number(e.attackedAt) * 1000),
     lastUpdatedAt: ts,
+    title: e.title,
     note: e.note,
     upvotes: 0,
     downvotes: 0,
@@ -325,6 +326,37 @@ async function handlePostNoteAmended(
       post,
       kind: EditKind.AmendNote,
       newNote: e.newNote,
+      blockNumber: block.height,
+      timestamp: ts,
+      txHash: log.transactionHash,
+    }),
+  )
+}
+
+async function handlePostTitleAmended(
+  ctx: Ctx,
+  caches: Caches,
+  log: Log,
+): Promise<void> {
+  const e = events.PostTitleAmended.decode(log)
+  const postId = e.postId.toString()
+  const block = log.block
+  const ts = new Date(block.timestamp)
+
+  const post = await getOrCreatePost(ctx, caches, postId)
+  if (!post) {
+    ctx.log.warn(`PostTitleAmended references unknown postId=${postId}; skipping`)
+    return
+  }
+  post.title = e.newTitle
+  post.lastUpdatedAt = ts
+
+  caches.edits.push(
+    new Edit({
+      id: eventId(log),
+      post,
+      kind: EditKind.AmendTitle,
+      newTitle: e.newTitle,
       blockNumber: block.height,
       timestamp: ts,
       txHash: log.transactionHash,
@@ -492,6 +524,9 @@ processor.run(new TypeormDatabase({ supportHotBlocks: true }), async (ctx) => {
           break
         case events.PostNoteAmended.topic:
           await handlePostNoteAmended(ctx, caches, log)
+          break
+        case events.PostTitleAmended.topic:
+          await handlePostTitleAmended(ctx, caches, log)
           break
         case events.AttackersAdded.topic:
           await handleAttackersAdded(ctx, caches, log)
