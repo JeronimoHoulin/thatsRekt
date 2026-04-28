@@ -122,27 +122,26 @@ clean: ## Tear down the stack and wipe pgdata
 	rm -f /tmp/thatsrekt-relay-eoa.{addr,key} $(RELAY_TOKEN) $(NGROK_URL)
 
 # =============================================================================
-# Detector pipeline
+# Relay (optional, single-tenant per deployment)
 # =============================================================================
-# The relay is DAMM-internal (single-tenant). There are two flows:
+# The relay is the webhook-driven submission path for whitelisted posters
+# whose detection pipeline lives off-chain (e.g. an AI workflow tool).
+# Code is generic — operators bring their own EOA + bearer token.
 #
-# ── LOCAL DEV (no Otomato, no ngrok) ──
-#   1. make lan-up               — db, anvils, indexer, mesh, frontend
-#   2. make anvil-bootstrap      — deploy thatsRekt to anvil-eth + anvil-base
-#   3. make relay-up             — boot the Go relay (whitelists EOA, gen token)
-#   4. make detector-mock        — fire ONE fake detection at the local relay
-#                                  (override args via MOCK_ARGS="--protocol Lido")
+# Local-dev flow:
+#   1. make lan-up           — db, anvils, indexer, mesh, frontend
+#   2. make anvil-bootstrap  — deploy thatsRekt to anvil-eth + anvil-base
+#   3. make relay-up         — boot the Go relay (whitelists EOA, gen token)
+#   4. make relay-smoke      — synthetic POST at /detect → on-chain (asserts
+#                              ack + postCount increment + idempotency replay)
 #
-# ── PROD-LIKE (real Otomato workflow over ngrok) ──
-#   Same steps 1–3, then:
-#   4. make detector-up          — adds ngrok + writes detector/.env
-#   5. set OTOMATO_API_KEY in detector/.env
-#   6. cd detector && npm run deploy
-#   7. tweet from a monitored X account → on-chain post
+# To wire an upstream detection service that POSTs over public DNS, run
+# ngrok yourself (the Makefile no longer manages it — it was tied to a
+# specific operator's workflow).
 #
 # Teardown:
-#   make detector-down   (stops relay + ngrok)
-#   make clean           (full nuke including pgdata)
+#   make relay-down  (stops relay)
+#   make clean       (full nuke including pgdata)
 # =============================================================================
 
 .PHONY: relay-up
@@ -162,61 +161,6 @@ relay-down: ## Stop the relay
 relay-logs: ## Tail the relay log
 	@tail -f $(RELAY_LOG)
 
-.PHONY: ngrok-up
-ngrok-up: ## Start ngrok tunnel pointed at the relay
-	@echo "==> Starting ngrok"
-	@$(SCRIPTS)/start-ngrok.sh
-
-.PHONY: ngrok-down
-ngrok-down: ## Stop ngrok
-	@if [ -f $(NGROK_PID) ]; then \
-		kill $$(cat $(NGROK_PID)) 2>/dev/null || true; \
-		rm -f $(NGROK_PID); \
-		echo "==> Ngrok stopped"; \
-	fi
-
-.PHONY: ngrok-url
-ngrok-url: ## Print the current ngrok public URL
-	@if [ -f $(NGROK_URL) ]; then cat $(NGROK_URL); echo; fi
-
-.PHONY: detector-env
-detector-env: ## (Re-)write detector/.env from current relay + ngrok state
-	@echo "==> Writing detector/.env"
-	@$(SCRIPTS)/write-detector-env.sh
-
-.PHONY: detector-up
-detector-up: ## (PROD-like) Boot the Otomato bridge: relay + ngrok + detector/.env. For LOCAL DEV use `make relay-up && make detector-mock` instead.
-	@$(MAKE) -s relay-up
-	@$(MAKE) -s ngrok-up
-	@$(MAKE) -s detector-env
-	@echo ""
-	@echo "═══════════════════════════════════════════════════════════════"
-	@echo "  Otomato bridge ready (relay + ngrok + detector/.env)."
-	@echo ""
-	@echo "  This path is for testing the REAL Otomato workflow against"
-	@echo "  the local stack. For local-only dev (no Otomato), use:"
-	@echo "    make detector-mock  (fires a fake detection — no ngrok needed)"
-	@echo ""
-	@echo "  To ship the workflow to Otomato:"
-	@echo "    set OTOMATO_API_KEY in $(DETECTOR)/.env"
-	@echo "    cd $(DETECTOR) && npm install && npm run deploy"
-	@echo ""
-	@echo "  Tail logs: make relay-logs"
-	@echo "  Tear down: make detector-down"
-	@echo "═══════════════════════════════════════════════════════════════"
-
-.PHONY: detector-down
-detector-down: ## Stop relay + ngrok (leaves indexer + frontend running)
-	@$(MAKE) -s relay-down ngrok-down
-
-.PHONY: detector-deploy
-detector-deploy: ## Run `npm run deploy` from the detector dir (requires OTOMATO_API_KEY)
-	@cd $(DETECTOR) && npm run deploy
-
-.PHONY: detector-smoke
-detector-smoke: ## End-to-end smoke test (curl /detect → on-chain post) — requires lan-up + anvil-bootstrap + detector-up
-	@$(SCRIPTS)/smoke-test-detector.sh
-
-.PHONY: detector-mock
-detector-mock: ## Fire ONE fake detection at the local relay (for dev). No Otomato, no ngrok needed. Pass args via MOCK_ARGS, e.g. `make detector-mock MOCK_ARGS="--protocol Lido"`
-	@cd $(DETECTOR) && npm run --silent mock -- $(MOCK_ARGS)
+.PHONY: relay-smoke
+relay-smoke: ## End-to-end smoke test (curl /detect → on-chain post) — requires lan-up + anvil-bootstrap + relay-up
+	@$(SCRIPTS)/smoke-test-relay.sh

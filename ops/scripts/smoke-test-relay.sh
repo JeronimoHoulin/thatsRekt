@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # =============================================================================
-# End-to-end smoke test for the detector → relay → on-chain pipeline.
+# End-to-end smoke test for the relay → on-chain submission pipeline.
 #
 # What this exercises (assumes the local stack is already up — see the
 # Prereqs block below):
 #
-#   1. POST a synthetic "Otomato-shaped" detection to the relay's
-#      /detect endpoint, identical to what the deployed Otomato workflow
-#      would send (raw tweet body + metadata in headers).
+#   1. POST a synthetic detection to the relay's /detect endpoint
+#      using the Otomato-shaped adapter format (raw body + metadata
+#      in headers — see relay/README.md).
 #   2. Verify the relay returns a 200 ack with `tx_hash` + `post_id`.
 #   3. Read postCount() on the proxy; it should have incremented.
 #   4. Read postTitle(<id>); it should match the synthesized form
@@ -23,14 +23,12 @@
 #
 #   make lan-up              # docker stack: db, anvils, indexer, mesh, frontend
 #   make anvil-bootstrap     # deploys thatsRekt to anvil-eth + anvil-base
-#   make detector-up         # starts relay, ngrok, writes detector/.env
+#   make relay-up            # starts the Go relay locally
 #
-# This script targets the LOCAL relay (http://127.0.0.1:8080) — NOT the
-# ngrok URL. We're testing the relay's behavior, not the tunnel. The
-# ngrok URL is exercised end-to-end only when Otomato fires.
+# This script targets the LOCAL relay (http://127.0.0.1:8080).
 #
 # Usage:
-#   ./ops/scripts/smoke-test-detector.sh
+#   ./ops/scripts/smoke-test-relay.sh
 #
 # Exit codes: 0 = pass, non-zero = fail. Failures print the offending
 # step and dump relevant logs.
@@ -61,11 +59,11 @@ if [[ ! -f "$DEPLOYED_JSON" ]]; then
     exit 1
 fi
 if [[ ! -f "$RELAY_TOKEN_FILE" ]]; then
-    echo "ERROR: $RELAY_TOKEN_FILE missing — run \`make detector-up\` first" >&2
+    echo "ERROR: $RELAY_TOKEN_FILE missing — run \`make relay-up\` first" >&2
     exit 1
 fi
 if ! curl -sf "$RELAY_URL/healthz" >/dev/null 2>&1; then
-    echo "ERROR: relay not reachable at $RELAY_URL — run \`make detector-up\` first" >&2
+    echo "ERROR: relay not reachable at $RELAY_URL — run \`make relay-up\` first" >&2
     exit 1
 fi
 
@@ -143,7 +141,7 @@ echo "==> Baseline postCount = $START_COUNT"
 
 # --- Step 2: happy path -------------------------------------------------------
 echo "==> [1/5] Happy path: POST /detect → 200 ack"
-IDEM_1="smoke-detector-$RANDOM-$RANDOM"
+IDEM_1="smoke-relay-$RANDOM-$RANDOM"
 RESP_1="$(detect_post "$IDEM_1" "Aave" "Aave V3 pool drained via flashloan exploit. Funds at risk." )"
 HTTP_1="$(echo "$RESP_1" | tail -n1)"
 BODY_1="$(echo "$RESP_1" | sed '$d')"
@@ -234,16 +232,11 @@ echo "    nack as expected"
 # --- Done --------------------------------------------------------------------
 echo ""
 echo "═══════════════════════════════════════════════════════════════"
-echo "  Detector smoke test PASSED."
+echo "  Relay smoke test PASSED."
 echo ""
 echo "  postCount: $START_INT → $((NEW_INT + 1)) (image post added on top)"
 echo ""
-echo "  Next steps for live verification:"
-echo "    1. Set OTOMATO_API_KEY in detector/.env"
-echo "    2. cd detector && npm install && npm run deploy"
-echo "    3. Wait for a real tweet from a monitored account, OR trigger"
-echo "       a manual execution from app.otomato.xyz"
-echo "    4. Watch:"
-echo "         make relay-logs                    # relay-side"
-echo "         http://localhost:5173              # frontend feed"
+echo "  Watch:"
+echo "    make relay-logs                    # relay-side"
+echo "    http://localhost:5173              # frontend feed"
 echo "═══════════════════════════════════════════════════════════════"

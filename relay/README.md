@@ -1,18 +1,24 @@
 # thatsRekt relay server (sub-phase A)
 
-A Go service that receives hack alerts from DAMM's AI detection pipeline
-and submits them on-chain to the thatsRekt registry as a whitelisted
-poster. Sub-phase A scope: single chain, env-key signer, `post.create`
-only. See `tasks/relay-server-design.md` (in the repo root) for the full
-design and the boundary against sub-phases B/C.
+A Go service that receives hack alerts from an upstream AI detection
+pipeline and submits them on-chain to the thatsRekt registry as a
+whitelisted poster. Sub-phase A scope: single chain, env-key signer,
+`post.create` only. See `tasks/relay-server-design.md` (in the repo
+root) for the full design and the boundary against sub-phases B/C.
 
-> **Single-tenant.** The relay is DAMM-internal — it holds a private key
-> and signs txs autonomously. It is NOT a public ingress: bearer-token
-> auth is internal hardening, not authentication for arbitrary callers.
-> Other whitelisted posters submit through their own wallets/tooling
-> against the contract directly. The relay represents DAMM's automated
-> AI-detected alert pipeline specifically; the contract has many possible
-> submitters and the relay is just one of them.
+> **Single-tenant per deployment.** Each relay instance is owned by one
+> operator — it holds that operator's private key and signs txs
+> autonomously on their behalf. It is NOT a public ingress; bearer-token
+> auth is hardening for the operator's own webhook caller, not
+> authentication for arbitrary external posters. Other whitelisted
+> posters run their own relay instances (or submit directly via their
+> own wallets/tooling against the contract). One contract, many
+> independent submitters.
+
+Anyone the contract admins whitelist can run a relay: generate an EOA,
+get whitelisted on-chain, drop the EOA's private key + a bearer token
+into the env vars below, point your detection pipeline at the relay's
+`/detect` endpoint, and you're posting alerts.
 
 Three transports are exposed on the same listener and share state (auth,
 dedup, submitter):
@@ -23,9 +29,9 @@ dedup, submitter):
   full envelope itself.
 - **`/detect`** — plain HTTP POST with an **Otomato-shaped adapter**
   shape: body is the AI's JSON output verbatim, headers carry the
-  metadata. Designed for the detector workflow whose `HTTP_REQUEST`
-  action does dumb-substitute templating (no JSON escaping) and
-  cannot safely build a nested envelope.
+  metadata. Designed for upstream workflow tools (e.g. Otomato) whose
+  `HTTP_REQUEST` action does dumb-substitute templating (no JSON
+  escaping) and cannot safely build a nested envelope.
 
 HTTP status mapping (both `/post` and `/detect`):
 

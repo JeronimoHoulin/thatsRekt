@@ -161,5 +161,4 @@ The dev deploy uses the same upgrade flow as production (proxy owned by timelock
 ## Spec + design history
 
 - Implementation plan: `tasks/v0-impl-plan.md` (this branch)
-- Canonical design spec: DAMM Capital knowledge base (`threads/bauti/thatsrekt.md`)
 - Predecessor (flat-set `addRekt(address[])` with 2-of-N propose/execute removal): see `git log master`. The current design replaces it wholesale.

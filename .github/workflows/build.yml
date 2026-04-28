@@ -1,0 +1,142 @@
+name: Build container images
+
+# =============================================================================
+# Builds the four thatsRekt container images and pushes them to AWS ECR
+# in the operator's account. Does NOT deploy — the operator runs deploy
+# scripts on their cloud after CI produces the images.
+#
+# Trigger: manual via the Actions UI or `gh workflow run`. Defaults to
+# the current ref's HEAD; override `git_ref` to build a specific tag /
+# commit. The matrix in `services` picks which subset to build.
+#
+# Auth model: workflow runs in this repo so `actions/checkout` uses the
+# default GITHUB_TOKEN (free, no PAT). The push-to-ECR step uses AWS
+# OIDC — the AWS account's `github-actions-oidc` IAM role trusts this
+# specific repo. Forks of the repo cannot push because OIDC validates
+# the source `repo:owner/name` claim before issuing AWS creds.
+# =============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "Ref to build (branch, tag, or commit SHA). Defaults to the current branch HEAD."
+        required: false
+        default: ""
+      services:
+        description: "Comma-separated subset to build, or 'all'"
+        required: false
+        default: all
+        type: string
+
+permissions:
+  id-token: write   # for OIDC -> AWS
+  contents: read
+
+env:
+  AWS_REGION: us-west-2
+  AWS_ACCOUNT: "465910372065"
+  OIDC_ROLE_ARN: arn:aws:iam::465910372065:role/github-actions-oidc
+
+jobs:
+  resolve:
+    name: Resolve build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+      services: ${{ steps.matrix.outputs.services }}
+    steps:
+      - name: Resolve SHA
+        id: sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ inputs.git_ref }}
+        run: |
+          if [[ -z "$REF" ]]; then
+            REF="${{ github.ref_name }}"
+          fi
+          # gh api works against the current repo + uses the runner token —
+          # no cross-repo auth needed since the workflow lives here.
+          SHA=$(gh api "repos/${{ github.repository }}/commits/$REF" --jq '.sha')
+          if [[ -z "$SHA" || "$SHA" == "null" ]]; then
+            if [[ "$REF" =~ ^[0-9a-f]{7,40}$ ]]; then
+              SHA="$REF"
+            else
+              echo "::error::could not resolve ref '$REF' to a SHA"
+              exit 1
+            fi
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "→ resolved $REF -> $SHA"
+
+      - name: Build matrix
+        id: matrix
+        run: |
+          if [[ "${{ inputs.services }}" == "all" ]]; then
+            SVC='["indexer","mesh","frontend","relay"]'
+          else
+            SVC=$(echo '${{ inputs.services }}' | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$";""))')
+          fi
+          echo "services=$SVC" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build & push ${{ matrix.service }}
+    needs: resolve
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.resolve.outputs.services) }}
+    steps:
+      - name: Checkout at resolved SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Configure AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push ${{ matrix.service }}
+        env:
+          IMAGE: ${{ env.AWS_ACCOUNT }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/thatsrekt/${{ matrix.service }}
+          SHA: ${{ needs.resolve.outputs.sha }}
+        run: |
+          # Frontend bakes its GraphQL endpoint at build time (Vite inlines).
+          # Default to a relative same-origin path so the bundle is
+          # domain-agnostic — works against any deployment that proxies
+          # /graphql to a Mesh upstream.
+          BUILD_ARGS=()
+          if [[ "${{ matrix.service }}" == "frontend" ]]; then
+              BUILD_ARGS+=(--build-arg "VITE_GRAPHQL_ENDPOINT=/graphql")
+              BUILD_ARGS+=(--build-arg "VITE_USE_MOCK_DATA=false")
+              BUILD_ARGS+=(--build-arg "VITE_SHOW_LOCAL_FORKS=false")
+          fi
+
+          docker buildx build \
+              --platform linux/amd64 \
+              "${BUILD_ARGS[@]}" \
+              --tag "$IMAGE:$SHA" \
+              --tag "$IMAGE:latest" \
+              --push \
+              ${{ matrix.service }}
+
+      - name: Image summary
+        env:
+          IMAGE: ${{ env.AWS_ACCOUNT }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/thatsrekt/${{ matrix.service }}
+          SHA: ${{ needs.resolve.outputs.sha }}
+        run: |
+          echo "### thatsrekt/${{ matrix.service }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Pushed:" >> "$GITHUB_STEP_SUMMARY"
+          echo "  $IMAGE:$SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "  $IMAGE:latest" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
