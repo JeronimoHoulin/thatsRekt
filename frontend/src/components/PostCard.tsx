@@ -1,20 +1,20 @@
 import { Link } from 'react-router-dom'
 import type { FeedPost } from '../lib/queries'
-import { relativeTime, shortAddress } from '../lib/format'
+import { relativeTime } from '../lib/format'
+import { AddressLabel } from './AddressLabel'
+import { ChainBadge } from './ChainBadge'
 
 export function PostCard({ post }: { post: FeedPost }) {
-  const tags = [
-    `poster: ${shortAddress(post.poster.id)}`,
-    `${post.attackerLinks.length} attacker${post.attackerLinks.length === 1 ? '' : 's'}`,
-    `${post.victimLinks.length} victim${post.victimLinks.length === 1 ? '' : 's'}`,
-  ]
+  const chainSlug = post.chain?.slug
 
   return (
     <article className="space-y-3">
-      <Link
-        to={`/post/${post.id}`}
-        className="block group"
-      >
+      <div className="flex items-center gap-2 text-xs">
+        {chainSlug && <ChainBadge slug={chainSlug} />}
+        <span className="text-neutral-500 font-mono">attacked {relativeTime(post.attackedAt)}</span>
+      </div>
+
+      <Link to={`/post/${post.id}`} className="block group">
         <h2 className="font-black uppercase tracking-tight text-3xl leading-tight group-hover:text-red-600">
           #{post.id} —{' '}
           <span className="text-neutral-800 group-hover:text-red-600">
@@ -24,13 +24,18 @@ export function PostCard({ post }: { post: FeedPost }) {
       </Link>
 
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs uppercase tracking-widest text-neutral-700">
-        <span>attacked {relativeTime(post.attackedAt)}</span>
-        {tags.map((tag, i) => (
-          <span key={i}>
-            <span className="text-neutral-400">·</span>{' '}
-            <span>[{tag}]</span>
-          </span>
-        ))}
+        <span className="inline-flex items-center gap-1">
+          [poster:{' '}
+          <AddressLabel addr={post.poster.id} chainSlug={chainSlug} />]
+        </span>
+        <span>
+          <span className="text-neutral-400">·</span>{' '}
+          <span>[{post.attackerLinks.length} attacker{post.attackerLinks.length === 1 ? '' : 's'}]</span>
+        </span>
+        <span>
+          <span className="text-neutral-400">·</span>{' '}
+          <span>[{post.victimLinks.length} victim{post.victimLinks.length === 1 ? '' : 's'}]</span>
+        </span>
         <span>
           <span className="text-neutral-400">·</span>{' '}
           <ScoreBadge net={post.netScore} up={post.upvotes} down={post.downvotes} />

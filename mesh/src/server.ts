@@ -103,37 +103,60 @@ const additionalTypeDefs = /* GraphQL */ `
     id: ID!
     chain: ChainInfo!
     poster: String!
-    attackedAt: BigInt!
+    attackedAt: String!
+    note: String!
     netScore: Int!
     upvotes: Int!
     downvotes: Int!
     removed: Boolean!
     createdAtBlock: Int!
-    lastUpdatedAt: BigInt!
+    createdAtTimestamp: String!
+    lastUpdatedAt: String!
+    """Plain address strings for attackers."""
+    attackers: [String!]!
+    """Plain address strings for victims."""
+    victims: [String!]!
+  }
+
+  type UnifiedPostsPage {
+    """The slice of posts for this page."""
+    items: [UnifiedPost!]!
+    """Total post count summed across all enabled chains. Cheap upper bound for the UI's pagination."""
+    totalCount: Int!
+    """True if more posts exist beyond \`offset + limit\`."""
+    hasMore: Boolean!
   }
 
   extend type Query {
     """Chains served by this gateway."""
     chains: [ChainInfo!]!
 
-    """Cross-chain feed of posts, sort-merged by createdAtBlock_DESC across all enabled chains."""
-    posts(limit: Int = 25): [UnifiedPost!]!
+    """Cross-chain feed page. Posts are sort-merged by createdAtTimestamp DESC across all enabled chains. Use \`offset + limit\` for pagination."""
+    posts(limit: Int = 25, offset: Int = 0): UnifiedPostsPage!
   }
 `
 
 // zod-validated shape of a post as returned by the upstream squid
 // GraphQL servers. Parsing through this catches schema drift at the
 // boundary with a clear error rather than crashing deep in a resolver.
+const AddressLink = z.object({
+  address: z.object({ id: z.string() }),
+})
+
 const RawPost = z.object({
   id: z.string(),
   poster: z.object({ id: z.string() }),
-  attackedAt: z.string(),       // BigInt fields come over as strings
+  attackedAt: z.string(),       // DateTime / BigInt scalars come over as strings
+  note: z.string(),
   netScore: z.number().int(),
   upvotes: z.number().int(),
   downvotes: z.number().int(),
   removed: z.boolean(),
   createdAtBlock: z.number().int(),
+  createdAtTimestamp: z.string(),
   lastUpdatedAt: z.string(),
+  attackerLinks: z.array(AddressLink),
+  victimLinks: z.array(AddressLink),
 })
 type RawPost = z.infer<typeof RawPost>
 
@@ -147,41 +170,56 @@ const FETCH_POSTS_QUERY = /* GraphQL */ `
       id
       poster { id }
       attackedAt
+      note
       netScore
       upvotes
       downvotes
       removed
       createdAtBlock
+      createdAtTimestamp
       lastUpdatedAt
+      attackerLinks { address { id } }
+      victimLinks { address { id } }
     }
   }
 `
+
+// Cheap server-side count for pagination UX. Each squid exposes
+// `postsConnection.totalCount` (Subsquid auto-generated). Per-chain calls
+// in parallel; sum is the upper bound for the unified feed.
+const COUNT_POSTS_QUERY = /* GraphQL */ `
+  query CountPosts {
+    postsConnection(orderBy: createdAtBlock_DESC) { totalCount }
+  }
+`
+
+const CountPostsResponse = z.object({
+  postsConnection: z.object({ totalCount: z.number().int() }),
+})
 
 const buildAdditionalResolvers = (chains: readonly ChainEntry[]) => ({
   Query: {
     chains: () =>
       chains.map((c) => ({ chainId: c.chainId, slug: c.slug, name: c.name })),
 
-    posts: async (_root: unknown, args: { limit: number }) => {
-      const { limit } = args
-      // Fan out a per-chain query, asking each for `limit` rows so we
-      // have enough to sort-merge correctly even if some chains have no
-      // recent activity. (Cheap upper bound, not exact — exact would
-      // need cursor pagination across chains, deferred.)
+    posts: async (_root: unknown, args: { limit: number; offset: number }) => {
+      const { limit, offset } = args
+      // Each chain must yield enough rows to cover (offset + limit) after
+      // merge. We over-fetch (offset + limit) per chain — generous upper
+      // bound. Cursor-based pagination would be tighter; deferred.
+      const fetchPerChain = offset + limit
       const results = await Promise.allSettled(
         chains.map(async (c) => {
           const executor = makeExecutor(c.endpoint)
           const raw = await executor({
             document: parseQueryToDocument(FETCH_POSTS_QUERY),
-            variables: { limit },
+            variables: { limit: fetchPerChain },
             context: {},
           }) as ExecutionResult
           if (raw.errors?.length) {
             console.error(`[mesh] ${c.slug} returned errors:`, raw.errors)
             return [] as { chain: ChainEntry; post: RawPost }[]
           }
-          // Boundary parse: catches upstream schema drift loudly here
-          // rather than letting bad shapes propagate into resolvers.
           const parsed = FetchPostsResponse.safeParse(raw.data)
           if (!parsed.success) {
             console.error(
@@ -195,26 +233,56 @@ const buildAdditionalResolvers = (chains: readonly ChainEntry[]) => ({
       )
 
       const merged = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
-      // Stable sort by (createdAtBlock DESC, then chainId for ties).
+      // Sort by createdAtTimestamp DESC for stable cross-chain ordering
+      // (createdAtBlock isn't comparable across chains; timestamps are).
       merged.sort((a, b) => {
-        if (a.post.createdAtBlock !== b.post.createdAtBlock) {
-          return b.post.createdAtBlock - a.post.createdAtBlock
-        }
+        const ta = new Date(a.post.createdAtTimestamp).getTime()
+        const tb = new Date(b.post.createdAtTimestamp).getTime()
+        if (ta !== tb) return tb - ta
         return a.chain.chainId - b.chain.chainId
       })
 
-      return merged.slice(0, limit).map(({ chain, post }) => ({
+      // Per-chain count for totalCount + hasMore. Run in parallel with the
+      // page fetches above (separate await chain — overlap is automatic
+      // because we awaited results once).
+      const countResults = await Promise.allSettled(
+        chains.map(async (c) => {
+          const executor = makeExecutor(c.endpoint)
+          const raw = await executor({
+            document: parseQueryToDocument(COUNT_POSTS_QUERY),
+            variables: {},
+            context: {},
+          }) as ExecutionResult
+          if (raw.errors?.length) return 0
+          const parsed = CountPostsResponse.safeParse(raw.data)
+          return parsed.success ? parsed.data.postsConnection.totalCount : 0
+        }),
+      )
+      const totalCount = countResults
+        .map((r) => (r.status === 'fulfilled' ? r.value : 0))
+        .reduce((a, b) => a + b, 0)
+
+      const slice = merged.slice(offset, offset + limit)
+      const hasMore = offset + slice.length < totalCount
+
+      const items = slice.map(({ chain, post }) => ({
         id: `${chain.slug}-${post.id}`,
         chain: { chainId: chain.chainId, slug: chain.slug, name: chain.name },
         poster: post.poster.id,
         attackedAt: post.attackedAt,
+        note: post.note,
         netScore: post.netScore,
         upvotes: post.upvotes,
         downvotes: post.downvotes,
         removed: post.removed,
         createdAtBlock: post.createdAtBlock,
+        createdAtTimestamp: post.createdAtTimestamp,
         lastUpdatedAt: post.lastUpdatedAt,
+        attackers: post.attackerLinks.map((l) => l.address.id),
+        victims: post.victimLinks.map((l) => l.address.id),
       }))
+
+      return { items, totalCount, hasMore }
     },
   },
 })

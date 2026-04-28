@@ -9,9 +9,11 @@ type TimelineItem =
 export function Timeline({
   votes,
   edits,
+  chainSlug,
 }: {
   votes: VoteEntity[]
   edits: EditEntity[]
+  chainSlug?: string
 }) {
   const items: TimelineItem[] = [
     ...votes.map((v): TimelineItem => ({ kind: 'vote', data: v })),
@@ -39,18 +41,22 @@ export function Timeline({
               block {item.data.blockNumber} · {relativeTime(item.data.timestamp)}
             </span>
           </div>
-          {item.kind === 'vote' ? <VoteRow vote={item.data} /> : <EditRow edit={item.data} />}
+          {item.kind === 'vote' ? (
+            <VoteRow vote={item.data} chainSlug={chainSlug} />
+          ) : (
+            <EditRow edit={item.data} />
+          )}
         </li>
       ))}
     </ol>
   )
 }
 
-function VoteRow({ vote }: { vote: VoteEntity }) {
+function VoteRow({ vote, chainSlug }: { vote: VoteEntity; chainSlug?: string }) {
   const action = describeVote(vote.oldDirection, vote.newDirection)
   return (
     <p className="mt-1 text-sm">
-      <AddressLabel addr={vote.voter.id} />{' '}
+      <AddressLabel addr={vote.voter.id} chainSlug={chainSlug} />{' '}
       <span className={`font-black uppercase tracking-tight ${voteColor(vote.newDirection)}`}>
         {action.icon} {action.label}
       </span>
