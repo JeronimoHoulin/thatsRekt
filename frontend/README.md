@@ -48,7 +48,7 @@ Total bundle size: ~330 KB uncompressed, ~99 KB gzipped (split into a React chun
 
 ## Docker (containerized prod build)
 
-A multi-stage `Dockerfile` produces an `nginx:alpine`-based image that serves `dist/` on port 80. nginx config is intentionally NOT baked in — runtime environments mount their own (e.g. damm-cloud's prod compose adds a `/graphql` reverse-proxy in front of the bundle so the SPA and the Mesh gateway share an origin).
+A multi-stage `Dockerfile` produces an `nginx:alpine`-based image that serves `dist/` on port 80. nginx config is intentionally NOT baked in — runtime environments mount their own. The expected prod pattern is to mount a config that adds a `/graphql` reverse-proxy in front of the bundle so the SPA and the Mesh gateway share an origin (the bundle was built with `VITE_GRAPHQL_ENDPOINT=/graphql` for exactly this reason).
 
 ```bash
 docker build -t thatsrekt-frontend ./frontend
