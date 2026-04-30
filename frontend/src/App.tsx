@@ -1,4 +1,5 @@
-import { Routes, Route, Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import { Feed } from './pages/Feed'
 import { PostDetail } from './pages/PostDetail'
 import { About } from './pages/About'
@@ -6,6 +7,14 @@ import { Posters } from './pages/Posters'
 import { Leaderboard } from './pages/Leaderboard'
 import { Docs } from './pages/Docs'
 import { IS_MOCK_MODE } from './lib/queries'
+
+const NAV_LINKS: { to: string; label: string }[] = [
+  { to: '/', label: 'feed' },
+  { to: '/about', label: 'about' },
+  { to: '/posters', label: 'posters' },
+  { to: '/leaderboard', label: 'leaderboard' },
+  { to: '/docs', label: 'docs' },
+]
 
 export function App() {
   return (
@@ -29,24 +38,135 @@ export function App() {
 }
 
 function Header() {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const wrapperRef = useRef<HTMLElement>(null)
+  const location = useLocation()
+
+  // Close on route change.
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [location.pathname])
+
+  // Close on click outside or Escape.
+  useEffect(() => {
+    if (!menuOpen) return
+    const onPointerDown = (e: PointerEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menuOpen])
+
   return (
-    <header className="border-b-2 border-black pb-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-y-2 gap-x-4">
-        <Link to="/" className="font-black uppercase tracking-tighter text-4xl sm:text-5xl leading-none">
+    <header ref={wrapperRef} className="relative border-b-2 border-black pb-3">
+      <div className="flex items-baseline justify-between gap-x-4">
+        <Link
+          to="/"
+          className="font-black uppercase tracking-tighter text-4xl sm:text-5xl leading-none"
+        >
           thats<span className="text-red-600">rekt</span>
         </Link>
-        <nav className="flex flex-wrap gap-x-4 gap-y-1 text-xs uppercase tracking-widest">
-          <Link to="/" className="rekt-link">feed</Link>
-          <Link to="/about" className="rekt-link">about</Link>
-          <Link to="/posters" className="rekt-link">posters</Link>
-          <Link to="/leaderboard" className="rekt-link">leaderboard</Link>
-          <Link to="/docs" className="rekt-link">docs</Link>
+
+        {/* Desktop nav — hidden on mobile, replaced by hamburger. */}
+        <nav className="hidden sm:flex flex-wrap gap-x-4 gap-y-1 text-xs uppercase tracking-widest">
+          {NAV_LINKS.map((l) => (
+            <Link key={l.to} to={l.to} className="rekt-link">
+              {l.label}
+            </Link>
+          ))}
         </nav>
+
+        {/* Mobile hamburger — hidden on sm+. */}
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label={menuOpen ? 'close menu' : 'open menu'}
+          aria-expanded={menuOpen}
+          aria-controls="mobile-nav-menu"
+          className={
+            'sm:hidden inline-flex items-center justify-center w-10 h-10 border-2 border-black transition-colors touch-manipulation ' +
+            (menuOpen
+              ? 'bg-black text-[#f5f4ee]'
+              : 'bg-[#f5f4ee] text-black hover:bg-yellow-100')
+          }
+        >
+          {menuOpen ? <CloseIcon /> : <HamburgerIcon />}
+        </button>
       </div>
+
       <p className="mt-2 text-xs uppercase tracking-widest text-neutral-700">
         on-chain hack alert registry for public good
       </p>
+
+      {/* Mobile dropdown panel — only mounts when open + only visible
+          below sm breakpoint. Sharp brutalist card with hard offset
+          shadow, matches the InfoPopover aesthetic. */}
+      {menuOpen && (
+        <nav
+          id="mobile-nav-menu"
+          className="sm:hidden absolute right-0 top-full z-30 mt-1 w-56 border-2 border-black bg-[#f5f4ee] shadow-[4px_4px_0_0_#000]"
+        >
+          <ul className="divide-y-2 divide-black">
+            {NAV_LINKS.map((l) => (
+              <li key={l.to}>
+                <Link
+                  to={l.to}
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-4 py-3 text-sm uppercase tracking-widest font-black hover:bg-yellow-100 active:bg-yellow-200"
+                >
+                  {l.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
     </header>
+  )
+}
+
+function HamburgerIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className="w-5 h-5"
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M2 5h16v2H2V5zm0 4h16v2H2V9zm0 4h16v2H2v-2z"
+        clipRule="evenodd"
+      />
+    </svg>
+  )
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className="w-5 h-5"
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+        clipRule="evenodd"
+      />
+    </svg>
   )
 }
 
