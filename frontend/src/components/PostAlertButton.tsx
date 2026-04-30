@@ -40,10 +40,11 @@ export function PostAlertButton({
   const { address, isConnected } = useAccount()
   const { isWhitelisted, isLoading: isCheckingWhitelist } = useIsWhitelisted(address)
 
-  // When the user becomes whitelisted (e.g., via a fresh connection or
-  // a successful `addWhitelisted` propagating through the indexer's
-  // 30s refetch), close any open gate modal — they no longer need to
-  // see "you can't post yet".
+  // Whitelisted = no popup, ever. Two paths into that state:
+  //   1. User clicks Post while ALREADY whitelisted → silent no-op.
+  //   2. User clicks Post → connects via the modal → check resolves
+  //      true → modal auto-closes here. The gate (NotWhitelistedPanel)
+  //      is the only thing the user reads, and only when needed.
   useEffect(() => {
     if (open && isConnected && !isCheckingWhitelist && isWhitelisted) {
       setOpen(false)
@@ -52,9 +53,6 @@ export function PostAlertButton({
 
   const handleClick = () => {
     onAfterClick?.()
-    // If already connected + whitelisted: silent no-op. The composer
-    // would open here once it ships. For v1 we just let them know they
-    // are ready to post by NOT showing the gate modal.
     if (isConnected && isWhitelisted) return
     setOpen(true)
   }
