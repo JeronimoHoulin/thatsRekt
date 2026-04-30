@@ -8,7 +8,6 @@ import { ArchiveDivider } from '../components/ArchiveDivider'
 import { EmptyState } from '../components/EmptyState'
 import { InfoPopover } from '../components/InfoPopover'
 import { RefreshButton } from '../components/RefreshButton'
-import { StalenessIndicator } from '../components/StalenessIndicator'
 import { useChainFilter } from '../hooks/useChainFilter'
 import { useArchiveToggle } from '../hooks/useArchiveToggle'
 import { useIndexerStatus } from '../hooks/useIndexerStatus'
@@ -87,8 +86,6 @@ export function Feed() {
         onShowArchiveChange={setShowArchive}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
-        indexerStatus={indexerStatus.status}
-        indexerStatusError={indexerStatus.isError}
       />
       <div className="mt-6">
         <FeedBody
@@ -225,8 +222,6 @@ function FilterBar({
   onShowArchiveChange,
   onRefresh,
   isRefreshing,
-  indexerStatus,
-  indexerStatusError,
 }: {
   sort: SortOption
   onSortChange: (s: SortOption) => void
@@ -236,8 +231,6 @@ function FilterBar({
   onShowArchiveChange: (next: boolean) => void
   onRefresh: () => void
   isRefreshing: boolean
-  indexerStatus: import('../lib/queries').IndexerStatus | undefined
-  indexerStatusError: boolean
 }) {
   return (
     <div className="border-b border-black pb-3">
@@ -266,16 +259,13 @@ function FilterBar({
           </div>
         </div>
 
-        {/* Refresh + staleness sit alongside sort + chain in the primary
-            row — they're an active read-state control + signal, just
-            like sort. The archive toggle is a content-mode switch and
-            lives on its own line below so it doesn't crowd the filters. */}
-        <div className="flex items-center gap-x-3">
+        {/* Right side of the primary row: chain selector then a small
+            icon-only refresh button at the far right. Archive toggle is
+            a content-mode switch and gets its own line below. */}
+        <div className="flex items-center gap-x-2">
+          <ChainSelector value={chainFilter} onChange={onChainChange} />
           <RefreshButton onRefresh={onRefresh} isFetching={isRefreshing} />
-          <StalenessIndicator status={indexerStatus} isError={indexerStatusError} />
         </div>
-
-        <ChainSelector value={chainFilter} onChange={onChainChange} />
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
         <ArchiveToggle value={showArchive} onChange={onShowArchiveChange} />

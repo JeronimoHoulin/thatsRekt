@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { useIsWhitelisted } from '../hooks/useIsWhitelisted'
+import { AddressLabel } from './AddressLabel'
 
 const APPLY_EMAIL = 'thatsrekt@protonmail.com'
 
@@ -239,31 +240,23 @@ function ConnectPanel({ onConnected }: { onConnected: () => void }) {
 
 function CheckingPanel({ address }: { address: `0x${string}` | undefined }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <p className="text-sm leading-relaxed text-neutral-800">
         Checking whitelist status…
       </p>
-      {address && (
-        <p className="text-[10px] uppercase tracking-widest text-neutral-600 font-mono break-all">
-          {truncate(address)}
-        </p>
-      )}
+      {address && <AddressLabel addr={address} chainSlug="base" full />}
     </div>
   )
 }
 
 function ReadyPanel({ address }: { address: `0x${string}` | undefined }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <p className="text-sm leading-relaxed text-neutral-800">
         You're whitelisted. Composer is shipping next — for now, post
         directly to the registry contract from this address.
       </p>
-      {address && (
-        <p className="text-[10px] uppercase tracking-widest text-neutral-600 font-mono break-all">
-          {truncate(address)}
-        </p>
-      )}
+      {address && <AddressLabel addr={address} chainSlug="base" full />}
     </div>
   )
 }
@@ -275,29 +268,38 @@ function NotWhitelistedPanel({
   address: `0x${string}` | undefined
   onClose: () => void
 }) {
+  const subject = encodeURIComponent('thatsRekt — vetted poster application')
+  // Pre-fill the body so the recipient gets the exact info we need to
+  // vet, including the connected address (saves the user a copy/paste).
+  const bodyLines = [
+    'Team / detector name:',
+    'Public profile (X / GitHub / website):',
+    'Detection focus (which protocols, chains, exploit classes):',
+    'Existing track record (writeups, prior incidents flagged):',
+    address ? `Address to whitelist: ${address}` : 'Address to whitelist:',
+    '',
+    "We'll review and reply with next steps.",
+  ]
+  const mailto = `mailto:${APPLY_EMAIL}?subject=${subject}&body=${encodeURIComponent(bodyLines.join('\n'))}`
+
   return (
     <div className="space-y-4">
       <p className="text-sm leading-relaxed text-neutral-800">
         This address is not whitelisted to post.
       </p>
-      {address && (
-        <p className="text-[10px] uppercase tracking-widest text-neutral-600 font-mono break-all">
-          {truncate(address)}
-        </p>
-      )}
-      <section className="border-2 border-black bg-white p-4 space-y-2">
+      {address && <AddressLabel addr={address} chainSlug="base" full />}
+      <section className="border-2 border-black bg-white p-4 space-y-3">
         <p className="text-[10px] uppercase tracking-widest text-neutral-700">
           [become a poster]
         </p>
         <p className="text-sm leading-relaxed text-neutral-800">
-          Tell us who you are and what you'd be reporting. New posters
-          go through a 3-day public timelock so the rotation is
-          visible before it lands.
+          Email us with who you are, what you'd be reporting, and the
+          address you want whitelisted. We'll review and add you.
         </p>
         <a
-          href={`mailto:${APPLY_EMAIL}?subject=poster%20application`}
+          href={mailto}
           onClick={onClose}
-          className="inline-flex items-center gap-1 mt-2 border-2 border-red-600 bg-red-600 text-white px-3 py-2 text-xs uppercase tracking-widest font-black hover:bg-red-700 hover:border-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-1"
+          className="inline-flex items-center gap-1 border-2 border-red-600 bg-red-600 text-white px-3 py-2 text-xs uppercase tracking-widest font-black hover:bg-red-700 hover:border-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-1"
         >
           email {APPLY_EMAIL} →
         </a>
