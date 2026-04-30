@@ -1,3 +1,5 @@
+import { BecomeAPosterCallout } from '../components/BecomeAPosterCallout'
+
 /**
  * Single-page docs for integrators. Plain JSX (no MDX, no syntax
  * highlighter) — keeps the bundle lean. Migrate to a proper docs site
@@ -9,7 +11,10 @@ export function Docs() {
       <Hero />
       <WhatIs />
       <HowItWorks />
-      <Integrating />
+      <BecomeAPosterCallout />
+      <Architecture />
+      <SolidityIntegration />
+      <DappIntegration />
       <Reference />
     </article>
   )
@@ -65,8 +70,8 @@ function HowItWorks() {
   return (
     <Section heading="how posts work">
       <SubSection heading="whitelisters">
-        Authorized addresses (the "contributors" listed under{' '}
-        <Inline>/about</Inline>). They can call{' '}
+        Authorized addresses (the "posters" listed under{' '}
+        <Inline>/posters</Inline>). They can call{' '}
         <Code>post(...)</Code>, <Code>confirm(...)</Code>, and{' '}
         <Code>disconfirm(...)</Code>. Posts include a title, attacker
         addresses, victim contracts, and a free-form note. Confirmer
@@ -77,9 +82,7 @@ function HowItWorks() {
         — but every change goes through a{' '}
         <strong className="font-black">7-day TimelockController</strong>.
         Integrators always have a week to disengage if a malicious
-        change is queued. The whitelist is the only mutable state
-        managed by governance; posts themselves are
-        whitelister-authored and not curated.
+        change is queued.
       </SubSection>
       <SubSection heading="integrators">
         Anyone reading the registry. Two main signals: an address's{' '}
@@ -95,27 +98,115 @@ function HowItWorks() {
 }
 
 // =============================================================================
-// Integrating
+// Architecture
 // =============================================================================
 
-function Integrating() {
+function Architecture() {
   return (
-    <Section heading="integrating">
+    <Section heading="architecture">
       <p className="text-base leading-relaxed text-neutral-800">
-        Three integration paths depending on where your code lives —
-        on-chain, in a dApp / indexer, or as an off-chain detection
-        pipeline.
+        Single Solidity contract per chain. UUPS-upgradeable proxy
+        owned by a TimelockController; the timelock owner is a Safe
+        multisig. The same proxy address exists on every supported
+        chain via deterministic CREATE2 deploys, so a single
+        integration constant works cross-chain.
       </p>
 
-      <SubSection heading="from a Solidity contract">
-        <p className="text-sm leading-relaxed text-neutral-800 mb-3">
-          Read the registry directly from your contract. The proxy is
-          the same address on every chain (deterministic CREATE2
-          deploy):
-        </p>
-        <CodeBlock>{`interface IThatsRekt {
+      <SubSection heading="components">
+        <ul className="space-y-1 text-sm leading-relaxed text-neutral-800 list-disc list-inside">
+          <li>
+            <strong className="font-black">ThatsRekt</strong> — UUPS
+            implementation. Holds posts, attackers, victims,
+            confirmation log, and the whitelist.
+          </li>
+          <li>
+            <strong className="font-black">ERC1967Proxy</strong> —
+            stable storage front. Calls forward to whichever
+            implementation the proxy currently points at.
+          </li>
+          <li>
+            <strong className="font-black">TimelockController</strong>{' '}
+            — proxy admin. Every governance call (whitelist
+            mgmt, upgrade) is queued for 7 days before it can execute.
+          </li>
+          <li>
+            <strong className="font-black">Safe multisig</strong> —
+            timelock proposer + executor. The actual humans / signing
+            policy.
+          </li>
+        </ul>
+      </SubSection>
+
+      <SubSection heading="permission model">
+        <ul className="space-y-1 text-sm leading-relaxed text-neutral-800 list-disc list-inside">
+          <li>
+            <strong className="font-black">owner</strong> (timelock):
+            can <Code>addWhitelisted</Code> /{' '}
+            <Code>removeWhitelisted</Code>, <Code>upgradeTo</Code>.
+            All gated by the 7-day delay.
+          </li>
+          <li>
+            <strong className="font-black">whitelisted</strong>: can{' '}
+            <Code>post</Code>, <Code>confirm</Code>,{' '}
+            <Code>disconfirm</Code>, <Code>retract</Code>,{' '}
+            <Code>amendNote</Code>, <Code>addAttackers</Code>,{' '}
+            <Code>addVictims</Code>.
+          </li>
+          <li>
+            <strong className="font-black">public</strong>: every view
+            function. <Code>attackerReport(addr)</Code>,{' '}
+            <Code>isVictim(addr)</Code>,{' '}
+            <Code>recentActivePosts(n)</Code>,{' '}
+            <Code>getPost(id)</Code>, etc.
+          </li>
+        </ul>
+      </SubSection>
+
+      <SubSection heading="cross-chain identity">
+        Posters are EOAs whitelisted independently per chain — the
+        same address can post on every chain because CREATE2 makes
+        the proxy address identical everywhere. The leaderboard
+        aggregates a poster's lifetime activity across chains by
+        address.
+      </SubSection>
+
+      <SubSection heading="off-chain pipeline (optional)">
+        For whitelisted operators running automated detectors that
+        can't sign transactions themselves, the{' '}
+        <Inline>relay/</Inline> service in the monorepo provides a
+        webhook-driven submission path. Single-tenant — bring your
+        own EOA + bearer token. See{' '}
+        <a
+          href="https://github.com/JeronimoHoulin/thatsRekt/blob/master/relay/README.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rekt-link"
+        >
+          relay/README.md ↗
+        </a>{' '}
+        for the full spec.
+      </SubSection>
+    </Section>
+  )
+}
+
+// =============================================================================
+// Solidity integration
+// =============================================================================
+
+function SolidityIntegration() {
+  return (
+    <Section heading="integrating from Solidity">
+      <p className="text-base leading-relaxed text-neutral-800">
+        Read the registry directly from your contract. The proxy
+        address is the same on every supported chain, so a single
+        constant works everywhere your protocol is deployed.
+      </p>
+
+      <CodeBlock>{`interface IThatsRekt {
     function attackerReport(address a)
         external view returns (int256 score, uint256 appearances);
+
     function isVictim(address a) external view returns (bool);
 }
 
@@ -129,20 +220,42 @@ contract MySwapRouter {
         // ... rest of swap
     }
 }`}</CodeBlock>
-        <p className="text-xs leading-relaxed text-neutral-700 mt-3">
-          The <Inline>0x000…000</Inline> placeholder is the proxy
-          address — see the <strong>reference</strong> section below
-          for the live deployment per chain.
-        </p>
-      </SubSection>
 
-      <SubSection heading="from a dApp or indexer">
-        <p className="text-sm leading-relaxed text-neutral-800 mb-3">
-          Query the public Mesh GraphQL gateway. It stitches every
-          per-chain squid into a single endpoint and merges results
-          across chains automatically.
-        </p>
-        <CodeBlock>{`# fetch the latest 10 posts across all indexed chains
+      <p className="text-sm leading-relaxed text-neutral-700">
+        Replace <Inline>0x000…000</Inline> with the proxy address from
+        the <strong>reference</strong> table at the bottom of this
+        page. View calls are gas-cheap (~3k) and idempotent — safe to
+        call inline in any tx hot path.
+      </p>
+
+      <SubSection heading="picking a threshold">
+        <Code>attackerScore</Code> is a signed int. Positive means net
+        confirmations — multiple whitelisters have agreed the address
+        is an attacker. Each post the address appears in contributes
+        ±1 per confirmation/disconfirmation. A threshold of{' '}
+        <Code>-3</Code> in the example above means: only block when at
+        least three whitelisters disagree about the address being
+        flagged. Tune to your risk tolerance.
+      </SubSection>
+    </Section>
+  )
+}
+
+// =============================================================================
+// dApp / GraphQL integration
+// =============================================================================
+
+function DappIntegration() {
+  return (
+    <Section heading="integrating from a dApp (GraphQL)">
+      <p className="text-base leading-relaxed text-neutral-800">
+        For dApps and indexers that don't sit on-chain, query the
+        public Mesh GraphQL gateway. It stitches every per-chain squid
+        into a single endpoint and merges results across chains
+        automatically.
+      </p>
+
+      <CodeBlock>{`# fetch the latest 10 posts across all indexed chains
 query LatestPosts {
   posts(limit: 10) {
     items {
@@ -161,32 +274,46 @@ query LatestPosts {
     totalCount
   }
 }`}</CodeBlock>
-        <p className="text-xs leading-relaxed text-neutral-700 mt-3">
-          Per-chain queries are also available with the prefixed
-          <Inline>{'<Chain>_postById'}</Inline> root fields — useful
-          when you need the full post-detail view including
-          confirmation log + edit history.
-        </p>
-      </SubSection>
 
-      <SubSection heading="from an off-chain detection pipeline">
-        <p className="text-sm leading-relaxed text-neutral-800">
-          If you're a whitelisted operator running an automated
-          detector and want a webhook-driven submission path, the{' '}
-          <Inline>relay/</Inline> service in the monorepo provides
-          one. Single-tenant per deployment — bring your own EOA + a
-          bearer token. See{' '}
-          <a
-            href="https://github.com/JeronimoHoulin/thatsRekt/blob/master/relay/README.md"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rekt-link"
-          >
-            relay/README.md ↗
-          </a>{' '}
-          for the full spec.
-        </p>
+      <SubSection heading="per-chain queries">
+        Per-chain prefixed roots are also available — useful when you
+        need the full post-detail view including confirmation log +
+        edit history:
       </SubSection>
+      <CodeBlock>{`query PostDetail($id: String!) {
+  Base_postById(id: $id) {
+    id
+    title
+    note
+    poster { id }
+    attackedAt
+    confirmations
+    disconfirmations
+    netScore
+    attackerLinks { address { id attackerScore } }
+    victimLinks { address { id isVictim } }
+    confirmationLog(orderBy: blockNumber_ASC) {
+      confirmer { id }
+      newDirection
+      blockNumber
+      timestamp
+    }
+    edits(orderBy: blockNumber_ASC) {
+      kind
+      newNote
+      newTitle
+      addedAttackers
+      addedVictims
+    }
+  }
+}`}</CodeBlock>
+
+      <p className="text-xs leading-relaxed text-neutral-700">
+        Available chain prefixes: <Inline>Base_</Inline>,{' '}
+        <Inline>Optimism_</Inline>, <Inline>Sepolia_</Inline>, and so
+        on. The schema mirrors the per-chain Subsquid surface; full
+        introspection is available at the GraphQL endpoint.
+      </p>
     </Section>
   )
 }
@@ -195,6 +322,37 @@ query LatestPosts {
 // Reference
 // =============================================================================
 
+/**
+ * Chains we plan to support. Each entry is one row in the deployments
+ * table. Production contracts will be CREATE2-identical across all of
+ * them; until each is live, the proxy column shows "— TBD —" and the
+ * status column shows "pending deploy".
+ */
+const PLANNED_DEPLOYMENTS: ReadonlyArray<{
+  name: string
+  chainId: number
+  proxy: string | null
+}> = [
+  { name: 'ethereum', chainId: 1, proxy: null },
+  { name: 'base', chainId: 8453, proxy: null },
+  { name: 'optimism', chainId: 10, proxy: null },
+  { name: 'arbitrum', chainId: 42161, proxy: null },
+  { name: 'polygon', chainId: 137, proxy: null },
+  { name: 'bsc', chainId: 56, proxy: null },
+  { name: 'blast', chainId: 81457, proxy: null },
+  { name: 'avalanche', chainId: 43114, proxy: null },
+] as const
+
+/**
+ * Governance multisig — the Safe that proposes + executes on the
+ * TimelockController. Set this once the production multisig is
+ * deployed; until then it shows as TBD on the docs page.
+ */
+const GOVERNANCE_MULTISIG: { address: string | null; chain: string } = {
+  address: null,
+  chain: 'ethereum',
+}
+
 function Reference() {
   return (
     <Section heading="reference">
@@ -202,7 +360,8 @@ function Reference() {
         <p className="text-sm leading-relaxed text-neutral-800 mb-3">
           The proxy address is{' '}
           <strong className="font-black">stable across chains</strong>{' '}
-          via CREATE2 — same address everywhere. Per-chain status:
+          via CREATE2 — when contracts ship, the same address will
+          resolve on every chain below.
         </p>
         <div className="overflow-x-auto border-2 border-black">
           <table className="w-full text-left text-sm">
@@ -215,33 +374,62 @@ function Reference() {
               </tr>
             </thead>
             <tbody className="divide-y divide-black font-mono text-xs">
+              {PLANNED_DEPLOYMENTS.map((d) => (
+                <tr key={d.name}>
+                  <td className="px-3 py-2 font-black">{d.name}</td>
+                  <td className="px-3 py-2 tabular-nums">{d.chainId}</td>
+                  <td className="px-3 py-2 text-neutral-600 break-all">
+                    {d.proxy ?? '— TBD —'}
+                  </td>
+                  <td className="px-3 py-2 uppercase tracking-widest">
+                    {d.proxy ? (
+                      <span className="text-emerald-700">live</span>
+                    ) : (
+                      <span className="text-amber-700">pending deploy</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </SubSection>
+
+      <SubSection heading="governance">
+        <p className="text-sm leading-relaxed text-neutral-800 mb-3">
+          The multisig that proposes + executes on the
+          TimelockController. Owner of every deployed proxy
+          (governance is centralized at one address; the timelock
+          enforces the 7-day delay on every change).
+        </p>
+        <div className="overflow-x-auto border-2 border-black">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b-2 border-black bg-black/5 text-xs uppercase tracking-widest">
               <tr>
-                <td className="px-3 py-2 font-black">base</td>
-                <td className="px-3 py-2 tabular-nums">8453</td>
-                <td className="px-3 py-2 text-neutral-600">— TBD —</td>
-                <td className="px-3 py-2 uppercase tracking-widest text-amber-700">
-                  pending deploy
-                </td>
+                <th className="px-3 py-2">role</th>
+                <th className="px-3 py-2">chain</th>
+                <th className="px-3 py-2">address</th>
+                <th className="px-3 py-2">status</th>
               </tr>
+            </thead>
+            <tbody className="divide-y divide-black font-mono text-xs">
               <tr>
-                <td className="px-3 py-2 font-black">optimism</td>
-                <td className="px-3 py-2 tabular-nums">10</td>
-                <td className="px-3 py-2 text-neutral-600">— TBD —</td>
-                <td className="px-3 py-2 uppercase tracking-widest text-amber-700">
-                  pending deploy
+                <td className="px-3 py-2 font-black">governance multisig</td>
+                <td className="px-3 py-2">{GOVERNANCE_MULTISIG.chain}</td>
+                <td className="px-3 py-2 text-neutral-600 break-all">
+                  {GOVERNANCE_MULTISIG.address ?? '— TBD —'}
+                </td>
+                <td className="px-3 py-2 uppercase tracking-widest">
+                  {GOVERNANCE_MULTISIG.address ? (
+                    <span className="text-emerald-700">live</span>
+                  ) : (
+                    <span className="text-amber-700">pending deploy</span>
+                  )}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p className="text-xs leading-relaxed text-neutral-700 mt-3">
-          Addresses will populate here once the production contracts
-          are deployed. Until then, see{' '}
-          <Inline>/contributors</Inline> on the contracts/ subdir of
-          the monorepo for testnet addresses and{' '}
-          <Inline>contracts/script/Deploy.s.sol</Inline> for the
-          deploy script.
-        </p>
       </SubSection>
 
       <SubSection heading="public endpoints">
@@ -283,7 +471,7 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <h2 className="font-black uppercase tracking-tighter text-2xl sm:text-3xl leading-none">
         {heading}
       </h2>
@@ -300,7 +488,7 @@ function SubSection({
   children: React.ReactNode
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3 pt-1">
       <h3 className="font-black uppercase tracking-widest text-xs">
         {heading}
       </h3>
@@ -319,12 +507,12 @@ function CodeBlock({ children }: { children: string }) {
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className="font-mono text-sm bg-neutral-100 border border-neutral-300 px-1 py-0.5">
+    <code className="font-mono text-sm bg-neutral-100 border border-neutral-300 px-1 py-0.5 break-all">
       {children}
     </code>
   )
 }
 
 function Inline({ children }: { children: React.ReactNode }) {
-  return <code className="font-mono text-sm">{children}</code>
+  return <code className="font-mono text-sm break-all">{children}</code>
 }
