@@ -142,12 +142,17 @@ forge test --match-contract ThatsRektInvariants -vv
 ### Production deploy (mainnet) — `Deploy.s.sol`
 
 ```bash
-# GOVERNANCE_OWNER MUST be a deployed contract (Safe multisig).
-# The script asserts code.length > 0 and reverts on EOAs.
-# INITIAL_WHITELISTERS is optional: comma-separated address list,
-# pre-populated into the whitelist at init (bypasses the 3-day delay).
-cp .env.example .env  # fill in PRIVATE_KEY, RPC_URL, ETHERSCAN_API_KEY, GOVERNANCE_OWNER
+# Required env:
+#   GOVERNANCE_OWNER     — Safe multisig (must have code on the target chain).
+#                          Becomes proposer/executor on the 7-day upgrade TLC.
+#   WHITELIST_OPERATOR   — cold wallet (EOA or contract).
+#                          Becomes proposer/executor on the 3-day add TLC AND
+#                          holds the whitelistRemover slot.
+# Optional:
+#   INITIAL_WHITELISTERS — comma-separated address list, pre-populated into
+#                          the whitelist at init (bypasses the 3-day delay).
 GOVERNANCE_OWNER=0x...<safe>... \
+WHITELIST_OPERATOR=0x...<cold-wallet>... \
 INITIAL_WHITELISTERS=0xabc...,0xdef...,0x123... \
 forge script script/Deploy.s.sol \
     --rpc-url <chain-rpc> \

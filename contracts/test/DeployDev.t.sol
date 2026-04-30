@@ -32,9 +32,9 @@ contract DeployDevTest is Test {
         deployer = new DeployDev();
     }
 
-    /// @notice Happy path: EOA is accepted; impl + both TLCs + proxy
-    ///         all deploy at the predicted CREATE2 addresses; the
-    ///         three-role wiring matches production semantics.
+    /// @notice Happy path (single-principal dev mode): one EOA fills
+    ///         every role. Impl + both TLCs + proxy all deploy at the
+    ///         predicted CREATE2 addresses; three-role wiring matches.
     function test_deploy_eoa_owner_accepted() public {
         deployer.deploy(DEV_EOA);
 
@@ -71,6 +71,37 @@ contract DeployDevTest is Test {
         assertEq(addTL.getMinDelay(), 3 days, "add TLC delay drifted");
     }
 
+    /// @notice Two-principal mode (mainnet rehearsal): owner fills the
+    ///         upgrade TLC; a distinct operator fills the add TLC and
+    ///         whitelistRemover. Owner has NO authority on the add path
+    ///         and operator has NO authority on the upgrade path —
+    ///         that's the asymmetry we want to verify on testnet.
+    function test_deploy_two_principal_split() public {
+        address owner = makeAddr("gov-stand-in");
+        address operator = makeAddr("operator-stand-in");
+        deployer.deploy(owner, operator);
+
+        address impl     = _predict(deployer.IMPL_SALT(),             keccak256(type(ThatsRekt).creationCode));
+        address upgrade  = _predict(deployer.UPGRADE_TIMELOCK_SALT(), keccak256(_timelockInitCode(7 days, owner)));
+        address add_     = _predict(deployer.ADD_TIMELOCK_SALT(),     keccak256(_timelockInitCode(3 days, operator)));
+        address proxy    = _predict(deployer.PROXY_SALT(),            keccak256(_proxyInitCode(impl, upgrade, add_, operator, new address[](0))));
+
+        assertEq(ThatsRekt(proxy).owner(),            upgrade,  "proxy.owner != upgrade timelock");
+        assertEq(ThatsRekt(proxy).whitelistAdmin(),   add_,     "proxy.whitelistAdmin != add timelock");
+        assertEq(ThatsRekt(proxy).whitelistRemover(), operator, "proxy.whitelistRemover != operator");
+
+        TimelockController upTL  = TimelockController(payable(upgrade));
+        TimelockController addTL = TimelockController(payable(add_));
+
+        // Owner has roles on the upgrade TLC, NOT the add TLC.
+        assertTrue(upTL.hasRole(upTL.PROPOSER_ROLE(), owner),    "owner missing PROPOSER on upgrade");
+        assertFalse(addTL.hasRole(addTL.PROPOSER_ROLE(), owner), "owner unexpectedly on add PROPOSER");
+
+        // Operator has roles on the add TLC, NOT the upgrade TLC.
+        assertTrue(addTL.hasRole(addTL.PROPOSER_ROLE(), operator),  "operator missing PROPOSER on add");
+        assertFalse(upTL.hasRole(upTL.PROPOSER_ROLE(), operator),   "operator unexpectedly on upgrade PROPOSER");
+    }
+
     /// @notice Idempotent: running twice on the same chain is a no-op
     ///         the second time (everything's already deployed).
     function test_deploy_idempotent() public {
@@ -83,6 +114,12 @@ contract DeployDevTest is Test {
     function test_deploy_rejects_zero_owner() public {
         vm.expectRevert("owner is zero");
         deployer.deploy(address(0));
+    }
+
+    /// @notice Zero operator (in the two-arg path) is rejected.
+    function test_deploy_rejects_zero_operator() public {
+        vm.expectRevert("operator is zero");
+        deployer.deploy(DEV_EOA, address(0));
     }
 
     /// @notice The CLI / env-reading path — `run()` reads

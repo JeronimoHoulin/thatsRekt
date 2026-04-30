@@ -12,11 +12,13 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 ///         (b) it uses dev-namespaced CREATE2 salts so dev deploys can
 ///         never collide with production deploys at the same address.
 ///
-///         The same EOA fills proposer/executor on both timelocks AND
-///         holds the `whitelistRemover` slot directly. Same operational
-///         model as prod, just with one principal instead of three —
-///         the timelocks still enforce 7-day / 3-day delays so testnet
-///         behavior matches production behavior exactly.
+///         By default, the same EOA fills proposer/executor on BOTH
+///         timelocks AND holds the `whitelistRemover` slot directly —
+///         single-principal dev workflow, no cold wallet to manage.
+///         Pass `WHITELIST_OPERATOR` to split the roles (multisig
+///         stand-in vs cold wallet stand-in) and exercise the exact
+///         prod env-var contract on testnet — useful for mainnet
+///         rehearsals.
 ///
 ///         Recommended dev EOA: Anvil default account 0
 ///           address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
@@ -25,8 +27,13 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 ///         this on mainnet.
 ///
 ///         Env vars:
-///           * GOVERNANCE_OWNER     (required) — EOA or contract.
-///           * INITIAL_WHITELISTERS (optional) — comma-separated address list.
+///           * GOVERNANCE_OWNER     (required)  — EOA or contract. Becomes
+///                                                upgrade TLC proposer/executor.
+///           * WHITELIST_OPERATOR   (optional)  — EOA or contract. Becomes
+///                                                add TLC proposer/executor +
+///                                                whitelistRemover. Defaults
+///                                                to GOVERNANCE_OWNER.
+///           * INITIAL_WHITELISTERS (optional)  — comma-separated address list.
 contract DeployDev is Script {
     /*//////////////////////////////////////////////////////////////
                             DEV-NAMESPACED SALTS
@@ -53,24 +60,32 @@ contract DeployDev is Script {
     uint256 public constant UPGRADE_DELAY = 7 days;
     uint256 public constant ADD_DELAY     = 3 days;
 
-    /// @notice CLI entrypoint — reads `GOVERNANCE_OWNER` from env and
-    ///         deploys. Matches production Deploy.s.sol.
+    /// @notice CLI entrypoint — reads `GOVERNANCE_OWNER` (required) and
+    ///         `WHITELIST_OPERATOR` (optional, defaults to owner) from
+    ///         env and deploys. Matches production Deploy.s.sol's
+    ///         env-var contract.
     function run() external {
         address owner = vm.envAddress("GOVERNANCE_OWNER");
         require(owner != address(0), "GOVERNANCE_OWNER env var is zero");
-        deploy(owner);
+        address operator = _readOperatorOrDefault(owner);
+        deploy(owner, operator);
     }
 
     /// @notice Programmatic entrypoint — used by tests, by `forge script
-    ///         --sig "deploy(address)" ...`, and by any caller that
-    ///         already has the owner address in hand. Avoids the env
+    ///         --sig "deploy(address,address)" ...`, and by any caller
+    ///         that already has both addresses in hand. Avoids the env
     ///         indirection (and its parallel-test pitfalls).
     /// @dev    NOTE: deliberately NO `code.length > 0` check here —
     ///         that's the sole behavioral difference vs production
     ///         Deploy.s.sol. EOAs are accepted; contracts are also fine
-    ///         if you want a real Safe on a testnet for parity.
-    function deploy(address owner) public {
+    ///         if you want real Safes on a testnet for parity.
+    /// @param  owner    Becomes upgrade TLC proposer/executor.
+    /// @param  operator Becomes add TLC proposer/executor AND
+    ///                  `whitelistRemover`. Pass the same address as
+    ///                  `owner` for the single-principal dev model.
+    function deploy(address owner, address operator) public {
         require(owner != address(0), "owner is zero");
+        require(operator != address(0), "operator is zero");
 
         address[] memory initialWhitelisters = _readInitialWhitelisters();
 
@@ -78,33 +93,35 @@ contract DeployDev is Script {
         bytes memory implInitCode = type(ThatsRekt).creationCode;
         address impl = _create2(IMPL_SALT, implInitCode, "impl");
 
-        // === 2 & 3. Two TimelockControllers, same EOA as proposer +
-        // executor on both. Admin = address(0) for parity with prod.
-        address[] memory proposers = new address[](1);
-        proposers[0] = owner;
-        address[] memory executors = new address[](1);
-        executors[0] = owner;
-
+        // === 2. Upgrade TimelockController — owner as proposer/executor.
+        address[] memory upgradeProposers = new address[](1);
+        upgradeProposers[0] = owner;
+        address[] memory upgradeExecutors = new address[](1);
+        upgradeExecutors[0] = owner;
         bytes memory upgradeTLInitCode = abi.encodePacked(
             type(TimelockController).creationCode,
-            abi.encode(UPGRADE_DELAY, proposers, executors, address(0))
+            abi.encode(UPGRADE_DELAY, upgradeProposers, upgradeExecutors, address(0))
         );
         address upgradeTimelock = _create2(UPGRADE_TIMELOCK_SALT, upgradeTLInitCode, "upgradeTimelock");
 
+        // === 3. Add TimelockController — operator as proposer/executor.
+        address[] memory addProposers = new address[](1);
+        addProposers[0] = operator;
+        address[] memory addExecutors = new address[](1);
+        addExecutors[0] = operator;
         bytes memory addTLInitCode = abi.encodePacked(
             type(TimelockController).creationCode,
-            abi.encode(ADD_DELAY, proposers, executors, address(0))
+            abi.encode(ADD_DELAY, addProposers, addExecutors, address(0))
         );
         address addTimelock = _create2(ADD_TIMELOCK_SALT, addTLInitCode, "addTimelock");
 
         // === 4. ERC1967Proxy.
         //   - owner            = upgradeTimelock (7-day)
-        //   - whitelistAdmin   = addTimelock     (3-day)
-        //   - whitelistRemover = the EOA directly (instant — same model
-        //                        as prod where the multisig holds this)
+        //   - whitelistAdmin   = addTimelock     (3-day, operator-proposed)
+        //   - whitelistRemover = operator        (instant)
         bytes memory initCalldata = abi.encodeCall(
             ThatsRekt.initialize,
-            (upgradeTimelock, addTimelock, owner, initialWhitelisters)
+            (upgradeTimelock, addTimelock, operator, initialWhitelisters)
         );
         bytes memory proxyInitCode = abi.encodePacked(
             type(ERC1967Proxy).creationCode,
@@ -116,7 +133,8 @@ contract DeployDev is Script {
         console2.log("Implementation:        ", impl);
         console2.log("Upgrade TLC (7-day):   ", upgradeTimelock);
         console2.log("Add TLC (3-day):       ", addTimelock);
-        console2.log("EOA (remover/proposer):", owner);
+        console2.log("Owner (gov):           ", owner);
+        console2.log("Operator (whitelister):", operator);
         console2.log("Proxy:                 ", proxy);
         console2.log("Initial whitelisters:  ", initialWhitelisters.length);
         for (uint256 i; i < initialWhitelisters.length; ++i) {
@@ -126,6 +144,23 @@ contract DeployDev is Script {
         console2.log("Indexer config:");
         console2.log("  CONTRACT_<chain>=     ", proxy);
         console2.log("  START_BLOCK_<chain>=  ", block.number);
+    }
+
+    /// @dev Backwards-compatible single-arg overload — kept so existing
+    ///      tests / scripts that call `deploy(address)` still work.
+    ///      Uses the same address for owner and operator (single-
+    ///      principal dev model).
+    function deploy(address owner) public {
+        deploy(owner, owner);
+    }
+
+    /// @dev Reads `WHITELIST_OPERATOR` env. Empty/unset → fallback.
+    function _readOperatorOrDefault(address fallbackAddr) internal view returns (address) {
+        try vm.envAddress("WHITELIST_OPERATOR") returns (address op) {
+            return op == address(0) ? fallbackAddr : op;
+        } catch {
+            return fallbackAddr;
+        }
     }
 
     /// @dev See Deploy.s.sol. Empty/unset → empty array.

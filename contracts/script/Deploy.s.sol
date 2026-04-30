@@ -11,31 +11,53 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 ///         (3) add TimelockController (3-day), (4) ERC1967Proxy. All
 ///         four use CREATE2 via the singleton factory (`CREATE2_FACTORY`
 ///         from forge-std/Base.sol) so addresses are identical on every
-///         chain that runs this script with the same `GOVERNANCE_OWNER`
-///         and the same `INITIAL_WHITELISTERS`.
+///         chain that runs this script with the same
+///         `GOVERNANCE_OWNER`, `WHITELIST_OPERATOR`, and
+///         `INITIAL_WHITELISTERS`.
 ///
-///         Three-role governance (asymmetric delays):
-///           * `owner`            = upgrade TLC (7-day) — `_authorizeUpgrade`
-///                                  and 7-day re-install path for the
-///                                  whitelistAdmin slot.
-///           * `whitelistAdmin`   = add TLC (3-day) — adds posters and
-///                                  self-rotates. 3 days from proposal
-///                                  to effect.
-///           * `whitelistRemover` = multisig directly — instant remove
-///                                  + instant kill-switch on the
-///                                  whitelistAdmin slot.
+///         Three-role governance (asymmetric delays + asymmetric
+///         operational ownership):
+///           * `owner`            = upgrade TLC (7-day). Proposer/executor
+///                                  is the GOVERNANCE_OWNER multisig
+///                                  (rare, board-level decisions:
+///                                  upgrades, role rotation).
+///           * `whitelistAdmin`   = add TLC (3-day). Proposer/executor is
+///                                  the WHITELIST_OPERATOR cold wallet
+///                                  (day-to-day decisions: onboarding
+///                                  new posters). Multisig has no path
+///                                  to scheduling adds — that's
+///                                  intentional, the multisig only
+///                                  re-routes the role itself (slow,
+///                                  7-day) if the operator is lost or
+///                                  compromised.
+///           * `whitelistRemover` = WHITELIST_OPERATOR cold wallet
+///                                  directly — instant remove + instant
+///                                  kill-switch on the whitelistAdmin
+///                                  slot. Same address as the add TLC's
+///                                  proposer so one team handles all
+///                                  whitelist ops; rotation requires
+///                                  the multisig (7-day) so the
+///                                  kill-switch survives operator
+///                                  compromise.
 ///
-///         Both timelocks have the multisig as proposer + executor;
-///         admin = address(0) (the contracts themselves), so role
-///         changes can only happen via timelocked proposals.
+///         Both timelocks use `admin = address(0)` (the contracts
+///         themselves), so role changes can only happen via timelocked
+///         proposals.
 ///
 ///         The CREATE2 address of the proxy depends on the
-///         `initialWhitelisters` array: same set on every chain → same
-///         proxy address on every chain. Pre-population at init is the
-///         only legitimate bypass of the 3-day add timelock.
+///         `initialWhitelisters` array, the multisig address, AND the
+///         operator address: same triple on every chain → same proxy
+///         address on every chain. Pre-population at init is the only
+///         legitimate bypass of the 3-day add timelock.
 ///
 ///         Env vars:
-///           * GOVERNANCE_OWNER     (required) — Safe address. Must have code.
+///           * GOVERNANCE_OWNER     (required) — Safe multisig. Must have code.
+///                                              Becomes proposer/executor on
+///                                              the 7-day upgrade TLC.
+///           * WHITELIST_OPERATOR   (required) — Cold wallet (EOA or contract).
+///                                              Becomes proposer/executor on
+///                                              the 3-day add TLC AND holds
+///                                              the whitelistRemover slot.
 ///           * INITIAL_WHITELISTERS (optional) — comma-separated address list,
 ///                                              e.g. "0xabc...,0xdef...".
 ///                                              Empty/unset → no pre-pop.
@@ -85,45 +107,53 @@ contract Deploy is Script {
         require(multisig != address(0), "GOVERNANCE_OWNER env var is zero");
         require(multisig.code.length > 0, "GOVERNANCE_OWNER has no code (must be a Safe / contract)");
 
+        address operator = vm.envAddress("WHITELIST_OPERATOR");
+        require(operator != address(0), "WHITELIST_OPERATOR env var is zero");
+
         address[] memory initialWhitelisters = _readInitialWhitelisters();
 
         // === 1. Implementation (no constructor args -> deterministic init code).
         bytes memory implInitCode = type(ThatsRekt).creationCode;
         address impl = _create2(IMPL_SALT, implInitCode, "impl");
 
-        // === 2 & 3. Two TimelockControllers — same proposer/executor
-        // (multisig), different delays. Admin = address(0) means there is
-        // no DEFAULT_ADMIN_ROLE holder beyond each timelock contract
-        // itself, so role changes can only happen via a timelocked
-        // proposal. Standard secure config.
-        address[] memory proposers = new address[](1);
-        proposers[0] = multisig;
-        address[] memory executors = new address[](1);
-        executors[0] = multisig;
-
+        // === 2. Upgrade TimelockController — multisig as proposer/executor.
+        // High-stakes governance role: only the multisig can schedule
+        // upgrades and role rotations. 7-day delay.
+        address[] memory upgradeProposers = new address[](1);
+        upgradeProposers[0] = multisig;
+        address[] memory upgradeExecutors = new address[](1);
+        upgradeExecutors[0] = multisig;
         bytes memory upgradeTLInitCode = abi.encodePacked(
             type(TimelockController).creationCode,
-            abi.encode(UPGRADE_DELAY, proposers, executors, address(0))
+            abi.encode(UPGRADE_DELAY, upgradeProposers, upgradeExecutors, address(0))
         );
         address upgradeTimelock = _create2(UPGRADE_TIMELOCK_SALT, upgradeTLInitCode, "upgradeTimelock");
 
+        // === 3. Add TimelockController — operator (cold wallet) as proposer/executor.
+        // Day-to-day whitelist role: only the operator can schedule new
+        // posters. 3-day delay so onboarding is publicly visible before
+        // it lands.
+        address[] memory addProposers = new address[](1);
+        addProposers[0] = operator;
+        address[] memory addExecutors = new address[](1);
+        addExecutors[0] = operator;
         bytes memory addTLInitCode = abi.encodePacked(
             type(TimelockController).creationCode,
-            abi.encode(ADD_DELAY, proposers, executors, address(0))
+            abi.encode(ADD_DELAY, addProposers, addExecutors, address(0))
         );
         address addTimelock = _create2(ADD_TIMELOCK_SALT, addTLInitCode, "addTimelock");
 
         // === 4. ERC1967Proxy.
         //   - owner            = upgradeTimelock (7-day)
-        //   - whitelistAdmin   = addTimelock     (3-day)
-        //   - whitelistRemover = multisig        (instant)
+        //   - whitelistAdmin   = addTimelock     (3-day, operator-proposed)
+        //   - whitelistRemover = operator        (instant kill-switch)
         //   - initialWhitelisters = pre-populated at init
-        // The proxy's init code embeds (impl, initCalldata); both parts
-        // are identical across chains for the same multisig + initial
-        // list, so the CREATE2 address is identical.
+        // The proxy's init code embeds (impl, initCalldata); identical
+        // across chains for the same (multisig, operator, initial list)
+        // triple, so the CREATE2 address is identical.
         bytes memory initCalldata = abi.encodeCall(
             ThatsRekt.initialize,
-            (upgradeTimelock, addTimelock, multisig, initialWhitelisters)
+            (upgradeTimelock, addTimelock, operator, initialWhitelisters)
         );
         bytes memory proxyInitCode = abi.encodePacked(
             type(ERC1967Proxy).creationCode,
@@ -134,7 +164,8 @@ contract Deploy is Script {
         console2.log("Implementation:        ", impl);
         console2.log("Upgrade TLC (7-day):   ", upgradeTimelock);
         console2.log("Add TLC (3-day):       ", addTimelock);
-        console2.log("Multisig (remover):    ", multisig);
+        console2.log("Multisig (gov):        ", multisig);
+        console2.log("Operator (whitelister):", operator);
         console2.log("Proxy:                 ", proxy);
         console2.log("Initial whitelisters:  ", initialWhitelisters.length);
         for (uint256 i; i < initialWhitelisters.length; ++i) {
