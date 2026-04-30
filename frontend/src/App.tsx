@@ -3,6 +3,7 @@ import { Feed } from './pages/Feed'
 import { PostDetail } from './pages/PostDetail'
 import { About } from './pages/About'
 import { Leaderboard } from './pages/Leaderboard'
+import { Docs } from './pages/Docs'
 import { IS_MOCK_MODE } from './lib/queries'
 
 export function App() {
@@ -16,6 +17,7 @@ export function App() {
           <Route path="/post/:id" element={<PostDetail />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/about" element={<About />} />
+          <Route path="/docs" element={<Docs />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
@@ -35,14 +37,7 @@ function Header() {
           <Link to="/" className="rekt-link">feed</Link>
           <Link to="/leaderboard" className="rekt-link">leaderboard</Link>
           <Link to="/about" className="rekt-link">about</Link>
-          <a
-            href="https://github.com/JeronimoHoulin/thatsRekt"
-            target="_blank"
-            rel="noreferrer"
-            className="rekt-link"
-          >
-            github
-          </a>
+          <Link to="/docs" className="rekt-link">docs</Link>
         </nav>
       </div>
       <p className="mt-2 text-xs uppercase tracking-widest text-neutral-700">
