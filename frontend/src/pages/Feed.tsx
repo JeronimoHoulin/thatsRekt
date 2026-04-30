@@ -266,16 +266,19 @@ function FilterBar({
           </div>
         </div>
 
-        <ArchiveToggle value={showArchive} onChange={onShowArchiveChange} />
+        {/* Refresh + staleness sit alongside sort + chain in the primary
+            row — they're an active read-state control + signal, just
+            like sort. The archive toggle is a content-mode switch and
+            lives on its own line below so it doesn't crowd the filters. */}
+        <div className="flex items-center gap-x-3">
+          <RefreshButton onRefresh={onRefresh} isFetching={isRefreshing} />
+          <StalenessIndicator status={indexerStatus} isError={indexerStatusError} />
+        </div>
 
         <ChainSelector value={chainFilter} onChange={onChainChange} />
       </div>
-      {/* Refresh row: explicit re-fetch control + indexer staleness signal.
-          Sits just under the filter bar so it shares the same horizontal
-          rule but doesn't compete with the filters for attention. */}
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <RefreshButton onRefresh={onRefresh} isFetching={isRefreshing} />
-        <StalenessIndicator status={indexerStatus} isError={indexerStatusError} />
+        <ArchiveToggle value={showArchive} onChange={onShowArchiveChange} />
       </div>
     </div>
   )
