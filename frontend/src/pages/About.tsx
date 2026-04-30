@@ -1,5 +1,6 @@
 import { Maintainers } from '../components/Maintainers'
 import { DonateAddress } from '../components/DonateAddress'
+import { BecomeAPosterCallout } from '../components/BecomeAPosterCallout'
 
 /**
  * "About thatsRekt." Four-section narrative:
@@ -46,6 +47,7 @@ function Hero() {
         <strong className="font-black">free for anyone to read</strong>.
         Only vetted teams can post.
       </p>
+      <BecomeAPosterCallout variant="inline" />
       <p className="text-base leading-relaxed text-neutral-800">
         <strong className="font-black">No fees. No tokens. No profit motive.</strong>{' '}
         Built so the broader ecosystem has reliable hack-detection
