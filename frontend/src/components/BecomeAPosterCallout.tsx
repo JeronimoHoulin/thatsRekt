@@ -34,7 +34,7 @@ export function BecomeAPosterCallout({
     return (
       <p className="text-sm leading-relaxed text-neutral-800">
         Run a security team or automated detector?{' '}
-        <a href={mailto} className="rekt-link font-black uppercase tracking-widest">
+        <a href={mailto} className="rekt-link font-black uppercase tracking-widest text-red-600">
           apply to post →
         </a>
       </p>
@@ -53,18 +53,19 @@ export function BecomeAPosterCallout({
         timely on-chain incident signals, get in touch.
       </p>
       <p className="text-sm leading-relaxed text-neutral-800">
-        Email{' '}
-        <a
-          href={mailto}
-          className="rekt-link font-mono text-sm break-all"
-        >
-          {BECOME_POSTER_EMAIL}
-        </a>{' '}
-        with a short pitch — track record, detection focus, and the
+        Send a short pitch — track record, detection focus, and the
         address you want whitelisted. We'll review and propose your
         addition through the on-chain governance flow (subject to the
-        7-day timelock).
+        3-day add timelock so the rotation is publicly visible before
+        it lands).
       </p>
+      <a
+        href={mailto}
+        className="inline-flex items-center gap-1 mt-1 border-2 border-red-600 bg-red-600 text-white px-3 py-2 text-xs uppercase tracking-widest font-black hover:bg-red-700 hover:border-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2"
+      >
+        <span>email {BECOME_POSTER_EMAIL}</span>
+        <span aria-hidden="true">→</span>
+      </a>
     </section>
   )
 }
