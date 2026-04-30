@@ -21,6 +21,7 @@ import { createServer } from 'node:http'
 import { z } from 'zod'
 
 import { enabledChains, type ChainEntry } from './chains.js'
+import { handleOgRoute, isOgRoute } from './og.js'
 
 // ---------------------------------------------------------------------------
 // GraphiQL default query
@@ -540,10 +541,48 @@ const main = async () => {
     },
     landingPage: false,
   })
-  const server = createServer(yoga)
+
+  // Lightweight HTTP router. We have exactly two route families:
+  //   1. /post/:chain/:postId  → SSR'd OG/Twitter card HTML (see og.ts)
+  //   2. everything else        → Yoga (which itself only serves /graphql)
+  //
+  // We don't reach for express here — yoga is the only other handler and
+  // it already understands a node http server. A 30-line dispatcher is
+  // cheaper than a router dependency.
+  const server = createServer(async (req, res) => {
+    try {
+      // URL parsing — req.url is path+query; host is irrelevant for routing.
+      const url = new URL(req.url ?? '/', 'http://internal.local')
+      if (isOgRoute(url.pathname)) {
+        const ua = req.headers['user-agent'] ?? null
+        const result = await handleOgRoute(
+          url.pathname,
+          Array.isArray(ua) ? ua[0] ?? null : ua,
+          { chains },
+        )
+        if (result) {
+          res.statusCode = result.status
+          res.setHeader('content-type', 'text/html; charset=utf-8')
+          // Short cache — post mutations (edits, confirmations) update
+          // the description. 60s is a fair compromise between cardable
+          // freshness and not hammering the squid on every preview.
+          res.setHeader('cache-control', 'public, max-age=60')
+          res.end(result.html)
+          return
+        }
+      }
+    } catch (err) {
+      console.error('[mesh] og route handler failed:', err)
+      // Fall through to Yoga (which will 404 unknown paths). Don't
+      // surface internal errors to the crawler.
+    }
+    // Default: hand off to Yoga (it serves /graphql and 404s elsewhere).
+    yoga(req, res)
+  })
 
   server.listen(port, '0.0.0.0', () => {
     console.log(`[mesh] listening on http://0.0.0.0:${port}/graphql`)
+    console.log(`[mesh] og cards served at http://0.0.0.0:${port}/post/:chain/:postId`)
   })
 }
 

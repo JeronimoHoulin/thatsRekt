@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "rm -rf lib && tsc",
+    "typecheck": "tsc --noEmit",
     "start": "node lib/server.js",
     "dev": "tsx watch src/server.ts"
   },

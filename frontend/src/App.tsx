@@ -29,6 +29,19 @@ export function App() {
       <main className="flex-1 pt-10">
         <Routes>
           <Route path="/" element={<Feed />} />
+          {/*
+           * Two parallel post routes:
+           *   /post/:chainSlug/:postId  — clean path used by Mesh's SSR
+           *                              OG card route. Preferred for
+           *                              new shareable links.
+           *   /post/:id                  — legacy composite-id form
+           *                              (`base-42`). Kept so any
+           *                              previously shared URLs don't
+           *                              break. PostDetail handles
+           *                              both shapes by reconstructing
+           *                              the composite id when needed.
+           */}
+          <Route path="/post/:chainSlug/:postId" element={<PostDetail />} />
           <Route path="/post/:id" element={<PostDetail />} />
           <Route path="/about" element={<About />} />
           <Route path="/posters" element={<Posters />} />

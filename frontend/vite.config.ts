@@ -1,12 +1,22 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// IPFS-friendly build:
-//   - base: './'   relative asset URLs work under any IPFS gateway path.
+// Build config:
+//   - base: '/'  absolute asset URLs. Required because the SPA uses
+//                BrowserRouter (pathname routing) so the same
+//                index.html is served at deep paths like
+//                `/post/base/42`. With `base: './'` the browser would
+//                resolve `./assets/x.js` to `/post/base/assets/x.js`
+//                — broken. Pathname routing is in turn required so
+//                Mesh can SSR Open Graph cards (see mesh/src/og.ts);
+//                social-media crawlers don't fetch URL fragments.
+//                Tradeoff: IPFS-gateway hosting is no longer trivial
+//                — the site assumes hosting at the domain root with
+//                SPA-fallback (nginx `try_files $uri /index.html`).
 //   - sourcemaps off in prod to keep the bundle slim.
-//   - emit assets into dist/ ready for `ipfs add -r dist`.
+//   - emit assets into dist/.
 export default defineConfig({
-  base: './',
+  base: '/',
   plugins: [react()],
   build: {
     outDir: 'dist',
