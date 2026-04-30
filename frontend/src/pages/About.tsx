@@ -34,14 +34,23 @@ function Hero() {
         [public good · open to read · permissioned to post]
       </p>
       <p className="text-lg sm:text-xl leading-tight text-neutral-900 font-black tracking-tight max-w-2xl">
-        thatsRekt is the on-chain hack alert registry — a shared siren
-        that DEXes, wallets, and stablecoins can plug into to protect
-        users from active exploits in real time.
+        thatsRekt is the on-chain hack alert registry — a public list
+        of active DeFi attacks, posted as they happen by vetted
+        security teams.
       </p>
       <p className="text-base leading-relaxed text-neutral-800">
-        Every score, every post, every confirmer set is queryable from
-        any contract or app.{' '}
-        <strong className="font-black">No fees. No tokens. No profit motive.</strong>
+        Other apps read the list. A wallet can warn before sending
+        money to a flagged address; an exchange can block a swap to
+        someone draining a protocol; a lending market can pause when
+        its own contracts are reported under attack. The list is{' '}
+        <strong className="font-black">free for anyone to read</strong>.
+        Only vetted teams can post.
+      </p>
+      <p className="text-base leading-relaxed text-neutral-800">
+        <strong className="font-black">No fees. No tokens. No profit motive.</strong>{' '}
+        Built so the broader ecosystem has reliable hack-detection
+        infrastructure — not so any one team can monetize knowing
+        about exploits first.
       </p>
     </header>
   )
@@ -56,21 +65,23 @@ function HowItWorks() {
         </h2>
       </header>
       <div className="space-y-4 sm:space-y-3">
-        <Bullet label="posts">
-          Whitelisted security teams + automated detectors submit
-          alerts (attackers, victims, context). They confirm or refute
-          each other's posts.
+        <Bullet label="who posts">
+          Vetted security teams and automated detectors. They submit
+          alerts (attacker addresses, victim contracts, a short note)
+          and confirm or refute each other's claims.
         </Bullet>
-        <Bullet label="governance">
-          A multisig controls the whitelist and contract upgrades,
-          gated by a{' '}
-          <strong className="font-black">7-day timelock</strong> —
-          integrators always have a week to disengage.
+        <Bullet label="who runs it">
+          A multisig controls the list of authorized posters, gated by
+          a <strong className="font-black">7-day timelock</strong> —
+          if it misbehaves, anyone using the registry has a week to
+          back out before changes take effect.
         </Bullet>
-        <Bullet label="reads">
-          Open to anyone. Two signals: an address's{' '}
-          <em>attackerScore</em> and its <em>isVictim</em> flag —
-          readable from any contract.
+        <Bullet label="who reads it">
+          Anyone. Wallets, exchanges, and lending markets can ask
+          before letting a transaction settle:{' '}
+          <em>"is this address dangerous?"</em> The registry answers
+          with a score from the confirmer activity, plus a flag for
+          known victim contracts.
         </Bullet>
       </div>
     </section>
