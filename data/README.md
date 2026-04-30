@@ -26,8 +26,8 @@ comes up).
 | Total entries | **31** |
 | Total damages catalogued | **~$5.08B** |
 | Time range | 2016-06 (The DAO) → 2024-10 (Radiant) |
-| Entries with confirmed attacker address | 20 / 31 |
-| Entries with confirmed victim contract | 9 / 31 |
+| Entries with confirmed attacker address | 25 / 31 |
+| Entries with confirmed victim contract | 18 / 31 |
 | Multi-chain incidents flagged | 5 / 31 |
 
 ### By primary chain

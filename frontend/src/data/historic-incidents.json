@@ -19,61 +19,73 @@
     "chain": "ethereum",
     "attackedAt": "2017-07-19T00:00:00Z",
     "title": "Parity Multisig — initWallet exploit drains 153k ETH (~$30M)",
-    "attackers": [],
-    "victims": [],
-    "note": "Vulnerable initWallet function let any address claim ownership of a deployed multisig. Three high-profile multisigs drained.",
-    "sourceUrl": "https://www.parity.io/blog/security-alert/",
+    "attackers": [
+      "0xb3764761e297d6f121e79c32a65829cd1ddb4d32"
+    ],
+    "victims": [
+      "0xbec591de75b8699a3ba52f073428822d0bfc0d7e",
+      "0x91efffb9c6cd3a66474688d0a48aa6ecfe515aa5",
+      "0x50126e8fcb9be29f83c6bbd913cc85b40eaf86fc"
+    ],
+    "note": "Vulnerable initWallet function let any address claim ownership of a deployed multisig. Three high-profile multisig wallets were drained for 153,037 ETH total: aeternity (82,189 ETH), Edgeless (26,793 ETH), Swarm City (44,055 ETH). Attacker EOA labeled 'Multisig Exploit Hacker' on Etherscan.",
+    "sourceUrl": "https://medium.com/parity-hack-trace/parity-hack-and-153-037-stolen-eth-2a7704f59f3b",
     "amountUsd": 30000000
   },
   {
     "id": "parity-library-2017-nov",
     "protocol": "Parity Multisig Library",
     "chain": "ethereum",
-    "attackedAt": "2017-11-06T00:00:00Z",
+    "attackedAt": "2017-11-06T15:25:21Z",
     "title": "Parity library suicide bricks ~$300M of ETH permanently",
     "attackers": [
       "0xae7168deb525862f4fee37d987a971b385b96952"
     ],
-    "victims": [],
-    "note": "User devops199 self-destructed the shared library contract that 587 multisig wallets delegated to. Funds frozen, never recovered.",
-    "sourceUrl": "https://www.parity.io/blog/security-alert-2/",
+    "victims": [
+      "0x863df6bfa4469f3ead0be8f9f2aae51c91a907b4"
+    ],
+    "note": "User devops199 first called initWallet on the uninitialized WalletLibrary (0x863df6bf...), making 0xae7168... the sole owner, then called kill, self-destructing the shared library that 587 multisig wallets delegated to. ~513,774 ETH frozen permanently. EIP-999 to restore the contract was rejected by community vote.",
+    "sourceUrl": "https://medium.com/paritytech/a-postmortem-on-the-parity-multi-sig-library-self-destruct-63daca3a4cf7",
     "amountUsd": 300000000
   },
   {
     "id": "bzx-feb-2020",
     "protocol": "bZx",
     "chain": "ethereum",
-    "attackedAt": "2020-02-15T00:00:00Z",
+    "attackedAt": "2020-02-15T01:38:57Z",
     "title": "bZx — first major flashloan attack on DeFi (~$355k)",
     "attackers": [],
     "victims": [],
-    "note": "First widely covered flashloan exploit. Manipulated WBTC/ETH oracle on Uniswap via flashloan. Followed by a second similar attack four days later.",
-    "sourceUrl": "https://bzx.network/blog/postmortem-ethdenver",
+    "note": "First widely covered flashloan exploit. Attacker borrowed 10,000 ETH on dYdX, manipulated WBTC/ETH price on Uniswap V1 via a leveraged short on bZx Fulcrum, and arbitraged WBTC borrowed from Compound for 1,193 ETH (~$298k) profit. A second similar attack on 2020-02-18 netted another ~$633k. Attacker funded via Tornado Cash and never publicly attributed.",
+    "sourceUrl": "https://www.palkeo.com/en/projets/ethereum/bzx.html",
     "amountUsd": 355000
   },
   {
     "id": "dforce-2020-apr",
     "protocol": "dForce",
     "chain": "ethereum",
-    "attackedAt": "2020-04-19T00:00:00Z",
+    "attackedAt": "2020-04-19T00:58:43Z",
     "title": "dForce / Lendf.Me — imBTC reentrancy drains $25M (later returned)",
-    "attackers": [],
-    "victims": [],
-    "note": "ERC-777 callback used to reenter Lendf.Me's token deposits. Attacker doxxed; returned all funds.",
-    "sourceUrl": "https://medium.com/dforcenet/lendf-me-hack-7th-may-update-19a1cc99c8ef",
+    "attackers": [
+      "0xa9bf70a420d364e923c74448d9d817d3f2a77822"
+    ],
+    "victims": [
+      "0x0eee3e3828a45f7601d5f54bf49bb01d1a9df5ea"
+    ],
+    "note": "imBTC's ERC-777 tokensToSend callback let the attacker reenter Lendf.Me's supply() after withdraw(), restoring their pre-withdraw balance and enabling exponential drains. ~$25M lost across WETH, WBTC, USDx, USDT, USDC, etc. Attacker doxxed and returned all funds within ~4 days.",
+    "sourceUrl": "https://slowmist.medium.com/slowmist-details-of-lendf-me-reentrancy-attack-3e168ab5f2b1",
     "amountUsd": 25000000
   },
   {
     "id": "harvest-finance-2020-oct",
     "protocol": "Harvest Finance",
     "chain": "ethereum",
-    "attackedAt": "2020-10-26T00:00:00Z",
+    "attackedAt": "2020-10-26T02:53:00Z",
     "title": "Harvest Finance — Curve oracle manipulation drains $24M",
     "attackers": [
       "0xf224ab004461540778a914ea397c589b677e27bb"
     ],
     "victims": [],
-    "note": "Manipulated USDT/USDC pool prices via flashloan to inflate share value, then redeemed for profit. Attacker EOA 0xf224ab... per SlowMist / ImmuneBytes post-mortems.",
+    "note": "Manipulated USDC and USDT prices in the Curve y pool via flashloan to inflate fUSDC/fUSDT mint rates, then redeemed for arbitrage profit across many iterations. Attacker EOA 0xf224ab... is labeled 'Harvest.Finance: Hacker 1' on Etherscan; was funded via Tornado Cash.",
     "sourceUrl": "https://medium.com/harvest-finance/harvest-flashloan-economic-attack-post-mortem-3cf900d65217",
     "amountUsd": 24000000
   },
@@ -81,12 +93,12 @@
     "id": "pickle-finance-2020-nov",
     "protocol": "Pickle Finance",
     "chain": "ethereum",
-    "attackedAt": "2020-11-21T00:00:00Z",
+    "attackedAt": "2020-11-21T18:37:00Z",
     "title": "Pickle Finance — evil jar swap drains $19.7M from cDAI strategy",
     "attackers": [],
     "victims": [],
-    "note": "Attacker registered a malicious jar that the controller treated as legitimate, then swapped real DAI out for a worthless token.",
-    "sourceUrl": "https://github.com/pickle-finance/contracts/issues/72",
+    "note": "Pickle ControllerV4.swapExactJarForJar() lacked authentication and Jar-whitelist validation, letting the attacker swap real cDAI (held by the legitimate pDAI Jar) into a malicious lookalike Jar they deployed, then redeem for 19.76M DAI. Attacker funded via Tornado Cash.",
+    "sourceUrl": "https://github.com/banteg/evil-jar",
     "amountUsd": 19700000
   },
   {
@@ -95,9 +107,13 @@
     "chain": "ethereum",
     "attackedAt": "2021-02-04T00:00:00Z",
     "title": "Yearn v1 yDAI — $11M lost via Curve 3pool imbalance flashloan",
-    "attackers": [],
-    "victims": [],
-    "note": "Attacker repeatedly imbalanced + rebalanced Curve 3pool to skim from yDAI vault rebases. ~$2.8M net profit on $11M loss.",
+    "attackers": [
+      "0x14ec0cd2acee4ce37260b925f74648127a889a28"
+    ],
+    "victims": [
+      "0xacd43e627e64355f1861cec6d3a6688b31a6f952"
+    ],
+    "note": "Attacker used an Aave flashloan to repeatedly imbalance and rebalance Curve's 3pool while forcing the v1 yDAI vault to deposit/withdraw at unfavorable rates, skimming ~$2.8M profit from $11M of vault losses. Attacker EOA labeled 'Yearn (yDai) Exploiter' on Etherscan.",
     "sourceUrl": "https://github.com/yearn/yearn-security/blob/master/disclosures/2021-02-04.md",
     "amountUsd": 11000000
   },
@@ -118,7 +134,7 @@
       "bsc",
       "polygon"
     ],
-    "note": "Manipulated EthCrossChainManager (0x250e7698...) to override the keeper public key, then minted unlimited bridge withdrawals. Attacker EOA 0xc8a65fad... per rekt.news. Attacker eventually returned the entire amount. Hit Ethereum, BSC, and Polygon.",
+    "note": "Manipulated EthCrossChainManager (0x838bf9e9...) to override the keeper public key stored in EthCrossChainData, then minted unauthorized withdrawals from the LockProxy/Asset Proxy (0x250e7698...). Attacker EOA 0xc8a65fad... per rekt.news. Attacker eventually returned the entire amount. Hit Ethereum, BSC, and Polygon.",
     "sourceUrl": "https://rekt.news/polynetwork-rekt/",
     "amountUsd": 611000000
   },
@@ -129,7 +145,9 @@
     "attackedAt": "2021-09-30T00:00:00Z",
     "title": "Compound — proposal 062 misallocates $90M+ COMP via comptroller bug",
     "attackers": [],
-    "victims": [],
+    "victims": [
+      "0x3d9819210a31b4961b30ef54be2aed79b9c9cd3b"
+    ],
     "note": "Not an attack — a governance upgrade introduced a logic bug in the Comptroller that paid out far more COMP than intended. Some recipients refused to return funds. No single attacker — many opportunistic recipients.",
     "sourceUrl": "https://rekt.news/compound-rekt/",
     "amountUsd": 90000000
@@ -167,12 +185,14 @@
     "id": "wormhole-2022-feb",
     "protocol": "Wormhole",
     "chain": "ethereum",
-    "attackedAt": "2022-02-02T00:00:00Z",
+    "attackedAt": "2022-02-02T17:58:00Z",
     "title": "Wormhole — signature verification bypass mints 120k wETH on Solana",
     "attackers": [
       "0x629e7da20197a5429d30da36e77d06cdf796b71a"
     ],
-    "victims": [],
+    "victims": [
+      "0xf92cd566ea4864356c5491c177a430c222d7e678"
+    ],
     "note": "Attacker spoofed a guardian signature set on the Solana side, minted 120k wETH unbacked, then bridged to Ethereum. Jump Crypto refilled the bridge. Attacker EOA confirmed by rekt.news.",
     "sourceUrl": "https://rekt.news/wormhole-rekt/",
     "amountUsd": 326000000
@@ -199,9 +219,11 @@
     "chain": "ethereum",
     "attackedAt": "2022-04-02T00:00:00Z",
     "title": "Inverse Finance — Keep3r oracle manipulation drains $15.6M",
-    "attackers": [],
+    "attackers": [
+      "0x8b4c1083cd6aef062298e1fa900df9832c8351b3"
+    ],
     "victims": [],
-    "note": "Manipulated INV/ETH price on Sushiswap (which Keep3r used as an oracle) via large swap, then borrowed and stole DOLA against the inflated INV collateral. Attacker EOA never confidently doxxed in primary sources.",
+    "note": "Manipulated INV/ETH price on SushiSwap (Keep3r oracle) via a large swap using the attacker's own 500 ETH (not a flashloan, bypassing the TWAP flash-loan guard), then borrowed ETH/WBTC/DOLA/YFI on Anchor against inflated INV collateral. Attacker EOA 0x8b4c1083... labeled 'Inverse Finance Exploiter 2' on Etherscan; funded from Tornado.Cash 2022-04-02 07:22 UTC.",
     "sourceUrl": "https://rekt.news/inverse-rekt/",
     "amountUsd": 15600000
   },
@@ -209,7 +231,7 @@
     "id": "beanstalk-2022-apr",
     "protocol": "Beanstalk",
     "chain": "ethereum",
-    "attackedAt": "2022-04-17T00:00:00Z",
+    "attackedAt": "2022-04-17T12:24:16Z",
     "title": "Beanstalk — governance flashloan drains $182M via emergencyCommit",
     "attackers": [
       "0x1c5dcdd006ea78a7e4783f9e6021c32935a10fb4"
@@ -225,7 +247,7 @@
     "id": "harmony-horizon-2022-jun",
     "protocol": "Harmony Horizon Bridge",
     "chain": "ethereum",
-    "attackedAt": "2022-06-24T00:00:00Z",
+    "attackedAt": "2022-06-23T11:06:46Z",
     "title": "Harmony Horizon Bridge — $100M drained via 2-of-5 multisig key compromise",
     "attackers": [
       "0x0d043128146654c7683fbf30ac98d7b2285ded00"
@@ -342,7 +364,7 @@
       "0xdce5d6b41c32f578f875efffc0d422c57a75d7d8"
     ],
     "victims": [],
-    "note": "Vyper versions 0.2.15-0.3.0 had a faulty reentrancy lock implementation. Multiple Curve pools (alETH, msETH, pETH, CRV/ETH) drained. White-hat MEV bots front-ran several attacks; some attackers returned funds. Two of the four attacker EOAs named in rekt.news (JPEG'D 0x6ec21d18... + Alchemix 0xdce5d6b4...).",
+    "note": "Vyper versions 0.2.15-0.3.0 had a faulty reentrancy lock. Multiple Curve pools (alETH, msETH, pETH, CRV/ETH) drained on July 30, 2023. White-hat MEV bots front-ran several attacks; some funds returned. 0x6ec21d18... is labeled 'Frontrunner (JPEGd_69 Exploit)' on Etherscan — an MEV bot that beat the original attacker but kept the ~$11M proceeds; 0xdce5d6b4... is the alETH/ETH pool drainer.",
     "sourceUrl": "https://rekt.news/curve-vyper-rekt/",
     "amountUsd": 73000000
   },
@@ -354,10 +376,11 @@
     "title": "Mixin — $200M drained via cloud database breach exposing hot wallet keys",
     "attackers": [
       "0x52e86988bd07447c596e9b0c7765f8500113104c",
-      "0x3b5fb9d9da3546e9ce6e5aa3cceca14c8d20041e"
+      "0x3b5fb9d9da3546e9ce6e5aa3cceca14c8d20041e",
+      "0xb5d631a74ad9c9efcf96d6e9e2fabcb75c67eafa"
     ],
     "victims": [],
-    "note": "Cloud-service-provider DB breach exposed Mixin's deposit hot-wallet keys. Funds drained across multiple chains including Ethereum + BTC. Two main attacker EOAs on Ethereum (60k ETH + USDT-converted-to-DAI) per rekt.news.",
+    "note": "Cloud-service-provider DB breach exposed Mixin's deposit hot-wallet keys; only ~50% of user assets were guaranteed by the founder post-incident. Funds drained on Ethereum and Bitcoin. Three attacker EOAs labeled 'Mixin Network Exploiter 1/2/3' on Etherscan, per rekt.news.",
     "sourceUrl": "https://rekt.news/mixin-rekt/",
     "amountUsd": 200000000
   },
@@ -365,10 +388,11 @@
     "id": "kyberswap-2023-nov",
     "protocol": "KyberSwap Elastic",
     "chain": "arbitrum",
-    "attackedAt": "2023-11-22T00:00:00Z",
+    "attackedAt": "2023-11-22T22:54:09Z",
     "title": "KyberSwap Elastic — concentrated-liquidity tick exploit drains $48M",
     "attackers": [
-      "0x50275e0b7261559ce1644014d4b78d4aa63be836"
+      "0x50275e0b7261559ce1644014d4b78d4aa63be836",
+      "0xc9b826bad20872eb29f9b1d8af4befe8460b50c6"
     ],
     "victims": [],
     "chainsAffected": [
@@ -393,8 +417,10 @@
       "0xd151050d43c28690766f50ce9ea8686c5d243a40",
       "0x1cae9eaa76e880fe47a26dd838e5ec056c289155"
     ],
-    "victims": [],
-    "note": "Attacker added themselves as a minter on the PLA token contract, then minted billions of new tokens and dumped on exchanges. Exchanges froze part of the proceeds. Two attacker EOAs documented in Halborn / Nefture post-mortems.",
+    "victims": [
+      "0x3a4f40631a4f906c2bad353ed06de7a5d3fcb430"
+    ],
+    "note": "Attacker added themselves as a minter on the PLA token contract (0x3a4f40...), then minted ~1.79B PLA across two waves (200M on Feb 9, 1.59B on Feb 12) and dumped on exchanges. Exchanges froze most proceeds; only ~$32M of the $290M was successfully laundered. Two attacker EOAs documented in Nefture / Halborn post-mortems.",
     "sourceUrl": "https://rekt.news/playdapp-rekt/",
     "amountUsd": 290000000
   },
@@ -418,9 +444,13 @@
     "chain": "ethereum",
     "attackedAt": "2024-05-20T00:00:00Z",
     "title": "Gala Games — admin key compromise mints 5B GALA tokens (~$200M)",
-    "attackers": [],
-    "victims": [],
-    "note": "Compromised admin wallet minted 5B GALA. Project recovered ~$23M in dumped tokens by negotiation. Most of the supply was burnable. Attacker EOA referenced as 'Gala Game Exploiter' in writeups but no canonical hex address found in primary source.",
+    "attackers": [
+      "0xe2ca471124b124831e231fb835778840ad100f97"
+    ],
+    "victims": [
+      "0xd1d2eb1b1e90b638588728b4130137d262c87cae"
+    ],
+    "note": "Compromised dormant minter account (idle ~180 days) on the GALA ERC-20 contract (0xd1d2eb1b...) was used to mint 5B GALA. Gala blocklisted the attacker mid-attack; ~592M GALA had been swapped for ~5,912 ETH (~$22M), which was later returned to Gala's cold wallet. Attacker EOA labeled 'Gala Games Exploiter' on Etherscan.",
     "sourceUrl": "https://rekt.news/gala-rekt/",
     "amountUsd": 200000000
   },
@@ -448,17 +478,20 @@
     "id": "radiant-2024-oct",
     "protocol": "Radiant Capital",
     "chain": "arbitrum",
-    "attackedAt": "2024-10-16T00:00:00Z",
+    "attackedAt": "2024-10-16T17:09:18Z",
     "title": "Radiant Capital — multisig compromise drains $50M cross-chain",
     "attackers": [
       "0x0629b1048298ae9deff0f4100a31967fb3f98962"
     ],
-    "victims": [],
+    "victims": [
+      "0x111ceeee040739fd91d29c34c33e6b3e112f2177",
+      "0xe4714d6bd9a6c0f6194c1aa8602850b0a1ce1416"
+    ],
     "chainsAffected": [
       "arbitrum",
       "bsc"
     ],
-    "note": "DPRK-attributed attack: 3 of 11 multisig signers had their hardware wallets compromised, signed a malicious upgrade that drained user funds. Hit BSC + Arbitrum (the deployed-but-unattacked ETH/Base contracts went unused). Primary chain set to Arbitrum (Radiant's home + most-affected market). Attacker EOA 0x0629b104... per Halborn + Hacken.",
+    "note": "DPRK-attributed (UNC4736 per Mandiant): 3 of 11 multisig signers were tricked by malware that displayed legitimate Gnosis Safe transaction data while actually routing a malicious LendingPoolAddressesProvider upgrade to their hardware wallets. The compromised Arbitrum admin multisig (0x111CEEee...) executed the upgrade at 17:09:18 UTC; the BSC admin multisig (0xE4714D6B...) followed at 17:11 UTC. Malicious contracts were also deployed on ETH and Base but never executed.",
     "sourceUrl": "https://rekt.news/radiant-rekt/",
     "amountUsd": 50000000
   }
