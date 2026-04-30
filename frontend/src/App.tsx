@@ -8,6 +8,7 @@ import { Leaderboard } from './pages/Leaderboard'
 import { Docs } from './pages/Docs'
 import { IS_MOCK_MODE } from './lib/queries'
 import { useHasPosts } from './hooks/useHasPosts'
+import { PostAlertButton } from './components/PostAlertButton'
 
 const NAV_LINKS: { to: string; label: string }[] = [
   { to: '/', label: 'feed' },
@@ -113,14 +114,17 @@ function Header() {
           thats<span className="text-red-600">rekt</span>
         </Link>
 
-        {/* Desktop nav — hidden on mobile, replaced by hamburger. */}
-        <nav className="hidden sm:flex flex-wrap gap-x-4 gap-y-1 text-xs uppercase tracking-widest">
-          {visibleNavLinks.map((l) => (
-            <Link key={l.to} to={l.to} className="rekt-link">
-              {l.label}
-            </Link>
-          ))}
-        </nav>
+        {/* Desktop nav + post CTA — hidden on mobile, replaced by hamburger. */}
+        <div className="hidden sm:flex items-center gap-x-4">
+          <nav className="flex flex-wrap gap-x-4 gap-y-1 text-xs uppercase tracking-widest">
+            {visibleNavLinks.map((l) => (
+              <Link key={l.to} to={l.to} className="rekt-link">
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+          <PostAlertButton variant="desktop" />
+        </div>
 
         {/* Mobile hamburger — hidden on sm+. */}
         <button
@@ -152,7 +156,12 @@ function Header() {
           id="mobile-nav-menu"
           className="sm:hidden absolute right-0 top-full z-30 mt-1 w-56 border-2 border-black bg-[#f5f4ee] shadow-[4px_4px_0_0_#000]"
         >
-          <ul className="divide-y-2 divide-black">
+          {/* Primary CTA at the top so it's the first thing thumb-reaches. */}
+          <PostAlertButton
+            variant="mobile"
+            onAfterClick={() => setMenuOpen(false)}
+          />
+          <ul className="divide-y-2 divide-black border-t-2 border-black">
             {visibleNavLinks.map((l) => (
               <li key={l.to}>
                 <Link
