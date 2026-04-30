@@ -22,8 +22,20 @@ function chainSlugFromId(id: string): string | undefined {
 }
 
 export function PostDetail() {
-  const { id } = useParams<{ id: string }>()
-  const postId = id ?? ''
+  // Two URL shapes hit this component:
+  //   1. /post/:id                  — legacy composite (`base-42`).
+  //   2. /post/:chainSlug/:postId   — clean route (Mesh SSR's canonical
+  //                                  shape; preferred for new shares).
+  //
+  // Both render the same detail view. We normalize to the composite id
+  // (`{slug}-{onchainId}`) here because every downstream lookup —
+  // archive matcher, GraphQL fetcher, chainSlugFromId — expects that
+  // shape.
+  const params = useParams<{ id?: string; chainSlug?: string; postId?: string }>()
+  const postId =
+    params.chainSlug && params.postId
+      ? `${params.chainSlug}-${params.postId}`
+      : params.id ?? ''
 
   // Archive entries are read-only frontend data — branch BEFORE the
   // useQuery call so we never hit the network for `archive-*` ids.

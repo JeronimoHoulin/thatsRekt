@@ -51,6 +51,11 @@ function LivePostCard({ post }: { post: FeedPost }) {
       return null
     }
   })()
+  // Prefer the clean `/post/:chain/:postId` URL for share-friendliness
+  // (Mesh's SSR OG handler matches that shape). Fall back to the legacy
+  // composite-id path if we somehow don't know the chain — the route
+  // table still handles both.
+  const detailHref = livePostHref(post)
 
   return (
     <article className="space-y-3">
@@ -61,7 +66,7 @@ function LivePostCard({ post }: { post: FeedPost }) {
         <span className="text-neutral-600 font-mono">attacked {relativeTime(post.attackedAt)}</span>
       </div>
 
-      <Link to={`/post/${post.id}`} className="block group">
+      <Link to={detailHref} className="block group">
         <h2 className="font-black tracking-tight text-2xl sm:text-3xl leading-tight text-neutral-900 group-hover:text-red-600 transition-colors line-clamp-3">
           {headline}
         </h2>
@@ -100,7 +105,7 @@ function LivePostCard({ post }: { post: FeedPost }) {
           />
         )}
         <Link
-          to={`/post/${post.id}`}
+          to={detailHref}
           className="inline-block text-xs font-black uppercase tracking-widest rekt-link"
         >
           more →
@@ -108,6 +113,21 @@ function LivePostCard({ post }: { post: FeedPost }) {
       </div>
     </article>
   )
+}
+
+/**
+ * Build a `/post/:chain/:postId` href from a FeedPost. The composite id
+ * is `{chainSlug}-{onchainId}`; we split on the first dash from the right.
+ * If the chain isn't known (legacy data), fall back to the legacy
+ * composite-id path so the link still resolves.
+ */
+function livePostHref(post: FeedPost): string {
+  const chainSlug = post.chain?.slug
+  if (chainSlug && post.id.startsWith(`${chainSlug}-`)) {
+    const onchainId = post.id.slice(chainSlug.length + 1)
+    return `/post/${chainSlug}/${onchainId}`
+  }
+  return `/post/${post.id}`
 }
 
 function ScoreBadge({ net, up, down }: { net: number; up: number; down: number }) {
