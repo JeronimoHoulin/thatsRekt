@@ -42,6 +42,13 @@ export interface FeedPost {
   confirmations: number
   disconfirmations: number
   netScore: number
+  /**
+   * Set true once governance has purged the post. Used to hide the post
+   * from the feed entirely — the original content is intentionally NOT
+   * surfaced (the point of purging is to scrub abusive material from
+   * view, even though it remains readable on-chain).
+   */
+  purged: boolean
   createdAtTimestamp: string
   attackerLinks: PostAttackerLink[]
   victimLinks: PostVictimLink[]
@@ -78,9 +85,12 @@ export interface PostDetail {
   disconfirmations: number
   netScore: number
   removed: boolean
+  /** True iff governance has purged this post — UI must render a tombstone. */
+  purged: boolean
   createdAtBlock: number
   createdAtTimestamp: string
   removedAtTimestamp: string | null
+  purgedAtTimestamp: string | null
   attackerLinks: PostAttackerLink[]
   victimLinks: PostVictimLink[]
   confirmationLog: ConfirmationEntity[]
@@ -101,6 +111,12 @@ const SORT_TO_ORDER_BY: Record<SortOption, string> = {
 // Cross-chain feed query against the Mesh gateway. Mesh's
 // `posts(limit, offset)` fans out to every enabled chain's squid,
 // sort-merges by createdAtTimestamp DESC, and paginates server-side.
+//
+// `purged` is selected so the client can defensively hide governance-purged
+// posts even if the gateway does not pre-filter them. Mesh-level filtering
+// (drop purged before pagination) is the long-term target — the
+// belt-and-suspenders client filter remains so a stale gateway can't leak
+// purged content.
 const FEED_QUERY = /* GraphQL */ `
   query Feed($limit: Int!, $offset: Int!, $chains: [String!]) {
     posts(limit: $limit, offset: $offset, chains: $chains) {
@@ -114,6 +130,7 @@ const FEED_QUERY = /* GraphQL */ `
         confirmations
         disconfirmations
         netScore
+        purged
         createdAtTimestamp
         attackers
         victims
@@ -144,6 +161,8 @@ interface MeshUnifiedPost {
   confirmations: number
   disconfirmations: number
   netScore: number
+  /** Optional on the wire — older Mesh deployments may not surface it yet. */
+  purged?: boolean
   createdAtTimestamp: string
   attackers: string[]
   victims: string[]
@@ -174,9 +193,11 @@ const buildPostDetailQuery = (prefix: string): string => /* GraphQL */ `
       disconfirmations
       netScore
       removed
+      purged
       createdAtBlock
       createdAtTimestamp
       removedAtTimestamp
+      purgedAtTimestamp
       attackerLinks {
         address {
           id
@@ -244,13 +265,16 @@ export async function fetchFeedPage(
     const filtered = chainSlugs?.length
       ? all.filter((p) => p.chain && chainSlugs.includes(p.chain.slug))
       : all
-    const items = filtered.slice(offset, offset + limit)
+    // Mock posts default to !purged (mock factory sets it false); kept
+    // here to match the live-path contract.
+    const visible = filtered.filter((p) => !p.purged)
+    const items = visible.slice(offset, offset + limit)
     return {
       items,
-      totalCount: filtered.length,
-      hasMore: offset + items.length < filtered.length,
+      totalCount: visible.length,
+      hasMore: offset + items.length < visible.length,
       nextOffset:
-        offset + items.length < filtered.length ? offset + items.length : null,
+        offset + items.length < visible.length ? offset + items.length : null,
     }
   }
   const data = await gqlClient.request<{
@@ -262,10 +286,20 @@ export async function fetchFeedPage(
     // value-or-null and graphql-request would otherwise send `undefined`.
     chains: chainSlugs?.length ? chainSlugs : null,
   })
-  const items = data.posts.items.map(adaptMeshPostToFeedPost)
+  // Defensive: drop purged posts client-side as well as gateway-side. If
+  // the Mesh deployment hasn't yet been updated to filter purged out (or
+  // the field isn't projected), this still hides them in the feed.
+  const visibleRaw = data.posts.items.filter((p) => p.purged !== true)
+  const droppedCount = data.posts.items.length - visibleRaw.length
+  const items = visibleRaw.map(adaptMeshPostToFeedPost)
+  // Adjust totalCount conservatively when we stripped some locally so the
+  // "showing X of Y" footer doesn't lie. Best-effort — over-counts are
+  // possible if the gateway filters AND the client also strips, which is
+  // a no-op intersection.
+  const totalCount = Math.max(0, data.posts.totalCount - droppedCount)
   return {
     items,
-    totalCount: data.posts.totalCount,
+    totalCount,
     hasMore: data.posts.hasMore,
     nextOffset: data.posts.hasMore ? offset + items.length : null,
   }
@@ -281,6 +315,7 @@ const adaptMeshPostToFeedPost = (p: MeshUnifiedPost): FeedPost => ({
   confirmations: p.confirmations,
   disconfirmations: p.disconfirmations,
   netScore: p.netScore,
+  purged: p.purged === true,
   createdAtTimestamp: p.createdAtTimestamp,
   attackerLinks: p.attackers.map((a) => ({ address: { id: a, attackerScore: '0' } })),
   victimLinks: p.victims.map((a) => ({ address: { id: a, attackerScore: '0' } })),

@@ -92,11 +92,17 @@ type Post @entity {
 
   removed: Boolean!
 
+  "true iff governance has purged this post (PostPurged event); orthogonal to `removed`"
+  purged: Boolean!
+
   createdAtBlock: Int!
   createdAtTimestamp: DateTime!
 
   removedAtBlock: Int
   removedAtTimestamp: DateTime
+
+  purgedAtBlock: Int
+  purgedAtTimestamp: DateTime
 
   attackerLinks: [PostAttacker!]! @derivedFrom(field: "post")
   victimLinks: [PostVictim!]! @derivedFrom(field: "post")

@@ -42,6 +42,10 @@ const RawPost = z.object({
   disconfirmations: z.number().int(),
   netScore: z.number().int(),
   removed: z.boolean(),
+  // Optional on the wire so an upstream squid that hasn't applied the
+  // purge migration yet doesn't blow up the OG renderer. Coalesced to
+  // `false` at the use site.
+  purged: z.boolean().optional(),
   attackerLinks: z.array(RawAddressLink),
   victimLinks: z.array(RawAddressLink),
 })
@@ -64,6 +68,7 @@ const POST_BY_ID_QUERY = /* GraphQL */ `
       disconfirmations
       netScore
       removed
+      purged
       attackerLinks { address { id } }
       victimLinks { address { id } }
     }
@@ -433,6 +438,23 @@ export const handleOgRoute = async (
         imageUrl,
         redirectTo: isCrawler ? undefined : canonicalUrl,
         statusContext: 'not-found',
+      }),
+    }
+  }
+
+  // Purged posts get a neutral tombstone card. We deliberately do NOT
+  // surface the original title / note in any meta tag — the entire
+  // point of governance purging is that the offending content stays
+  // out of social cards even though it's still readable on-chain.
+  if (post.purged === true) {
+    return {
+      status: 200,
+      html: renderHtml({
+        title: 'thatsRekt — purged',
+        description: 'This attack was purged from the registry by governance.',
+        canonicalUrl,
+        imageUrl,
+        redirectTo: isCrawler ? undefined : canonicalUrl,
       }),
     }
   }
