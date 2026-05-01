@@ -12,13 +12,35 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 ///         (b) it uses dev-namespaced CREATE2 salts so dev deploys can
 ///         never collide with production deploys at the same address.
 ///
-///         By default, the same EOA fills proposer/executor on BOTH
-///         timelocks AND holds the `whitelistRemover` slot directly —
-///         single-principal dev workflow, no cold wallet to manage.
-///         Pass `WHITELIST_OPERATOR` to split the roles (multisig
-///         stand-in vs cold wallet stand-in) and exercise the exact
-///         prod env-var contract on testnet — useful for mainnet
-///         rehearsals.
+///         === Cross-canceller role split ===
+///         Identical 4-step admin dance as production `Deploy.s.sol`,
+///         exercised on testnet so the deploy mechanics are validated
+///         before mainnet. Even when one EOA fills every logical role
+///         (single-principal dev mode), the dance still runs end-to-end
+///         and locks DEFAULT_ADMIN_ROLE — so a green Sepolia rehearsal
+///         proves the code path will work on mainnet.
+///
+///         Cross-canceller mapping (env-driven, defaults below):
+///           * Upgrade TLC (7-day):   proposer = DEPLOYDEV_GOVERNANCE_OWNER
+///                                              (default: deployer EOA)
+///                                    canceller = DEPLOYDEV_WHITELIST_REMOVER
+///                                              (default: 0x5822…894c4)
+///           * Whitelist-add (3-day): proposer = DEPLOYDEV_GOVERNANCE_OWNER
+///                                    canceller = DEPLOYDEV_WHITELIST_REMOVER
+///           * Purge TLC (1-day):     proposer = DEPLOYDEV_PURGE_REMOVER
+///                                              (default: 0x5822…894c4)
+///                                    canceller = DEPLOYDEV_GOVERNANCE_OWNER
+///
+///         With defaults: deployer proposes upgrades + whitelist; cold
+///         wallet cancels them. Cold wallet proposes purges; deployer
+///         cancels them. The cross-canceller pattern is non-vacuous on
+///         Sepolia, so we can validate both directions before mainnet.
+///
+///         For a fully single-principal deploy (vacuous cross-canceller,
+///         useful for tight Anvil iteration), set every env var to the
+///         same address. The dance still runs and renounces — the role
+///         config is identically locked, just with one principal on
+///         both sides. The mechanics still get exercised.
 ///
 ///         Recommended dev EOA: Anvil default account 0
 ///           address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
@@ -27,13 +49,24 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 ///         this on mainnet.
 ///
 ///         Env vars:
-///           * GOVERNANCE_OWNER     (required)  — EOA or contract. Becomes
-///                                                upgrade TLC proposer/executor.
-///           * WHITELIST_OPERATOR   (optional)  — EOA or contract. Becomes
-///                                                add TLC proposer/executor +
-///                                                whitelistRemover. Defaults
-///                                                to GOVERNANCE_OWNER.
-///           * INITIAL_WHITELISTERS (optional)  — comma-separated address list.
+///           * GOVERNANCE_OWNER             (required)  — kept for backwards
+///                                                        compatibility; aliased
+///                                                        to DEPLOYDEV_GOVERNANCE_OWNER
+///                                                        when the latter is unset.
+///           * DEPLOYDEV_GOVERNANCE_OWNER   (optional)  — Proposer of upgrade
+///                                                        + whitelist TLCs;
+///                                                        canceller of purge TLC.
+///                                                        Default: GOVERNANCE_OWNER.
+///           * DEPLOYDEV_WHITELIST_REMOVER  (optional)  — Canceller of upgrade
+///                                                        + whitelist TLCs;
+///                                                        `whitelistRemover` slot
+///                                                        on the proxy. Default:
+///                                                        canonical cold wallet.
+///           * DEPLOYDEV_PURGE_REMOVER      (optional)  — Proposer of purge TLC;
+///                                                        `purgeRemover` slot on
+///                                                        the proxy. Default:
+///                                                        canonical cold wallet.
+///           * INITIAL_WHITELISTERS         (optional)  — comma-separated address list.
 contract DeployDev is Script {
     /*//////////////////////////////////////////////////////////////
                             DEV-NAMESPACED SALTS
@@ -52,8 +85,7 @@ contract DeployDev is Script {
     bytes32 public constant PURGE_TIMELOCK_SALT = keccak256("thatsRekt.purgeTimelock.dev.v1");
 
     /// @dev Unversioned — the canonical dev proxy address. Same across
-    ///      every testnet that runs DeployDev with the same
-    ///      GOVERNANCE_OWNER + INITIAL_WHITELISTERS.
+    ///      every testnet that runs DeployDev with the same role tuple.
     bytes32 public constant PROXY_SALT = keccak256("thatsRekt.proxy.dev");
 
     /// @dev Identical to production. Keeping the delays matched means
@@ -64,104 +96,118 @@ contract DeployDev is Script {
     uint256 public constant ADD_DELAY     = 3 days;
     uint256 public constant PURGE_DELAY   = 1 days;
 
-    /// @notice CLI entrypoint — reads `GOVERNANCE_OWNER` (required) and
-    ///         `WHITELIST_OPERATOR` (optional, defaults to owner) from
-    ///         env and deploys. Matches production Deploy.s.sol's
-    ///         env-var contract.
+    /// @dev Default cold-wallet stand-in for the canceller / `whitelistRemover`
+    ///      / `purgeRemover` roles. Mirrors `Deploy.DEFAULT_PURGE_REMOVER_EOA`
+    ///      so testnet runs with default env vars exercise the same
+    ///      cross-canceller geometry as mainnet (deployer ↔ canonical cold
+    ///      wallet), just with a different proposer on the upgrade path.
+    address public constant DEFAULT_COLD_WALLET = 0x5822B262EDdA82d2C6A436b598Ff96fA9AB894c4;
+
+    /// @notice CLI entrypoint. Reads role addresses from env (with
+    ///         documented defaults) and executes the deploy with
+    ///         `msg.sender` as the temporary DEFAULT_ADMIN of each TLC.
     function run() external {
-        address owner = vm.envAddress("GOVERNANCE_OWNER");
-        require(owner != address(0), "GOVERNANCE_OWNER env var is zero");
-        address operator = _readOperatorOrDefault(owner);
-        deploy(owner, operator);
+        address deployerAddr = msg.sender;
+        address governanceOwner   = _readGovernanceOwner(deployerAddr);
+        address whitelistRemover  = _readWhitelistRemover();
+        address purgeRemover      = _readPurgeRemover();
+        deploy(deployerAddr, governanceOwner, whitelistRemover, purgeRemover);
     }
 
-    /// @notice Programmatic entrypoint — used by tests, by `forge script
-    ///         --sig "deploy(address,address)" ...`, and by any caller
-    ///         that already has both addresses in hand. Avoids the env
-    ///         indirection (and its parallel-test pitfalls).
-    /// @dev    NOTE: deliberately NO `code.length > 0` check here —
-    ///         that's the sole behavioral difference vs production
-    ///         Deploy.s.sol. EOAs are accepted; contracts are also fine
-    ///         if you want real Safes on a testnet for parity.
-    /// @param  owner    Becomes upgrade TLC proposer/executor.
-    /// @param  operator Becomes add TLC proposer/executor AND
-    ///                  `whitelistRemover`. Pass the same address as
-    ///                  `owner` for the single-principal dev model.
-    function deploy(address owner, address operator) public {
-        require(owner != address(0), "owner is zero");
-        require(operator != address(0), "operator is zero");
+    /// @notice Programmatic entrypoint. Tests call this directly to avoid
+    ///         env-var races (Foundry runs tests in parallel; vm.setEnv
+    ///         mutates process state).
+    /// @dev    NOTE: deliberately NO `code.length > 0` check — that's the
+    ///         sole behavioral difference vs production Deploy.s.sol.
+    /// @param  deployerAddr     Temporary DEFAULT_ADMIN_ROLE holder during
+    ///                          the role-split dance. Must equal the
+    ///                          msg.sender of subsequent calls (broadcaster
+    ///                          in prod, script contract in tests).
+    /// @param  governanceOwner  Proposer of upgrade + whitelist TLCs;
+    ///                          canceller of purge TLC.
+    /// @param  whitelistRemover Canceller of upgrade + whitelist TLCs;
+    ///                          `whitelistRemover` slot on the proxy.
+    /// @param  purgeRemover     Proposer of purge TLC; `purgeRemover` slot
+    ///                          on the proxy.
+    function deploy(
+        address deployerAddr,
+        address governanceOwner,
+        address whitelistRemover,
+        address purgeRemover
+    ) public {
+        require(deployerAddr     != address(0), "deployer is zero");
+        require(governanceOwner  != address(0), "governanceOwner is zero");
+        require(whitelistRemover != address(0), "whitelistRemover is zero");
+        require(purgeRemover     != address(0), "purgeRemover is zero");
 
         address[] memory initialWhitelisters = _readInitialWhitelisters();
 
         // === 1. Implementation.
         bytes memory implInitCode = type(ThatsRekt).creationCode;
-        address impl = _create2(IMPL_SALT, implInitCode, "impl");
+        address impl = _create2(IMPL_SALT, implInitCode, "impl", deployerAddr);
 
-        // === 2. Upgrade TimelockController — owner as proposer/executor.
-        address[] memory upgradeProposers = new address[](1);
-        upgradeProposers[0] = owner;
-        address[] memory upgradeExecutors = new address[](1);
-        upgradeExecutors[0] = owner;
-        bytes memory upgradeTLInitCode = abi.encodePacked(
-            type(TimelockController).creationCode,
-            abi.encode(UPGRADE_DELAY, upgradeProposers, upgradeExecutors, address(0))
-        );
-        address upgradeTimelock = _create2(UPGRADE_TIMELOCK_SALT, upgradeTLInitCode, "upgradeTimelock");
+        // Permissive executor list: governanceOwner OR anyone after delay.
+        address[] memory sharedExecutors = new address[](2);
+        sharedExecutors[0] = governanceOwner;
+        sharedExecutors[1] = address(0);
 
-        // === 3. Add TimelockController — operator as proposer/executor.
-        address[] memory addProposers = new address[](1);
-        addProposers[0] = operator;
-        address[] memory addExecutors = new address[](1);
-        addExecutors[0] = operator;
-        bytes memory addTLInitCode = abi.encodePacked(
-            type(TimelockController).creationCode,
-            abi.encode(ADD_DELAY, addProposers, addExecutors, address(0))
+        // === 2. Upgrade TimelockController.
+        TimelockController upgradeTLC = _deployTLCWithSplitRoles(
+            UPGRADE_TIMELOCK_SALT,
+            UPGRADE_DELAY,
+            governanceOwner,    // proposer
+            whitelistRemover,   // canceller
+            sharedExecutors,
+            deployerAddr,
+            "upgradeTimelock"
         );
-        address addTimelock = _create2(ADD_TIMELOCK_SALT, addTLInitCode, "addTimelock");
 
-        // === 4. Purge TimelockController — operator as proposer/executor.
-        //   Single-principal dev model: same EOA holds proposer/executor
-        //   on all three TLCs. In two-principal mode, the operator EOA
-        //   is the purge proposer too (separate purge-admin role isn't
-        //   exposed on dev — keep parity with prod via env var if needed).
-        address[] memory purgeProposers = new address[](1);
-        purgeProposers[0] = operator;
-        address[] memory purgeExecutors = new address[](1);
-        purgeExecutors[0] = operator;
-        bytes memory purgeTLInitCode = abi.encodePacked(
-            type(TimelockController).creationCode,
-            abi.encode(PURGE_DELAY, purgeProposers, purgeExecutors, address(0))
+        // === 3. Add TimelockController.
+        TimelockController addTLC = _deployTLCWithSplitRoles(
+            ADD_TIMELOCK_SALT,
+            ADD_DELAY,
+            governanceOwner,    // proposer
+            whitelistRemover,   // canceller
+            sharedExecutors,
+            deployerAddr,
+            "addTimelock"
         );
-        address purgeTimelock = _create2(PURGE_TIMELOCK_SALT, purgeTLInitCode, "purgeTimelock");
+
+        // === 4. Purge TimelockController.
+        TimelockController purgeTLC = _deployTLCWithSplitRoles(
+            PURGE_TIMELOCK_SALT,
+            PURGE_DELAY,
+            purgeRemover,       // proposer
+            governanceOwner,    // canceller
+            sharedExecutors,
+            deployerAddr,
+            "purgeTimelock"
+        );
 
         // === 5. ERC1967Proxy.
-        //   - owner            = upgradeTimelock (7-day)
-        //   - whitelistAdmin   = addTimelock     (3-day, operator-proposed)
-        //   - whitelistRemover = operator        (instant whitelist kill-switch)
-        //   - purgeAdmin       = purgeTimelock   (1-day, operator-proposed)
-        //   - purgeRemover     = operator        (instant purge kill-switch +
-        //                                          purge TLC canceller)
-        // Single-principal dev model: the same operator EOA fills every
-        // role. Two-principal mode (mainnet rehearsal) keeps the same
-        // mapping — operator is *both* the purge proposer and the
-        // purgeRemover, matching the prod design.
         bytes memory initCalldata = abi.encodeCall(
             ThatsRekt.initialize,
-            (upgradeTimelock, addTimelock, operator, purgeTimelock, operator, initialWhitelisters)
+            (address(upgradeTLC), address(addTLC), whitelistRemover, address(purgeTLC), purgeRemover, initialWhitelisters)
         );
         bytes memory proxyInitCode = abi.encodePacked(
             type(ERC1967Proxy).creationCode,
             abi.encode(impl, initCalldata)
         );
-        address proxy = _create2(PROXY_SALT, proxyInitCode, "proxy");
+        address proxy = _create2(PROXY_SALT, proxyInitCode, "proxy", deployerAddr);
 
         console2.log("=== DeployDev (testnet / dev) ===");
         console2.log("Implementation:        ", impl);
-        console2.log("Upgrade TLC (7-day):   ", upgradeTimelock);
-        console2.log("Add TLC (3-day):       ", addTimelock);
-        console2.log("Purge TLC (1-day):     ", purgeTimelock);
-        console2.log("Owner (gov):           ", owner);
-        console2.log("Operator (whitelister):", operator);
+        console2.log("Upgrade TLC (7-day):   ", address(upgradeTLC));
+        console2.log("  proposer:            ", governanceOwner);
+        console2.log("  canceller:           ", whitelistRemover);
+        console2.log("Add TLC (3-day):       ", address(addTLC));
+        console2.log("  proposer:            ", governanceOwner);
+        console2.log("  canceller:           ", whitelistRemover);
+        console2.log("Purge TLC (1-day):     ", address(purgeTLC));
+        console2.log("  proposer:            ", purgeRemover);
+        console2.log("  canceller:           ", governanceOwner);
+        console2.log("whitelistRemover slot: ", whitelistRemover);
+        console2.log("purgeRemover slot:     ", purgeRemover);
         console2.log("Proxy:                 ", proxy);
         console2.log("Initial whitelisters:  ", initialWhitelisters.length);
         for (uint256 i; i < initialWhitelisters.length; ++i) {
@@ -173,20 +219,116 @@ contract DeployDev is Script {
         console2.log("  START_BLOCK_<chain>=  ", block.number);
     }
 
-    /// @dev Backwards-compatible single-arg overload — kept so existing
-    ///      tests / scripts that call `deploy(address)` still work.
-    ///      Uses the same address for owner and operator (single-
-    ///      principal dev model).
-    function deploy(address owner) public {
-        deploy(owner, owner);
+    /// @dev Backwards-compatible 2-arg overload. Sets:
+    ///        * governanceOwner  = `owner`
+    ///        * whitelistRemover = `operator`
+    ///        * purgeRemover     = `operator`
+    ///      Old single-principal callers passing the same address for both
+    ///      get a fully-vacuous role split (one wallet on every side); the
+    ///      dance still runs and locks role config.
+    function deploy(address deployerAddr, address owner, address operator) public {
+        deploy(deployerAddr, owner, operator, operator);
     }
 
-    /// @dev Reads `WHITELIST_OPERATOR` env. Empty/unset → fallback.
-    function _readOperatorOrDefault(address fallbackAddr) internal view returns (address) {
-        try vm.envAddress("WHITELIST_OPERATOR") returns (address op) {
-            return op == address(0) ? fallbackAddr : op;
+    /// @dev Backwards-compatible single-arg overload. All four roles
+    ///      collapse to the same address — fully-vacuous cross-canceller,
+    ///      useful for one-EOA Anvil loops where the goal is just to
+    ///      validate the deploy mechanics, not the role geometry.
+    function deploy(address ownerAndDeployer) public {
+        deploy(ownerAndDeployer, ownerAndDeployer, ownerAndDeployer, ownerAndDeployer);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          ROLE-SPLIT DEPLOYMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Identical pattern to `Deploy._deployTLCWithSplitRoles`. See
+    ///      Deploy.s.sol for the full explanation of the 4-step admin
+    ///      dance and why role config is locked permanently after step 4.
+    ///
+    ///      Note: this helper allows `proposer == canceller` (vacuous
+    ///      mode) so single-principal dev deploys still validate the
+    ///      mechanics. Production `Deploy._deployTLCWithSplitRoles`
+    ///      rejects that case to enforce the security invariant.
+    function _deployTLCWithSplitRoles(
+        bytes32 salt,
+        uint256 delay,
+        address proposer,
+        address canceller,
+        address[] memory executors,
+        address deployerAddr,
+        string memory label
+    ) internal returns (TimelockController tlc) {
+        require(proposer != address(0),  "proposer is zero");
+        require(canceller != address(0), "canceller is zero");
+
+        address[] memory proposers = new address[](1);
+        proposers[0] = proposer;
+        bytes memory tlcInitCode = abi.encodePacked(
+            type(TimelockController).creationCode,
+            abi.encode(delay, proposers, executors, deployerAddr)
+        );
+
+        bytes32 initHash = keccak256(tlcInitCode);
+        address predicted = computeCreate2Address(salt, initHash, CREATE2_FACTORY);
+
+        if (predicted.code.length > 0) {
+            console2.log(string.concat(label, " already deployed:"), predicted);
+            return TimelockController(payable(predicted));
+        }
+
+        vm.startBroadcast(deployerAddr);
+        (bool ok,) = CREATE2_FACTORY.call(abi.encodePacked(salt, tlcInitCode));
+        require(ok, string.concat(label, " deploy failed"));
+        require(predicted.code.length > 0, string.concat(label, " not deployed"));
+        tlc = TimelockController(payable(predicted));
+
+        // === Steps 2/3: grant CANCELLER to the cross-canceller, revoke
+        //     OZ's auto-grant from the proposer. In single-principal
+        //     mode (proposer == canceller), the order matters: grant
+        //     first (no-op since proposer already has it), then revoke
+        //     would also strip it from the canceller. So skip both and
+        //     leave the auto-grant as-is.
+        if (proposer != canceller) {
+            tlc.grantRole(tlc.CANCELLER_ROLE(), canceller);
+            tlc.revokeRole(tlc.CANCELLER_ROLE(), proposer);
+        }
+
+        // Step 4: renounce DEFAULT_ADMIN_ROLE — locks role config.
+        tlc.renounceRole(tlc.DEFAULT_ADMIN_ROLE(), deployerAddr);
+        vm.stopBroadcast();
+
+        console2.log(string.concat(label, " deployed (split):"), predicted);
+    }
+
+    /// @dev `DEPLOYDEV_GOVERNANCE_OWNER` env first, then `GOVERNANCE_OWNER`
+    ///      (legacy alias), then deployer EOA. Returning `address(0)` for
+    ///      empty/missing env triggers the next fallback.
+    function _readGovernanceOwner(address fallbackAddr) internal view returns (address) {
+        try vm.envAddress("DEPLOYDEV_GOVERNANCE_OWNER") returns (address a) {
+            if (a != address(0)) return a;
+        } catch {}
+        try vm.envAddress("GOVERNANCE_OWNER") returns (address a) {
+            if (a != address(0)) return a;
+        } catch {}
+        return fallbackAddr;
+    }
+
+    /// @dev `DEPLOYDEV_WHITELIST_REMOVER` env, then canonical cold wallet.
+    function _readWhitelistRemover() internal view returns (address) {
+        try vm.envAddress("DEPLOYDEV_WHITELIST_REMOVER") returns (address a) {
+            return a == address(0) ? DEFAULT_COLD_WALLET : a;
         } catch {
-            return fallbackAddr;
+            return DEFAULT_COLD_WALLET;
+        }
+    }
+
+    /// @dev `DEPLOYDEV_PURGE_REMOVER` env, then canonical cold wallet.
+    function _readPurgeRemover() internal view returns (address) {
+        try vm.envAddress("DEPLOYDEV_PURGE_REMOVER") returns (address a) {
+            return a == address(0) ? DEFAULT_COLD_WALLET : a;
+        } catch {
+            return DEFAULT_COLD_WALLET;
         }
     }
 
@@ -201,15 +343,21 @@ contract DeployDev is Script {
     }
 
     /// @dev See Deploy.s.sol for rationale. Idempotent — returns the
-    ///      predicted address if it's already deployed.
-    function _create2(bytes32 salt, bytes memory initCode, string memory label) internal returns (address) {
+    ///      predicted address if it's already deployed. Used for impl
+    ///      and proxy (no role-split dance needed).
+    function _create2(
+        bytes32 salt,
+        bytes memory initCode,
+        string memory label,
+        address deployerAddr
+    ) internal returns (address) {
         bytes32 initHash = keccak256(initCode);
         address predicted = computeCreate2Address(salt, initHash, CREATE2_FACTORY);
         if (predicted.code.length > 0) {
             console2.log(string.concat(label, " already deployed:"), predicted);
             return predicted;
         }
-        vm.startBroadcast();
+        vm.startBroadcast(deployerAddr);
         (bool ok,) = CREATE2_FACTORY.call(abi.encodePacked(salt, initCode));
         require(ok, string.concat(label, " deploy failed"));
         vm.stopBroadcast();
