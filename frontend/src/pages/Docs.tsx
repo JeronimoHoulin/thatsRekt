@@ -501,7 +501,11 @@ function Reference() {
                   <td className="px-3 py-2 font-black">{d.name}</td>
                   <td className="px-3 py-2 tabular-nums">{d.chainId}</td>
                   <td className="px-3 py-2 text-neutral-600 break-all">
-                    {d.proxy ?? '— TBD —'}
+                    {d.proxy ? (
+                      <AddressLabel addr={d.proxy} chainSlug={d.name} full />
+                    ) : (
+                      '— TBD —'
+                    )}
                   </td>
                   <td className="px-3 py-2 uppercase tracking-widest">
                     {d.proxy ? (
