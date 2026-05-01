@@ -1,0 +1,135 @@
+// Package graphql — minimal client for the thatsRekt Mesh stitching gateway.
+//
+// We only call one operation: `posts(limit, offset, chains)` which returns
+// the cross-chain unified feed shape. Per-chain stitching happens upstream —
+// from this client's perspective, posts on every supported chain look the
+// same and get appended to the channel as they appear.
+package graphql
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+)
+
+// Post mirrors the subset of the unified `posts.items[]` shape we need to
+// render a Telegram message. Match field names exactly to the GraphQL
+// response so json.Decode handles the mapping.
+type Post struct {
+	ID                 string   `json:"id"` // composite: `{chainSlug}-{onchainId}`
+	Chain              Chain    `json:"chain"`
+	Poster             string   `json:"poster"`
+	Title              string   `json:"title"`
+	Note               string   `json:"note"`
+	Confirmations      int      `json:"confirmations"`
+	Disconfirmations   int      `json:"disconfirmations"`
+	NetScore           int      `json:"netScore"`
+	CreatedAtTimestamp string   `json:"createdAtTimestamp"`
+	AttackedAt         string   `json:"attackedAt"`
+	Attackers          []string `json:"attackers"`
+	Victims            []string `json:"victims"`
+}
+
+type Chain struct {
+	ChainID int    `json:"chainId"`
+	Slug    string `json:"slug"`
+	Name    string `json:"name"`
+}
+
+// Client is a thin HTTP wrapper. Single endpoint; persistent http.Client
+// with sane timeouts so a hung gateway doesn't stall the poll loop forever.
+type Client struct {
+	URL  string
+	HTTP *http.Client
+}
+
+func NewClient(url string) *Client {
+	return &Client{
+		URL: url,
+		HTTP: &http.Client{
+			Timeout: 30 * time.Second, // ample for cross-chain stitching
+		},
+	}
+}
+
+// LatestPosts fetches the most recent `limit` posts in DESC order. Caller
+// dedupes against last-seen state to find the newly-arrived ones.
+func (c *Client) LatestPosts(ctx context.Context, limit int) ([]Post, error) {
+	const query = `
+		query Notifier($limit: Int!) {
+			posts(limit: $limit, offset: 0) {
+				items {
+					id
+					chain { chainId slug name }
+					poster
+					title
+					note
+					confirmations
+					disconfirmations
+					netScore
+					createdAtTimestamp
+					attackedAt
+					attackers
+					victims
+				}
+			}
+		}
+	`
+	body, err := json.Marshal(map[string]any{
+		"query":     query,
+		"variables": map[string]any{"limit": limit},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal query: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.URL, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "thatsrekt-notifier/1")
+
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
+	if resp.StatusCode/100 != 2 {
+		return nil, fmt.Errorf("graphql %d: %s", resp.StatusCode, truncate(string(raw), 200))
+	}
+
+	var out struct {
+		Data struct {
+			Posts struct {
+				Items []Post `json:"items"`
+			} `json:"posts"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+	if len(out.Errors) > 0 {
+		return nil, fmt.Errorf("graphql error: %s", out.Errors[0].Message)
+	}
+	return out.Data.Posts.Items, nil
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
+}

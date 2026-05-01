@@ -73,7 +73,7 @@ jobs:
         id: matrix
         run: |
           if [[ "${{ inputs.services }}" == "all" ]]; then
-            SVC='["indexer","mesh","frontend","relay"]'
+            SVC='["indexer","mesh","frontend","relay","notifier"]'
           else
             SVC=$(echo '${{ inputs.services }}' | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$";""))')
           fi
