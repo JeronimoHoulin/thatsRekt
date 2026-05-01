@@ -10,7 +10,8 @@ import {
  * On-chain whitelist gate, multi-chain.
  *
  * Calls `isWhitelisted(address)` on every registry proxy returned by
- * `chainsWithRegistry()` (Base + Optimism today). The user is considered
+ * `chainsWithRegistry()` (Base only today; OP temporarily out while the
+ * registry redeploys with a new purge-admin role). The user is considered
  * whitelisted if AT LEAST ONE chain returns `true` — the post form will
  * still gate the chain selector on per-chain status.
  *
@@ -25,7 +26,7 @@ import {
  *
  * NOTE on hook ordering: wagmi v2's `useReadContract` is a hook, so its
  * call ordering must be stable across renders. `chainsWithRegistry()`
- * returns a fixed-length array (today: `[8453, 10]`); growing it
+ * returns a fixed-length array (today: `[8453]`); growing it
  * requires a release, so a `.map` over it is safe in practice. If you
  * ever conditionally drop a chain from that list at runtime, this loop
  * will break the Rules of Hooks — switch to explicit per-chain `useReadContract`

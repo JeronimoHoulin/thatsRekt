@@ -281,6 +281,7 @@ async function handlePostCreated(ctx: Ctx, caches: Caches, log: Log): Promise<vo
     disconfirmations: 0,
     netScore: 0,
     removed: false,
+    purged: false,
     createdAtBlock: block.height,
     createdAtTimestamp: ts,
   })
@@ -417,6 +418,48 @@ async function handlePostRemoved(ctx: Ctx, caches: Caches, log: Log): Promise<vo
     cached.victimActivePostCount = Math.max(0, cached.victimActivePostCount - 1)
     cached.isVictim = cached.victimActivePostCount > 0
     caches.addresses.set(addrId, cached)
+  }
+}
+
+async function handlePostPurged(ctx: Ctx, caches: Caches, log: Log): Promise<void> {
+  const e = events.PostPurged.decode(log)
+  const postId = e.postId.toString()
+  const block = log.block
+  const ts = new Date(block.timestamp)
+
+  const post = await getOrCreatePost(ctx, caches, postId)
+  if (!post) {
+    ctx.log.warn(`PostPurged event references unknown postId=${postId}; skipping`)
+    return
+  }
+  if (post.purged) return  // idempotent
+
+  // Mark purged regardless of prior state.
+  post.purged = true
+  post.purgedAtBlock = block.height
+  post.purgedAtTimestamp = ts
+
+  // Reverse aggregates ONLY if the post was NOT already retracted. The
+  // contract's purgePost reverses aggregates iff !removed (so retract +
+  // purge does not double-reverse). Mirror that exactly here.
+  if (!post.removed) {
+    const attackerLinks = await getPostAttackerLinks(ctx, caches, postId)
+    const netAtPurge = BigInt(post.netScore)
+    for (const link of attackerLinks) {
+      const addrId = link.address.id
+      const cached = caches.addresses.get(addrId) ?? link.address
+      cached.attackerScore = cached.attackerScore - netAtPurge
+      caches.addresses.set(addrId, cached)
+    }
+
+    const victimLinks = await getPostVictimLinks(ctx, caches, postId)
+    for (const link of victimLinks) {
+      const addrId = link.address.id
+      const cached = caches.addresses.get(addrId) ?? link.address
+      cached.victimActivePostCount = Math.max(0, cached.victimActivePostCount - 1)
+      cached.isVictim = cached.victimActivePostCount > 0
+      caches.addresses.set(addrId, cached)
+    }
   }
 }
 
@@ -648,6 +691,9 @@ processor.run(new TypeormDatabase({ supportHotBlocks: true }), async (ctx) => {
           break
         case events.PostRemoved.topic:
           await handlePostRemoved(ctx, caches, log)
+          break
+        case events.PostPurged.topic:
+          await handlePostPurged(ctx, caches, log)
           break
         case events.PostNoteAmended.topic:
           await handlePostNoteAmended(ctx, caches, log)

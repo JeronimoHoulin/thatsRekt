@@ -57,6 +57,12 @@ export class Post {
     @BooleanColumn_({nullable: false})
     removed!: boolean
 
+    /**
+     * true iff governance has purged this post (PostPurged event); orthogonal to `removed`
+     */
+    @BooleanColumn_({nullable: false})
+    purged!: boolean
+
     @IntColumn_({nullable: false})
     createdAtBlock!: number
 
@@ -68,6 +74,12 @@ export class Post {
 
     @DateTimeColumn_({nullable: true})
     removedAtTimestamp!: Date | undefined | null
+
+    @IntColumn_({nullable: true})
+    purgedAtBlock!: number | undefined | null
+
+    @DateTimeColumn_({nullable: true})
+    purgedAtTimestamp!: Date | undefined | null
 
     @OneToMany_(() => PostAttacker, e => e.post)
     attackerLinks!: Relation_<PostAttacker[]>

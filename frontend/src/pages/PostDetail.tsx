@@ -83,6 +83,14 @@ function LivePostDetail({ postId }: { postId: string }) {
     )
   }
 
+  // Governance-purged posts render a tombstone instead of the original
+  // payload. The point of purging is to scrub the offending material
+  // from the UI even though it remains readable on-chain — so we
+  // deliberately drop title / note / attackers / victims here.
+  if (data.purged) {
+    return <PurgedTombstone postId={data.id} purgedAt={data.purgedAtTimestamp} />
+  }
+
   const chainSlug = chainSlugFromId(data.id)
   // Build the canonical share path. The clean `/post/:chain/:postId`
   // shape is what the Mesh OG handler matches and what we want pasted
@@ -293,6 +301,55 @@ function Field({
       <dt className="w-32 shrink-0">[{label}]</dt>
       <dd className="text-black normal-case tracking-normal">{children}</dd>
     </div>
+  )
+}
+
+/**
+ * Tombstone shown when a post has been purged by governance. Brutalist
+ * callout — no title / note / attackers / victims surfaced; the entire
+ * point of the purge is to keep the offending content out of view.
+ *
+ * The on-chain record still exists; integrators can still read every
+ * field via `getPost(postId)` or the GraphQL gateway. This tombstone is
+ * purely a frontend signal that the registry's curators chose to hide
+ * this entry.
+ */
+function PurgedTombstone({
+  postId,
+  purgedAt,
+}: {
+  postId: string
+  purgedAt: string | null
+}) {
+  return (
+    <article className="space-y-8">
+      <Link
+        to="/"
+        className="inline-block text-xs uppercase tracking-widest rekt-link"
+      >
+        ← back to feed
+      </Link>
+      <div className="border-2 border-black bg-black text-[#f5f4ee] px-6 py-10 text-center space-y-3">
+        <p className="text-[10px] uppercase tracking-widest opacity-70">
+          [post #{postId}]
+        </p>
+        <p className="font-black uppercase tracking-tighter text-2xl sm:text-3xl leading-none">
+          this attack was purged
+        </p>
+        <p className="font-black uppercase tracking-widest text-xs">
+          from the registry by governance
+        </p>
+        {purgedAt && (
+          <p className="text-[10px] uppercase tracking-widest opacity-70 pt-2">
+            purged {relativeTime(purgedAt)} · {formatTimestamp(purgedAt)}
+          </p>
+        )}
+      </div>
+      <p className="text-xs uppercase tracking-widest text-neutral-700">
+        the on-chain record is still readable directly from the contract.
+        this UI deliberately hides the original content.
+      </p>
+    </article>
   )
 }
 

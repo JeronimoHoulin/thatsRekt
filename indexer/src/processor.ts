@@ -30,6 +30,7 @@ const requireEnv = (key: string): string => {
 const SUBSCRIBED_TOPICS = [
   events.PostCreated.topic,
   events.PostRemoved.topic,
+  events.PostPurged.topic,
   events.PostNoteAmended.topic,
   events.PostTitleAmended.topic,
   events.AttackersAdded.topic,

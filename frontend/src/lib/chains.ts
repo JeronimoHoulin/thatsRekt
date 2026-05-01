@@ -78,6 +78,10 @@ export const CHAINS: Readonly<Record<ChainSlug, FrontendChain>> = Object.freeze(
     isLocalFork: false,
     liveIndexed: true,
   },
+  // Optimism is temporarily archive-only while the registry redeploys with
+  // the new purge-admin governance role. Slug stays in the registry so old
+  // archive entries that reference `chain: 'optimism'` still resolve their
+  // badge + explorer link — the live indexer just doesn't query OP anymore.
   optimism: {
     chainId: 10,
     slug: 'optimism',
@@ -85,7 +89,7 @@ export const CHAINS: Readonly<Record<ChainSlug, FrontendChain>> = Object.freeze(
     badge: 'optimism',
     explorer: 'https://optimistic.etherscan.io',
     isLocalFork: false,
-    liveIndexed: true,
+    liveIndexed: false,
   },
   // ---------------------------------------------------------------------------
   // Archive-only chains (`liveIndexed: false`) — exist purely so the archive

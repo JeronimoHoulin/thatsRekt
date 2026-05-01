@@ -551,9 +551,8 @@ query LatestPosts {
 
       <p className="text-xs leading-relaxed text-neutral-700">
         Available chain prefixes: <Inline>Base_</Inline>,{' '}
-        <Inline>Optimism_</Inline>, <Inline>Sepolia_</Inline>, and so
-        on. Full schema introspection is available at the GraphQL
-        endpoint.
+        <Inline>Sepolia_</Inline>, and so on. Full schema introspection
+        is available at the GraphQL endpoint.
       </p>
     </Section>
   )
@@ -567,23 +566,22 @@ query LatestPosts {
  * Chains we plan to support. Each entry is one row in the deployments
  * table. Production contracts are CREATE2-identical across every chain
  * with the same governance + initial whitelisters — pending deploys
- * resolve to the canonical proxy address. Optimism is currently
- * running an interim test config with an expanded whitelist, so its
- * proxy differs; it'll be redeployed at CANONICAL_PROXY when the
- * canonical whitelist ships.
+ * resolve to the canonical proxy address.
+ *
+ * Base is currently mid-redeploy with the new purge-admin governance
+ * role; the canonical proxy address will refresh once that lands.
+ * Optimism is temporarily out of the table while the redeploy
+ * stabilises — it'll return alongside the canonical cross-chain
+ * whitelist.
  */
-const CANONICAL_PROXY = '0x390f7b37545CaD278dD3DADC92a20b9f45865936'
-const OPTIMISM_INTERIM_PROXY = '0x75bDe0394Dd0D92a2cEd1E0E4Fd5abB21319fD0e'
-
 const PLANNED_DEPLOYMENTS: ReadonlyArray<{
   name: string
   chainId: number
   proxy: string | null
-  status?: 'live' | 'interim'
+  status?: 'live' | 'redeploying'
 }> = [
   { name: 'ethereum', chainId: 1, proxy: null },
-  { name: 'base', chainId: 8453, proxy: CANONICAL_PROXY, status: 'live' },
-  { name: 'optimism', chainId: 10, proxy: OPTIMISM_INTERIM_PROXY, status: 'interim' },
+  { name: 'base', chainId: 8453, proxy: null, status: 'redeploying' },
   { name: 'arbitrum', chainId: 42161, proxy: null },
   { name: 'polygon', chainId: 137, proxy: null },
   { name: 'bsc', chainId: 56, proxy: null },
@@ -611,11 +609,11 @@ function Reference() {
           <strong className="font-black">stable across chains</strong>{' '}
           via CREATE2 — when contracts ship with the canonical
           governance + whitelist, the same address resolves on every
-          chain below. Optimism is currently a{' '}
-          <strong className="font-black">interim test deploy</strong>{' '}
-          with an expanded whitelist, so its proxy differs; it'll be
-          redeployed at the canonical address when the canonical
-          whitelist ships.
+          chain below. Base is currently being{' '}
+          <strong className="font-black">redeployed</strong>{' '}
+          with a new purge-admin governance role; the proxy address
+          below will be filled in once that lands. Optimism is
+          temporarily out of the table while the redeploy stabilises.
         </p>
         <div className="overflow-x-auto border-2 border-black">
           <table className="w-full text-left text-sm">
@@ -642,8 +640,8 @@ function Reference() {
                   <td className="px-3 py-2 uppercase tracking-widest">
                     {d.status === 'live' ? (
                       <span className="text-emerald-700">live</span>
-                    ) : d.status === 'interim' ? (
-                      <span className="text-sky-700">interim test</span>
+                    ) : d.status === 'redeploying' ? (
+                      <span className="text-sky-700">redeploying</span>
                     ) : (
                       <span className="text-amber-700">pending deploy</span>
                     )}

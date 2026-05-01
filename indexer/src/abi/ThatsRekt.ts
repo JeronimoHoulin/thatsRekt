@@ -11,6 +11,7 @@ export const events = {
     PostCreated: event("0x0d7ae440ca52974e1d1ce2edd77d29270dc9dd3ae72340834b3424a93e4998a2", "PostCreated(uint256,address,uint64,string,address[],address[],string)", {"id": indexed(p.uint256), "poster": indexed(p.address), "attackedAt": p.uint64, "title": p.string, "attackers": p.array(p.address), "victims": p.array(p.address), "note": p.string}),
     PostNoteAmended: event("0x6b4b6748b092a36f538b5d936f48f9e52910f5b77b05297c90560423a14bb25c", "PostNoteAmended(uint256,address,string)", {"postId": indexed(p.uint256), "amender": indexed(p.address), "newNote": p.string}),
     PostRemoved: event("0x5718ae2ef8a84a4ac1944e4db68da2c2f99b2367a583836f2032da026b358c80", "PostRemoved(uint256,uint8)", {"postId": indexed(p.uint256), "reason": p.uint8}),
+    PostPurged: event("0x70a991e519cee55704541465ce57e817537363a613fcfc859739c03d70c235c3", "PostPurged(uint256,address)", {"postId": indexed(p.uint256), "by": indexed(p.address)}),
     PostTitleAmended: event("0xaae225037103bba935ab52a59332ced3e456790237b9b71dc31ce4357a9cdb6c", "PostTitleAmended(uint256,address,string)", {"postId": indexed(p.uint256), "amender": indexed(p.address), "newTitle": p.string}),
     Upgraded: event("0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b", "Upgraded(address)", {"implementation": indexed(p.address)}),
     VictimsAdded: event("0x6bb42a267ffcd2d73693fdcf84c1f13c887f2d4dba77e9477c0c4123eae655c8", "VictimsAdded(uint256,address,address[])", {"postId": indexed(p.uint256), "amender": indexed(p.address), "newVictims": p.array(p.address)}),
@@ -177,6 +178,7 @@ export type OwnershipTransferredEventArgs = EParams<typeof events.OwnershipTrans
 export type PostCreatedEventArgs = EParams<typeof events.PostCreated>
 export type PostNoteAmendedEventArgs = EParams<typeof events.PostNoteAmended>
 export type PostRemovedEventArgs = EParams<typeof events.PostRemoved>
+export type PostPurgedEventArgs = EParams<typeof events.PostPurged>
 export type PostTitleAmendedEventArgs = EParams<typeof events.PostTitleAmended>
 export type UpgradedEventArgs = EParams<typeof events.Upgraded>
 export type VictimsAddedEventArgs = EParams<typeof events.VictimsAdded>

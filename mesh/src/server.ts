@@ -147,6 +147,8 @@ const additionalTypeDefs = /* GraphQL */ `
     confirmations: Int!
     disconfirmations: Int!
     removed: Boolean!
+    """True iff governance has purged this post. The gateway filters purged posts out of \`posts(...)\` server-side; surfaced here so detail-fetch paths can defensively render a tombstone."""
+    purged: Boolean!
     createdAtBlock: Int!
     createdAtTimestamp: String!
     lastUpdatedAt: String!
@@ -218,6 +220,10 @@ const RawPost = z.object({
   confirmations: z.number().int(),
   disconfirmations: z.number().int(),
   removed: z.boolean(),
+  // `purged` is optional on the wire so the gateway tolerates upstream
+  // squids that haven't run the purge migration yet — they simply won't
+  // project the column, and we coalesce `undefined` to `false` below.
+  purged: z.boolean().optional(),
   createdAtBlock: z.number().int(),
   createdAtTimestamp: z.string(),
   lastUpdatedAt: z.string(),
@@ -230,9 +236,17 @@ const FetchPostsResponse = z.object({
   posts: z.array(RawPost),
 })
 
+// `purged` is filtered out at the upstream squid via `where: { purged_eq: false }`
+// so we don't pull rows we'd just throw away. We also project the field for
+// downstream consumers (so the unified `posts(...)` resolver can fall through
+// to a tombstone rendering should a stale row sneak in).
 const FETCH_POSTS_QUERY = /* GraphQL */ `
   query FetchPosts($limit: Int!) {
-    posts(orderBy: createdAtBlock_DESC, limit: $limit) {
+    posts(
+      orderBy: createdAtBlock_DESC
+      limit: $limit
+      where: { purged_eq: false }
+    ) {
       id
       poster { id }
       attackedAt
@@ -242,6 +256,7 @@ const FETCH_POSTS_QUERY = /* GraphQL */ `
       confirmations
       disconfirmations
       removed
+      purged
       createdAtBlock
       createdAtTimestamp
       lastUpdatedAt
@@ -253,10 +268,14 @@ const FETCH_POSTS_QUERY = /* GraphQL */ `
 
 // Cheap server-side count for pagination UX. Each squid exposes
 // `postsConnection.totalCount` (Subsquid auto-generated). Per-chain calls
-// in parallel; sum is the upper bound for the unified feed.
+// in parallel; sum is the upper bound for the unified feed. We filter
+// purged posts out of the count so "showing X of Y" stays honest.
 const COUNT_POSTS_QUERY = /* GraphQL */ `
   query CountPosts {
-    postsConnection(orderBy: createdAtBlock_DESC) { totalCount }
+    postsConnection(
+      orderBy: createdAtBlock_DESC
+      where: { purged_eq: false }
+    ) { totalCount }
   }
 `
 
@@ -399,6 +418,9 @@ const buildAdditionalResolvers = (chains: readonly ChainEntry[]) => ({
         confirmations: post.confirmations,
         disconfirmations: post.disconfirmations,
         removed: post.removed,
+        // Coalesce undefined → false: tolerates upstreams that haven't
+        // applied the purge migration yet.
+        purged: post.purged === true,
         createdAtBlock: post.createdAtBlock,
         createdAtTimestamp: post.createdAtTimestamp,
         lastUpdatedAt: post.lastUpdatedAt,
