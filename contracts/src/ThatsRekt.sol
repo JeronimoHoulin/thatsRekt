@@ -181,7 +181,8 @@ contract ThatsRekt is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     ///             `whitelistAdmin`) because the 1-day TLC delay is too
     ///             short to be the gating delay on its own rotation:
     ///             a captured purge TLC could otherwise install a
-    ///             hostile successor in 1 day.
+    ///             hostile successor in 1 day. Cannot accept
+    ///             `address(0)` — use `revokePurgeAdmin` for that.
     ///           * `revokePurgeAdmin` callable by `purgeRemover`
     ///             (instant) — kill-switch sets the slot to
     ///             `address(0)`, after which all `purgePost` calls
@@ -555,14 +556,17 @@ contract ThatsRekt is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     ///         own rotation. Forcing rotation through the owner keeps
     ///         the 7-day public window between proposal and effect.
     ///
-    ///         `address(0)` is permitted: it disables purge entirely
-    ///         and emits a `PurgeAdminTransferred(prev, 0)` event.
-    ///         This is functionally equivalent to `revokePurgeAdmin`
-    ///         but goes through the slow path — useful when the
-    ///         decision is "we don't need this anymore" rather than
-    ///         "we have a security incident".
-    /// @param  newAdmin New holder of the purgeAdmin slot. May be zero.
+    ///         Rejects `address(0)` — that path lives on
+    ///         `revokePurgeAdmin` so the audit trail makes intent
+    ///         (rotate vs kill) explicit. To disable purge, use
+    ///         `revokePurgeAdmin` (instant, purgeRemover-only); to
+    ///         install or replace a purge admin, use this entry point
+    ///         with a non-zero address. Mirrors the
+    ///         `setWhitelistAdmin` / `revokeWhitelistAdmin` split.
+    /// @param  newAdmin New holder of the purgeAdmin slot. Must be
+    ///                  non-zero.
     function setPurgeAdmin(address newAdmin) external onlyOwner {
+        if (newAdmin == address(0)) revert ZeroAddress();
         address prev = purgeAdmin;
         purgeAdmin = newAdmin;
         emit PurgeAdminTransferred(prev, newAdmin);

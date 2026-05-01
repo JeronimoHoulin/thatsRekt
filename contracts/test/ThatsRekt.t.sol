@@ -2673,8 +2673,9 @@ contract ThatsRektTest is Test {
         vm.expectRevert();
         fresh.setPurgeAdmin(newPurger);
 
-        // Owner can rotate (and to address(0) — `setPurgeAdmin`
-        // accepts zero, equivalent to slow-disable).
+        // Owner can rotate to a non-zero address. Zero is rejected on
+        // both paths — `revokePurgeAdmin` is the kill-switch path so
+        // the audit trail makes intent (rotate vs kill) explicit.
         vm.expectEmit(true, true, false, false);
         emit ThatsRekt.PurgeAdminTransferred(purgeAdmin_, newPurger);
         vm.prank(governance);
@@ -2694,17 +2695,21 @@ contract ThatsRektTest is Test {
         assertTrue(fresh.isPurged(id));
     }
 
-    function test_setPurgeAdmin_acceptsZero() public {
-        // Owner can disable purge entirely via setPurgeAdmin(0). Distinct
-        // from `revokePurgeAdmin` (which is the instant kill-switch on
-        // the purgeRemover's lane); this is the "slow disable" path.
+    function test_setPurgeAdmin_revertsOnZero() public {
+        // Zero is rejected — disabling purge goes through
+        // `revokePurgeAdmin` (purgeRemover-only, instant) so the
+        // audit trail distinguishes "rotate to a new admin" from
+        // "kill the role". Mirrors `setWhitelistAdmin`'s rejection
+        // of zero.
         address purgeAdmin_ = makeAddr("purgeAdmin");
         ThatsRekt fresh = _deployProxiedRolesWithPurge(
             governance, governance, governance, purgeAdmin_, governance, _emptyList()
         );
         vm.prank(governance);
+        vm.expectRevert(ThatsRekt.ZeroAddress.selector);
         fresh.setPurgeAdmin(address(0));
-        assertEq(fresh.purgeAdmin(), address(0));
+        // Slot unchanged on revert.
+        assertEq(fresh.purgeAdmin(), purgeAdmin_);
     }
 
     /*------------------ revokePurgeAdmin: purgeRemover only ------------------*/
