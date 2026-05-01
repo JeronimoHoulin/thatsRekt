@@ -131,6 +131,22 @@ All three contracts (impl, timelock, proxy) are deployed at the same address on 
 
 Cross-chain identical addresses require identical init code on every chain. Concretely: the proxy's init code embeds the impl address and the `initialize(upgradeTimelock, addTimelock, multisig, initialWhitelisters[])` calldata, and each timelock's init code embeds the multisig address as proposer / executor / canceller. So the multisig must live at the same address on every chain (typically deployed via the Safe Singleton Factory) — pass the same multisig and the same `INITIAL_WHITELISTERS` everywhere, and the impl, both timelocks, and the proxy each land at one canonical cross-chain address.
 
+### Canonical initial whitelisters
+
+Use the SAME `INITIAL_WHITELISTERS` set on every chain so the canonical proxy address resolves identically. Current launch set (also intended for any re-deploy of an existing chain):
+
+| Address | Owner / role |
+|---|---|
+| `0x5822B262EDdA82d2C6A436b598Ff96fA9AB894c4` | thatsRekt cold wallet (also the `whitelistRemover`) |
+| `0xda1b9dFA299d655135C1ECdc4f0b4c9aED9a7f45` | bauti.eth |
+| `0x9E8680dbBcA1127add812abE209A10E621b385dF` | jerrythekid.eth |
+| `0x24C2167054A9A9e00F67233F1eBc4060501f54FA` | aux operator EOA |
+| `0xE0396d6d738e726D39f96099b8f6a55d11184374` | jerrythekid.eth's relayer bot — automated detector that submits alerts on Jerry's behalf |
+
+> **Note (2026-05-01):** the relayer bot above (`0xE039…4374`) is **not** in the deployed Base mainnet proxy's initial set — it was added to the canonical list after deploy. Until we re-deploy Base (or schedule it via the 3-day add timelock), Jerry's bot can't post. Plan is to fold it in on the next re-launch.
+
+When you add a new chain, set `INITIAL_WHITELISTERS` to all five addresses joined by commas. **Adding a chain with a different set produces a different proxy address** (CREATE2 hashes the full init calldata).
+
 ## Build / test / deploy
 
 ```bash

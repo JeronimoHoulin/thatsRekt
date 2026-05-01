@@ -76,17 +76,40 @@ export function WhitelistGateModal({
     dialogRef.current?.querySelector<HTMLButtonElement>('[data-close]')?.focus()
   }, [open])
 
-  if (!open) return null
+  // Hide the modal during the post-connect on-chain whitelist check,
+  // and silently after a verdict of "whitelisted" when no
+  // `whenWhitelisted` slot is provided. Two reasons:
+  //
+  //   1. Whitelisted users who connect via this modal should never see
+  //      a flash of "checking…" or "ready" — they expect the modal to
+  //      simply disappear once their wallet is connected. Rendering
+  //      anything in that window is visual noise.
+  //   2. Non-whitelisted users get the gate panel as soon as the read
+  //      settles; brief "no modal" gap during the check is acceptable
+  //      (typically <500 ms via the routeme.sh Base RPC).
+  //
+  // The check window can be skipped entirely on cache hits — wagmi's
+  // `useReadContract` returns the cached value synchronously on
+  // re-renders, so a returning user sees no gap at all.
+  const showCheckingPanel = false
+  const hideForSilentClose =
+    isConnected && address && !isCheckingWhitelist && isWhitelisted && !whenWhitelisted
+
+  if (!open || hideForSilentClose) return null
 
   // Pick the right inner content for the current state.
   let body: React.ReactNode
   if (!isConnected) {
     body = <ConnectPanel />
   } else if (isCheckingWhitelist || !address) {
+    // Render NOTHING during the check — modal frame is also hidden via
+    // the early return below. Keeping `CheckingPanel` import for any
+    // future flow that explicitly opts into showing it.
+    if (!showCheckingPanel) return null
     body = <CheckingPanel address={address} />
   } else if (isWhitelisted) {
-    // Optional caller-provided content. Most flows just close the modal
-    // here (parent handles via effect on `isWhitelisted` going true).
+    // Caller-provided content (e.g. a "ready to post" confirmation).
+    // When omitted, we already returned null above for silent close.
     body = whenWhitelisted ? whenWhitelisted(address) : null
   } else {
     body = <NotWhitelistedPanel address={address} onClose={onClose} />

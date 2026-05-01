@@ -19,9 +19,64 @@ export function About() {
     <article className="space-y-12">
       <Hero />
       <HowItWorks />
+      <WaysToUse />
       <Maintainers />
       <DonateSection />
     </article>
+  )
+}
+
+/**
+ * "Ways to use it" — the missing piece of the page. Newcomers see the
+ * elevator pitch + how-it-works but bounce because they can't picture
+ * what they (or their team) would actually do with it. Three concrete,
+ * plain-language scenarios across the audience spectrum.
+ *
+ * For deeper integration shapes / Solidity examples, /docs has a
+ * "use cases" section with code snippets — this is the introductory
+ * slice for general readers.
+ */
+function WaysToUse() {
+  return (
+    <section className="space-y-4">
+      <header className="space-y-1">
+        <h2 className="font-black uppercase tracking-tighter text-2xl sm:text-3xl leading-none">
+          ways to use it
+        </h2>
+        <p className="text-xs uppercase tracking-widest text-neutral-700">
+          [for builders · for security teams · for everyone]
+        </p>
+      </header>
+      <div className="space-y-4 sm:space-y-3">
+        <Bullet label="if you build a wallet">
+          Pre-flight every outbound transfer. Check the recipient's
+          attacker score before signing — if it's been confirmed by
+          peers as a hack address, warn the user before money leaves.
+        </Bullet>
+        <Bullet label="if you build a DEX or bridge">
+          Read directly from the registry on-chain. Block swaps where
+          the input or output token has been reported as a victim
+          contract; refuse cross-chain releases to flagged addresses.
+        </Bullet>
+        <Bullet label="if you run a lending market">
+          A keeper checks whether your own contracts appear in any
+          active alert. The second a peer security team posts about
+          your protocol being drained, your pause guardian can fire —
+          even if your team hasn't woken up yet.
+        </Bullet>
+        <Bullet label="if you run a security team or detector">
+          Apply for poster status. The moment your fork-monitor or
+          mempool scanner fires, post the attacker addresses on-chain.
+          Other whitelisters race to confirm or refute. Confirmer
+          karma builds reputation over time.
+        </Bullet>
+        <Bullet label="if you're just curious">
+          Browse the feed. Every post links to the actual on-chain
+          attack tx, the attacker addresses, and the victim contracts
+          — before-the-fact incident reporting, not after-the-fact news.
+        </Bullet>
+      </div>
+    </section>
   )
 }
 
@@ -36,8 +91,8 @@ function Hero() {
       </p>
       <p className="text-lg sm:text-xl leading-tight text-neutral-900 font-black tracking-tight max-w-2xl">
         thatsRekt is the on-chain hack alert registry — a public list
-        of active DeFi attacks, posted as they happen by vetted
-        security teams.
+        of active on-chain exploits across every EVM chain, posted
+        as they happen by vetted security teams.
       </p>
       <p className="text-base leading-relaxed text-neutral-800">
         Other apps read the list. A wallet can warn before sending
