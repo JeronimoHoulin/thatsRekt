@@ -1,5 +1,5 @@
 /**
- * Archive posts — pre-platform DeFi attacks.
+ * Archive posts — pre-platform on-chain exploits.
  *
  * These are NOT on-chain. They're a curated dataset
  * (`data/historic-incidents.json`, copied to `frontend/src/data/`) that

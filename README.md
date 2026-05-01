@@ -2,7 +2,7 @@
 
 On-chain hack alert registry — public good.
 
-A public list of active DeFi attacks, posted as they happen by vetted security teams. Other apps (wallets, exchanges, lending markets, bridges) read it on-chain to protect users in real time. Free to read, permissioned to post. No fees, no tokens, no profit motive.
+A public list of active on-chain exploits across every EVM chain, posted as they happen by vetted security teams. Other apps (wallets, exchanges, lending markets, bridges) read it on-chain to protect users in real time. Free to read, permissioned to post. No fees, no tokens, no profit motive.
 
 ## Live
 

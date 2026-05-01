@@ -18,6 +18,7 @@ import { PostLifecycleDiagram } from '../components/diagrams/PostLifecycleDiagra
 const TOC_ENTRIES: ReadonlyArray<TocEntry> = [
   { id: slugify('what is thatsRekt'),                   label: 'what is it' },
   { id: slugify('how posts work'),                      label: 'how posts work' },
+  { id: slugify('use cases'),                           label: 'use cases' },
   { id: slugify('architecture'),                        label: 'architecture' },
   { id: slugify('integrating from Solidity'),           label: 'solidity' },
   { id: slugify('integrating from a dApp (GraphQL)'),   label: 'graphql' },
@@ -33,11 +34,132 @@ export function Docs() {
         <WhatIs />
         <HowItWorks />
         <BecomeAPosterCallout />
+        <UseCases />
         <Architecture />
         <SolidityIntegration />
         <DappIntegration />
         <Reference />
       </article>
+    </div>
+  )
+}
+
+// =============================================================================
+// Use cases — concrete user stories
+// =============================================================================
+
+function UseCases() {
+  return (
+    <Section heading="use cases">
+      <p className="text-base leading-relaxed text-neutral-800">
+        The registry is just data — what makes it useful is integrators
+        wiring it into their own decision logic. A few concrete shapes
+        of integration:
+      </p>
+
+      <UseCase
+        actor="wallet"
+        scenario="Pre-flight every outbound tx"
+        body={
+          <>
+            Before signing a transfer or approve, read{' '}
+            <Code>attackerScore(recipient)</Code>. If it's above your
+            threshold (e.g. ≥ 2 net confirmations), warn the user with a
+            "this address has been reported as an attacker" interstitial
+            that requires explicit override. Same check works for
+            spending approvals and contract interactions.
+          </>
+        }
+      />
+
+      <UseCase
+        actor="DEX router"
+        scenario="Block swaps tied to flagged pools"
+        body={
+          <>
+            On every swap path, check{' '}
+            <Code>isVictim(token)</Code> for input + output. If true,
+            the pool's been reported as the target of an active attack
+            — refuse to route through it. Cheap on-chain read, no
+            indexer dependency.
+          </>
+        }
+      />
+
+      <UseCase
+        actor="lending market"
+        scenario="Auto-pause your own contracts when reported under attack"
+        body={
+          <>
+            A keeper periodically calls{' '}
+            <Code>isVictim(address(this))</Code> — when it flips true,
+            trigger your pause guardian. Even if your team hasn't woken
+            up yet, peer security teams' alerts pause new borrows
+            within seconds of detection.
+          </>
+        }
+      />
+
+      <UseCase
+        actor="bridge"
+        scenario="Refuse releases to flagged recipients"
+        body={
+          <>
+            Same shape as the wallet check, but applied at the
+            destination chain release step. Receiving deposits from a
+            chain currently under exploit (or sending to an attacker
+            address) gets blocked before funds leave your custody.
+          </>
+        }
+      />
+
+      <UseCase
+        actor="risk dashboard"
+        scenario="Surface live incidents to ops teams"
+        body={
+          <>
+            Subscribe to <Code>PostCreated</Code> events from the
+            registry on every chain you care about. Pipe into PagerDuty
+            / Slack / your incident bot. The on-chain feed is the same
+            substrate every other integrator reads, so your dashboards
+            and your contract guards stay in lockstep.
+          </>
+        }
+      />
+
+      <UseCase
+        actor="security firm / detector"
+        scenario="Post alerts the second your detector fires"
+        body={
+          <>
+            From a whitelisted EOA, call{' '}
+            <Code>post(title, attackers, victims, note, attackedAt)</Code>{' '}
+            the moment your fork-monitor / mempool-scanner / forensic
+            heuristic fires. Other whitelisters see your post and race
+            to confirm or refute. Confirmer karma builds reputation
+            over time.
+          </>
+        }
+      />
+    </Section>
+  )
+}
+
+function UseCase({
+  actor,
+  scenario,
+  body,
+}: {
+  actor: string
+  scenario: string
+  body: React.ReactNode
+}) {
+  return (
+    <div className="border-2 border-black bg-white p-4 space-y-2">
+      <p className="text-[10px] uppercase tracking-widest text-neutral-700">
+        [{actor}] · {scenario}
+      </p>
+      <p className="text-sm leading-relaxed text-neutral-800">{body}</p>
     </div>
   )
 }
@@ -65,10 +187,10 @@ function WhatIs() {
       <p className="text-base leading-relaxed text-neutral-800">
         thatsRekt is an{' '}
         <strong className="font-black">on-chain hack alert registry</strong>.
-        Whitelisted operators post structured alerts about active DeFi
-        exploits — attacker addresses, victim contracts, and a
-        free-form note. Other whitelisters race to{' '}
-        <em>vouch</em> (confirm) or <em>refute</em> (disconfirm).
+        Whitelisted operators post structured alerts about active
+        on-chain exploits on any EVM chain — attacker addresses,
+        victim contracts, and a free-form note. Other whitelisters race
+        to <em>vouch</em> (confirm) or <em>refute</em> (disconfirm).
       </p>
       <p className="text-base leading-relaxed text-neutral-800">
         Other contracts read this state directly: a bridge can refuse

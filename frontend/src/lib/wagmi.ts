@@ -1,5 +1,5 @@
 import { http, createConfig, fallback } from 'wagmi'
-import { base } from 'wagmi/chains'
+import { base, mainnet } from 'wagmi/chains'
 import { injected, coinbaseWallet, safe } from 'wagmi/connectors'
 
 /**
@@ -17,8 +17,23 @@ const baseTransport = fallback([
 ])
 
 /**
- * wagmi v2 config. Chains: Base only for v1 (the registry is deployed on
- * Base; multi-chain support comes when we deploy to other chains).
+ * Ethereum mainnet transport — *only* used for ENS reverse resolution.
+ * ENS primary names live on mainnet regardless of which chain the address
+ * is active on, so even though our registry is on Base, ENS lookups for
+ * any displayed address always hit Ethereum. wagmi's `useEnsName` picks
+ * up this transport automatically when called with `chainId: mainnet.id`.
+ */
+const mainnetTransport = fallback([
+  http('https://lb.routeme.sh/rpc/1/3bd2e340-f97c-46b3-80ed-17975de5af89'),
+  http('https://eth.llamarpc.com'),
+])
+
+/**
+ * wagmi v2 config.
+ *
+ * Chains:
+ *   - `base`    — registry is deployed here; reads/writes for the contract.
+ *   - `mainnet` — ENS reverse resolution only; we don't connect wallets here.
  *
  * Connectors:
  *   - `injected()`     — covers MetaMask, Rabby, Brave Wallet, Frame, Trust browser extension, etc.
@@ -30,7 +45,7 @@ const baseTransport = fallback([
  * `walletConnect({ projectId })` into the connectors array and it just works.
  */
 export const wagmiConfig = createConfig({
-  chains: [base],
+  chains: [base, mainnet],
   connectors: [
     injected({ shimDisconnect: true }),
     coinbaseWallet({ appName: 'thatsRekt', appLogoUrl: 'https://thatsrekt.com/favicon.svg' }),
@@ -38,6 +53,7 @@ export const wagmiConfig = createConfig({
   ],
   transports: {
     [base.id]: baseTransport,
+    [mainnet.id]: mainnetTransport,
   },
   // SSR: false — this is a Vite SPA, no server-rendered hydration step.
   ssr: false,

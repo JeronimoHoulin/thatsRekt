@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { useEnsLookup } from '../hooks/useEnsLookup'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useIsWhitelisted } from '../hooks/useIsWhitelisted'
-import { AddressLabel } from './AddressLabel'
 import { WhitelistGateModal } from './WhitelistGateModal'
 
 /**
@@ -78,26 +78,11 @@ export function PostAlertButton({
         isCheckingWhitelist={isCheckingWhitelist}
         isWhitelisted={isWhitelisted}
         title="[post]"
-        whenWhitelisted={(addr) => <ReadyPanel address={addr} />}
+        // No `whenWhitelisted` slot: post-connect silent close. The
+        // composer (full form + tx) is the next feature; for v1 we
+        // just want connecting to "just work" for vetted posters.
       />
     </>
-  )
-}
-
-/**
- * Brief confirmation between "wallet became whitelisted" and the
- * effect-driven auto-close. Only renders for ~one render tick during
- * the connect-then-already-whitelisted path.
- */
-function ReadyPanel({ address }: { address: `0x${string}` }) {
-  return (
-    <div className="space-y-3">
-      <p className="text-sm leading-relaxed text-neutral-800">
-        You're whitelisted. Composer is shipping next — for now, post
-        directly to the registry contract from this address.
-      </p>
-      <AddressLabel addr={address} chainSlug="base" full />
-    </div>
   )
 }
 
@@ -105,10 +90,16 @@ function ReadyPanel({ address }: { address: `0x${string}` }) {
  * Compact account display + disconnect dropdown for the header.
  * Visible only when a wallet is connected; replaces nothing — sits
  * next to the Post button and the nav.
+ *
+ * Shows the ENS primary name when one resolves on mainnet (cached via
+ * `useEnsLookup`), otherwise truncated hex. The disconnect dropdown
+ * always uses the underlying address so users can still verify they're
+ * disconnecting the right account.
  */
 export function AccountChip() {
   const { address, isConnected } = useAccount()
   const { disconnect } = useDisconnect()
+  const { name: ensName } = useEnsLookup(address)
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
@@ -140,9 +131,10 @@ export function AccountChip() {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
+        title={address}
         className="inline-flex items-center gap-1 border-2 border-black bg-[#f5f4ee] px-2 py-1 text-[10px] uppercase tracking-widest font-mono hover:bg-yellow-100 transition-colors"
       >
-        {truncate(address)}
+        {ensName ?? truncate(address)}
         <span aria-hidden="true" className="text-[9px]">▾</span>
       </button>
       {open && (

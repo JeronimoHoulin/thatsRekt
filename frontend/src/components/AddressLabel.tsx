@@ -1,26 +1,57 @@
 import { useState } from 'react'
 import { shortAddress } from '../lib/format'
 import { explorerAddressUrl, getChainBySlug } from '../lib/chains'
+import { useEnsLookup } from '../hooks/useEnsLookup'
 
 interface AddressLabelProps {
   addr: string
   /** When set, the explorer icon links to this chain's block explorer. */
   chainSlug?: string
   full?: boolean
+  /**
+   * When true (default), show the ENS primary name (if one resolves on
+   * mainnet) instead of the hex address. Copy + explorer link still
+   * operate on the underlying address. Set false for contexts where
+   * the literal hex IS the point — e.g. the /docs deployments table
+   * for the canonical proxy, or low-level governance role displays.
+   */
+  ens?: boolean
 }
 
 /**
  * Address with mobile-friendly affordances:
- *   - Copy icon button — always visible, tap target ≥ 28px.
- *   - Explorer icon link — always visible (when chainSlug provided).
- *   - Address text itself is tappable too (also copies) for convenience.
+ *   - ENS-aware text — shows `vitalik.eth` instead of the hex address
+ *     when one resolves on mainnet (caching handled by `useEnsLookup`).
+ *   - Copy icon button — always copies the *raw address*, even when an
+ *     ENS name is shown. Tap target ≥ 28px.
+ *   - Explorer icon link — always points to the *raw address* on the
+ *     chain's block explorer.
+ *   - The displayed text is tappable too (also copies the address) for
+ *     convenience.
  *
  * Icons are inline SVG so the component has no asset dependency.
  */
-export function AddressLabel({ addr, chainSlug, full = false }: AddressLabelProps) {
+export function AddressLabel({ addr, chainSlug, full = false, ens = true }: AddressLabelProps) {
   const [copied, setCopied] = useState(false)
   const chain = chainSlug ? getChainBySlug(chainSlug) : undefined
   const explorerUrl = chain ? explorerAddressUrl(chain, addr) : null
+
+  // Cast safe: any string starting with "0x" passed in is operationally
+  // a 20-byte hex; the type is loose because callers pass strings from
+  // GraphQL responses without runtime parsing.
+  const { name: ensName } = useEnsLookup(
+    /^0x[0-9a-fA-F]{40}$/.test(addr) ? (addr as `0x${string}`) : undefined,
+  )
+
+  // What text to display in the primary tappable button. Priority:
+  //   1. ENS name when present + opted in.
+  //   2. Full hex when explicitly requested (e.g. inside modals).
+  //   3. Truncated hex (default for inline usage).
+  const displayText = ensName && ens
+    ? ensName
+    : full
+      ? addr
+      : shortAddress(addr)
 
   const onCopy = async () => {
     try {
@@ -41,16 +72,15 @@ export function AddressLabel({ addr, chainSlug, full = false }: AddressLabelProp
         type="button"
         onClick={onCopy}
         title={copied ? 'copied!' : `copy ${addr}`}
-        aria-label="Copy address"
+        aria-label={`Copy address ${addr}`}
         className={
           'font-mono text-sm hover:bg-yellow-100 active:bg-yellow-200 px-1 -mx-0.5 rounded transition-colors cursor-pointer touch-manipulation min-w-0 ' +
-          // break-all only when showing the full address — short
-          // (truncated) addresses are short enough not to need wrapping
-          // and look better unbroken.
-          (full ? 'break-all text-left' : 'whitespace-nowrap')
+          // break-all only when showing the full hex — ENS names + short
+          // addresses are short enough not to need wrapping.
+          (full && !ensName ? 'break-all text-left' : 'whitespace-nowrap')
         }
       >
-        {full ? addr : shortAddress(addr)}
+        {displayText}
       </button>
       {/* Icons sit in a single nested flex row so they ALWAYS wrap as
           a unit. Without this nesting, the outer flex-wrap could put
