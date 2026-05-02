@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
@@ -162,6 +163,17 @@ func (d *Dispatcher) submitOne(
 		return res
 	}
 
+	// Read peekNextPostId() immediately before signing so the post tx
+	// claims the slot the contract is about to assign. Race window: any
+	// other tx that lands between this read and ours will bump the slot
+	// and our tx reverts cleanly with PostIdMismatch (caller retries).
+	expectedPostId, err := entry.client.Binding.PeekNextPostId(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		res.Status = "failed"
+		res.Error = fmt.Sprintf("peekNextPostId: %v", err)
+		return res
+	}
+
 	opts, err := entry.signer.TransactOpts()
 	if err != nil {
 		res.Status = "failed"
@@ -172,7 +184,7 @@ func (d *Dispatcher) submitOne(
 	// Leave Nonce/GasLimit unset — bind will auto-suggest. Sub-phase B
 	// will install an explicit nonce manager.
 
-	tx, err := entry.client.Binding.Post(opts, payload.Title, attackers, victims, payload.Note, payload.AttackedAt)
+	tx, err := entry.client.Binding.Post(opts, expectedPostId, payload.Title, attackers, victims, payload.Note, payload.AttackedAt)
 	if err != nil {
 		res.Status = "failed"
 		res.Error = fmt.Sprintf("submit: %v", err)

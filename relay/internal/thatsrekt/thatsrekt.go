@@ -31,7 +31,7 @@ var (
 
 // ThatsRektMetaData contains all meta data concerning the ThatsRekt contract.
 var ThatsRektMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"MAX_ADDRESSES_PER_POST\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"MAX_TITLE_LENGTH\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"MAX_VIEW_LIMIT\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"activePostsBefore\",\"inputs\":[{\"name\":\"beforeId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"limit\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"ids\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addAttackers\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"newAttackers\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addVictims\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"newVictims\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addWhitelisted\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"amendNote\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"newNote\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"amendTitle\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"newTitle\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"attackerAppearances\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"attackerReport\",\"inputs\":[{\"name\":\"a\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"score\",\"type\":\"int256\",\"internalType\":\"int256\"},{\"name\":\"appearances\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"attackerScore\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"int256\",\"internalType\":\"int256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getDownvoterCount\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getDownvoters\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPost\",\"inputs\":[{\"name\":\"id\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"poster\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"attackedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"upvotes\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"downvotes\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"removed\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"attackers_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"victims_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"lastUpdatedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUpvoterCount\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUpvoters\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"headPostId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"initialOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isVictim\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isWhitelisted\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"nextPostId\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"post\",\"inputs\":[{\"name\":\"title\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"attackers_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"victims_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"note\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"attackedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"id\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"postCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"postTitle\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"prevPostId\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"recentActivePosts\",\"inputs\":[{\"name\":\"limit\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"ids\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"removeWhitelisted\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"retract\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"tailPostId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unvote\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"vote\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"direction\",\"type\":\"uint8\",\"internalType\":\"enumThatsRekt.VoteDirection\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"voteOf\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"enumThatsRekt.VoteDirection\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"AttackersAdded\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"amender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newAttackers\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PostCreated\",\"inputs\":[{\"name\":\"id\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"poster\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"attackedAt\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"title\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"attackers\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"},{\"name\":\"victims\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"},{\"name\":\"note\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PostNoteAmended\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"amender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newNote\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PostRemoved\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"reason\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"enumThatsRekt.RemovalReason\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PostTitleAmended\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"amender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newTitle\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VictimsAdded\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"amender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newVictims\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Voted\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"voter\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldDirection\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"enumThatsRekt.VoteDirection\"},{\"name\":\"newDirection\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"enumThatsRekt.VoteDirection\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WhitelistUpdated\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"status\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"DuplicateAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EmptyAdditions\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EmptyPost\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidAttackedAt\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidVoteDirection\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoVoteChange\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoVoteToRetract\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotPoster\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotWhitelisted\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"PostIsRemoved\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PostNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PostTooLarge\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PosterCannotVote\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TitleEmpty\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TitleTooLong\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"ZeroAddress\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"MAX_ADDRESSES_PER_POST\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"MAX_TITLE_LENGTH\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"MAX_VIEW_LIMIT\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"activePostsBefore\",\"inputs\":[{\"name\":\"beforeId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"limit\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"ids\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addAttackers\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"newAttackers\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addVictims\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"newVictims\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addWhitelisted\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"amendNote\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"newNote\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"amendTitle\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"newTitle\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"attackerAppearances\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"attackerReport\",\"inputs\":[{\"name\":\"a\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"score\",\"type\":\"int256\",\"internalType\":\"int256\"},{\"name\":\"appearances\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"attackerScore\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"int256\",\"internalType\":\"int256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"confirm\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"direction\",\"type\":\"uint8\",\"internalType\":\"enumThatsRekt.ConfirmDirection\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"confirmationOf\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"enumThatsRekt.ConfirmDirection\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getConfirmerCount\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getConfirmers\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getDisconfirmerCount\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getDisconfirmers\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPost\",\"inputs\":[{\"name\":\"id\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"poster\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"attackedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"confirmations\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"disconfirmations\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"removed\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"attackers_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"victims_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"lastUpdatedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"headPostId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"initialOwner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"initialWhitelistAdmin\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"initialWhitelistRemover\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"initialPurgeAdmin\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"initialPurgeRemover\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"initialWhitelisters\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isPurged\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isVictim\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isWhitelisted\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"nextPostId\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"peekNextPostId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"post\",\"inputs\":[{\"name\":\"expectedPostId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"title\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"attackers_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"victims_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"note\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"attackedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"id\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"postCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"postTitle\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"prevPostId\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"purgeAdmin\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"purgePost\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"purgeRemover\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"recentActivePosts\",\"inputs\":[{\"name\":\"limit\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"ids\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"removeWhitelisted\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"retract\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"revokePurgeAdmin\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"revokeWhitelistAdmin\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setPurgeAdmin\",\"inputs\":[{\"name\":\"newAdmin\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setPurgeRemover\",\"inputs\":[{\"name\":\"newRemover\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setWhitelistAdmin\",\"inputs\":[{\"name\":\"newAdmin\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setWhitelistRemover\",\"inputs\":[{\"name\":\"newRemover\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"tailPostId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unconfirm\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"whitelistAdmin\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"whitelistRemover\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"AttackersAdded\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"amender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newAttackers\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Confirmed\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"confirmer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldDirection\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"enumThatsRekt.ConfirmDirection\"},{\"name\":\"newDirection\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"enumThatsRekt.ConfirmDirection\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PostCreated\",\"inputs\":[{\"name\":\"id\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"poster\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"attackedAt\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"title\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"attackers\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"},{\"name\":\"victims\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"},{\"name\":\"note\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PostNoteAmended\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"amender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newNote\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PostPurged\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"by\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PostRemoved\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"reason\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"enumThatsRekt.RemovalReason\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PostTitleAmended\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"amender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newTitle\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PurgeAdminTransferred\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PurgeRemoverTransferred\",\"inputs\":[{\"name\":\"previousRemover\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRemover\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VictimsAdded\",\"inputs\":[{\"name\":\"postId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"amender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newVictims\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WhitelistAdminTransferred\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WhitelistRemoverTransferred\",\"inputs\":[{\"name\":\"previousRemover\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRemover\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WhitelistUpdated\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"status\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"AlreadyPurged\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"DuplicateAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EmptyAdditions\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EmptyPost\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidAttackedAt\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidConfirmDirection\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoConfirmationChange\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotPoster\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotPurgeAdmin\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotPurgeRemover\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotWhitelistAdmin\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotWhitelistRemover\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotWhitelisted\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NothingToUnconfirm\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"PostIdMismatch\",\"inputs\":[{\"name\":\"expected\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"actual\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"PostIsPurged\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PostIsRemoved\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PostNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PostTooLarge\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PosterCannotConfirm\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TitleEmpty\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TitleTooLong\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"Unauthorized\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZeroAddress\",\"inputs\":[]}]",
 }
 
 // ThatsRektABI is the input ABI used to generate the binding from.
@@ -442,12 +442,43 @@ func (_ThatsRekt *ThatsRektCallerSession) AttackerScore(arg0 common.Address) (*b
 	return _ThatsRekt.Contract.AttackerScore(&_ThatsRekt.CallOpts, arg0)
 }
 
-// GetDownvoterCount is a free data retrieval call binding the contract method 0x0914f11d.
+// ConfirmationOf is a free data retrieval call binding the contract method 0xb1fd994b.
 //
-// Solidity: function getDownvoterCount(uint256 postId) view returns(uint256)
-func (_ThatsRekt *ThatsRektCaller) GetDownvoterCount(opts *bind.CallOpts, postId *big.Int) (*big.Int, error) {
+// Solidity: function confirmationOf(uint256 , address ) view returns(uint8)
+func (_ThatsRekt *ThatsRektCaller) ConfirmationOf(opts *bind.CallOpts, arg0 *big.Int, arg1 common.Address) (uint8, error) {
 	var out []interface{}
-	err := _ThatsRekt.contract.Call(opts, &out, "getDownvoterCount", postId)
+	err := _ThatsRekt.contract.Call(opts, &out, "confirmationOf", arg0, arg1)
+
+	if err != nil {
+		return *new(uint8), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
+
+	return out0, err
+
+}
+
+// ConfirmationOf is a free data retrieval call binding the contract method 0xb1fd994b.
+//
+// Solidity: function confirmationOf(uint256 , address ) view returns(uint8)
+func (_ThatsRekt *ThatsRektSession) ConfirmationOf(arg0 *big.Int, arg1 common.Address) (uint8, error) {
+	return _ThatsRekt.Contract.ConfirmationOf(&_ThatsRekt.CallOpts, arg0, arg1)
+}
+
+// ConfirmationOf is a free data retrieval call binding the contract method 0xb1fd994b.
+//
+// Solidity: function confirmationOf(uint256 , address ) view returns(uint8)
+func (_ThatsRekt *ThatsRektCallerSession) ConfirmationOf(arg0 *big.Int, arg1 common.Address) (uint8, error) {
+	return _ThatsRekt.Contract.ConfirmationOf(&_ThatsRekt.CallOpts, arg0, arg1)
+}
+
+// GetConfirmerCount is a free data retrieval call binding the contract method 0xa8beb1da.
+//
+// Solidity: function getConfirmerCount(uint256 postId) view returns(uint256)
+func (_ThatsRekt *ThatsRektCaller) GetConfirmerCount(opts *bind.CallOpts, postId *big.Int) (*big.Int, error) {
+	var out []interface{}
+	err := _ThatsRekt.contract.Call(opts, &out, "getConfirmerCount", postId)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -459,26 +490,26 @@ func (_ThatsRekt *ThatsRektCaller) GetDownvoterCount(opts *bind.CallOpts, postId
 
 }
 
-// GetDownvoterCount is a free data retrieval call binding the contract method 0x0914f11d.
+// GetConfirmerCount is a free data retrieval call binding the contract method 0xa8beb1da.
 //
-// Solidity: function getDownvoterCount(uint256 postId) view returns(uint256)
-func (_ThatsRekt *ThatsRektSession) GetDownvoterCount(postId *big.Int) (*big.Int, error) {
-	return _ThatsRekt.Contract.GetDownvoterCount(&_ThatsRekt.CallOpts, postId)
+// Solidity: function getConfirmerCount(uint256 postId) view returns(uint256)
+func (_ThatsRekt *ThatsRektSession) GetConfirmerCount(postId *big.Int) (*big.Int, error) {
+	return _ThatsRekt.Contract.GetConfirmerCount(&_ThatsRekt.CallOpts, postId)
 }
 
-// GetDownvoterCount is a free data retrieval call binding the contract method 0x0914f11d.
+// GetConfirmerCount is a free data retrieval call binding the contract method 0xa8beb1da.
 //
-// Solidity: function getDownvoterCount(uint256 postId) view returns(uint256)
-func (_ThatsRekt *ThatsRektCallerSession) GetDownvoterCount(postId *big.Int) (*big.Int, error) {
-	return _ThatsRekt.Contract.GetDownvoterCount(&_ThatsRekt.CallOpts, postId)
+// Solidity: function getConfirmerCount(uint256 postId) view returns(uint256)
+func (_ThatsRekt *ThatsRektCallerSession) GetConfirmerCount(postId *big.Int) (*big.Int, error) {
+	return _ThatsRekt.Contract.GetConfirmerCount(&_ThatsRekt.CallOpts, postId)
 }
 
-// GetDownvoters is a free data retrieval call binding the contract method 0x29b5b159.
+// GetConfirmers is a free data retrieval call binding the contract method 0xb779e1c0.
 //
-// Solidity: function getDownvoters(uint256 postId) view returns(address[])
-func (_ThatsRekt *ThatsRektCaller) GetDownvoters(opts *bind.CallOpts, postId *big.Int) ([]common.Address, error) {
+// Solidity: function getConfirmers(uint256 postId) view returns(address[])
+func (_ThatsRekt *ThatsRektCaller) GetConfirmers(opts *bind.CallOpts, postId *big.Int) ([]common.Address, error) {
 	var out []interface{}
-	err := _ThatsRekt.contract.Call(opts, &out, "getDownvoters", postId)
+	err := _ThatsRekt.contract.Call(opts, &out, "getConfirmers", postId)
 
 	if err != nil {
 		return *new([]common.Address), err
@@ -490,45 +521,107 @@ func (_ThatsRekt *ThatsRektCaller) GetDownvoters(opts *bind.CallOpts, postId *bi
 
 }
 
-// GetDownvoters is a free data retrieval call binding the contract method 0x29b5b159.
+// GetConfirmers is a free data retrieval call binding the contract method 0xb779e1c0.
 //
-// Solidity: function getDownvoters(uint256 postId) view returns(address[])
-func (_ThatsRekt *ThatsRektSession) GetDownvoters(postId *big.Int) ([]common.Address, error) {
-	return _ThatsRekt.Contract.GetDownvoters(&_ThatsRekt.CallOpts, postId)
+// Solidity: function getConfirmers(uint256 postId) view returns(address[])
+func (_ThatsRekt *ThatsRektSession) GetConfirmers(postId *big.Int) ([]common.Address, error) {
+	return _ThatsRekt.Contract.GetConfirmers(&_ThatsRekt.CallOpts, postId)
 }
 
-// GetDownvoters is a free data retrieval call binding the contract method 0x29b5b159.
+// GetConfirmers is a free data retrieval call binding the contract method 0xb779e1c0.
 //
-// Solidity: function getDownvoters(uint256 postId) view returns(address[])
-func (_ThatsRekt *ThatsRektCallerSession) GetDownvoters(postId *big.Int) ([]common.Address, error) {
-	return _ThatsRekt.Contract.GetDownvoters(&_ThatsRekt.CallOpts, postId)
+// Solidity: function getConfirmers(uint256 postId) view returns(address[])
+func (_ThatsRekt *ThatsRektCallerSession) GetConfirmers(postId *big.Int) ([]common.Address, error) {
+	return _ThatsRekt.Contract.GetConfirmers(&_ThatsRekt.CallOpts, postId)
+}
+
+// GetDisconfirmerCount is a free data retrieval call binding the contract method 0x59dafd3c.
+//
+// Solidity: function getDisconfirmerCount(uint256 postId) view returns(uint256)
+func (_ThatsRekt *ThatsRektCaller) GetDisconfirmerCount(opts *bind.CallOpts, postId *big.Int) (*big.Int, error) {
+	var out []interface{}
+	err := _ThatsRekt.contract.Call(opts, &out, "getDisconfirmerCount", postId)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetDisconfirmerCount is a free data retrieval call binding the contract method 0x59dafd3c.
+//
+// Solidity: function getDisconfirmerCount(uint256 postId) view returns(uint256)
+func (_ThatsRekt *ThatsRektSession) GetDisconfirmerCount(postId *big.Int) (*big.Int, error) {
+	return _ThatsRekt.Contract.GetDisconfirmerCount(&_ThatsRekt.CallOpts, postId)
+}
+
+// GetDisconfirmerCount is a free data retrieval call binding the contract method 0x59dafd3c.
+//
+// Solidity: function getDisconfirmerCount(uint256 postId) view returns(uint256)
+func (_ThatsRekt *ThatsRektCallerSession) GetDisconfirmerCount(postId *big.Int) (*big.Int, error) {
+	return _ThatsRekt.Contract.GetDisconfirmerCount(&_ThatsRekt.CallOpts, postId)
+}
+
+// GetDisconfirmers is a free data retrieval call binding the contract method 0x7e7d5daf.
+//
+// Solidity: function getDisconfirmers(uint256 postId) view returns(address[])
+func (_ThatsRekt *ThatsRektCaller) GetDisconfirmers(opts *bind.CallOpts, postId *big.Int) ([]common.Address, error) {
+	var out []interface{}
+	err := _ThatsRekt.contract.Call(opts, &out, "getDisconfirmers", postId)
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
+}
+
+// GetDisconfirmers is a free data retrieval call binding the contract method 0x7e7d5daf.
+//
+// Solidity: function getDisconfirmers(uint256 postId) view returns(address[])
+func (_ThatsRekt *ThatsRektSession) GetDisconfirmers(postId *big.Int) ([]common.Address, error) {
+	return _ThatsRekt.Contract.GetDisconfirmers(&_ThatsRekt.CallOpts, postId)
+}
+
+// GetDisconfirmers is a free data retrieval call binding the contract method 0x7e7d5daf.
+//
+// Solidity: function getDisconfirmers(uint256 postId) view returns(address[])
+func (_ThatsRekt *ThatsRektCallerSession) GetDisconfirmers(postId *big.Int) ([]common.Address, error) {
+	return _ThatsRekt.Contract.GetDisconfirmers(&_ThatsRekt.CallOpts, postId)
 }
 
 // GetPost is a free data retrieval call binding the contract method 0x40731c24.
 //
-// Solidity: function getPost(uint256 id) view returns(address poster, uint64 attackedAt, uint32 upvotes, uint32 downvotes, bool removed, address[] attackers_, address[] victims_, uint64 lastUpdatedAt)
+// Solidity: function getPost(uint256 id) view returns(address poster, uint64 attackedAt, uint32 confirmations, uint32 disconfirmations, bool removed, address[] attackers_, address[] victims_, uint64 lastUpdatedAt)
 func (_ThatsRekt *ThatsRektCaller) GetPost(opts *bind.CallOpts, id *big.Int) (struct {
-	Poster        common.Address
-	AttackedAt    uint64
-	Upvotes       uint32
-	Downvotes     uint32
-	Removed       bool
-	Attackers     []common.Address
-	Victims       []common.Address
-	LastUpdatedAt uint64
+	Poster           common.Address
+	AttackedAt       uint64
+	Confirmations    uint32
+	Disconfirmations uint32
+	Removed          bool
+	Attackers        []common.Address
+	Victims          []common.Address
+	LastUpdatedAt    uint64
 }, error) {
 	var out []interface{}
 	err := _ThatsRekt.contract.Call(opts, &out, "getPost", id)
 
 	outstruct := new(struct {
-		Poster        common.Address
-		AttackedAt    uint64
-		Upvotes       uint32
-		Downvotes     uint32
-		Removed       bool
-		Attackers     []common.Address
-		Victims       []common.Address
-		LastUpdatedAt uint64
+		Poster           common.Address
+		AttackedAt       uint64
+		Confirmations    uint32
+		Disconfirmations uint32
+		Removed          bool
+		Attackers        []common.Address
+		Victims          []common.Address
+		LastUpdatedAt    uint64
 	})
 	if err != nil {
 		return *outstruct, err
@@ -536,8 +629,8 @@ func (_ThatsRekt *ThatsRektCaller) GetPost(opts *bind.CallOpts, id *big.Int) (st
 
 	outstruct.Poster = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 	outstruct.AttackedAt = *abi.ConvertType(out[1], new(uint64)).(*uint64)
-	outstruct.Upvotes = *abi.ConvertType(out[2], new(uint32)).(*uint32)
-	outstruct.Downvotes = *abi.ConvertType(out[3], new(uint32)).(*uint32)
+	outstruct.Confirmations = *abi.ConvertType(out[2], new(uint32)).(*uint32)
+	outstruct.Disconfirmations = *abi.ConvertType(out[3], new(uint32)).(*uint32)
 	outstruct.Removed = *abi.ConvertType(out[4], new(bool)).(*bool)
 	outstruct.Attackers = *abi.ConvertType(out[5], new([]common.Address)).(*[]common.Address)
 	outstruct.Victims = *abi.ConvertType(out[6], new([]common.Address)).(*[]common.Address)
@@ -549,96 +642,34 @@ func (_ThatsRekt *ThatsRektCaller) GetPost(opts *bind.CallOpts, id *big.Int) (st
 
 // GetPost is a free data retrieval call binding the contract method 0x40731c24.
 //
-// Solidity: function getPost(uint256 id) view returns(address poster, uint64 attackedAt, uint32 upvotes, uint32 downvotes, bool removed, address[] attackers_, address[] victims_, uint64 lastUpdatedAt)
+// Solidity: function getPost(uint256 id) view returns(address poster, uint64 attackedAt, uint32 confirmations, uint32 disconfirmations, bool removed, address[] attackers_, address[] victims_, uint64 lastUpdatedAt)
 func (_ThatsRekt *ThatsRektSession) GetPost(id *big.Int) (struct {
-	Poster        common.Address
-	AttackedAt    uint64
-	Upvotes       uint32
-	Downvotes     uint32
-	Removed       bool
-	Attackers     []common.Address
-	Victims       []common.Address
-	LastUpdatedAt uint64
+	Poster           common.Address
+	AttackedAt       uint64
+	Confirmations    uint32
+	Disconfirmations uint32
+	Removed          bool
+	Attackers        []common.Address
+	Victims          []common.Address
+	LastUpdatedAt    uint64
 }, error) {
 	return _ThatsRekt.Contract.GetPost(&_ThatsRekt.CallOpts, id)
 }
 
 // GetPost is a free data retrieval call binding the contract method 0x40731c24.
 //
-// Solidity: function getPost(uint256 id) view returns(address poster, uint64 attackedAt, uint32 upvotes, uint32 downvotes, bool removed, address[] attackers_, address[] victims_, uint64 lastUpdatedAt)
+// Solidity: function getPost(uint256 id) view returns(address poster, uint64 attackedAt, uint32 confirmations, uint32 disconfirmations, bool removed, address[] attackers_, address[] victims_, uint64 lastUpdatedAt)
 func (_ThatsRekt *ThatsRektCallerSession) GetPost(id *big.Int) (struct {
-	Poster        common.Address
-	AttackedAt    uint64
-	Upvotes       uint32
-	Downvotes     uint32
-	Removed       bool
-	Attackers     []common.Address
-	Victims       []common.Address
-	LastUpdatedAt uint64
+	Poster           common.Address
+	AttackedAt       uint64
+	Confirmations    uint32
+	Disconfirmations uint32
+	Removed          bool
+	Attackers        []common.Address
+	Victims          []common.Address
+	LastUpdatedAt    uint64
 }, error) {
 	return _ThatsRekt.Contract.GetPost(&_ThatsRekt.CallOpts, id)
-}
-
-// GetUpvoterCount is a free data retrieval call binding the contract method 0x34bead0c.
-//
-// Solidity: function getUpvoterCount(uint256 postId) view returns(uint256)
-func (_ThatsRekt *ThatsRektCaller) GetUpvoterCount(opts *bind.CallOpts, postId *big.Int) (*big.Int, error) {
-	var out []interface{}
-	err := _ThatsRekt.contract.Call(opts, &out, "getUpvoterCount", postId)
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// GetUpvoterCount is a free data retrieval call binding the contract method 0x34bead0c.
-//
-// Solidity: function getUpvoterCount(uint256 postId) view returns(uint256)
-func (_ThatsRekt *ThatsRektSession) GetUpvoterCount(postId *big.Int) (*big.Int, error) {
-	return _ThatsRekt.Contract.GetUpvoterCount(&_ThatsRekt.CallOpts, postId)
-}
-
-// GetUpvoterCount is a free data retrieval call binding the contract method 0x34bead0c.
-//
-// Solidity: function getUpvoterCount(uint256 postId) view returns(uint256)
-func (_ThatsRekt *ThatsRektCallerSession) GetUpvoterCount(postId *big.Int) (*big.Int, error) {
-	return _ThatsRekt.Contract.GetUpvoterCount(&_ThatsRekt.CallOpts, postId)
-}
-
-// GetUpvoters is a free data retrieval call binding the contract method 0xaa6ee29b.
-//
-// Solidity: function getUpvoters(uint256 postId) view returns(address[])
-func (_ThatsRekt *ThatsRektCaller) GetUpvoters(opts *bind.CallOpts, postId *big.Int) ([]common.Address, error) {
-	var out []interface{}
-	err := _ThatsRekt.contract.Call(opts, &out, "getUpvoters", postId)
-
-	if err != nil {
-		return *new([]common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
-
-	return out0, err
-
-}
-
-// GetUpvoters is a free data retrieval call binding the contract method 0xaa6ee29b.
-//
-// Solidity: function getUpvoters(uint256 postId) view returns(address[])
-func (_ThatsRekt *ThatsRektSession) GetUpvoters(postId *big.Int) ([]common.Address, error) {
-	return _ThatsRekt.Contract.GetUpvoters(&_ThatsRekt.CallOpts, postId)
-}
-
-// GetUpvoters is a free data retrieval call binding the contract method 0xaa6ee29b.
-//
-// Solidity: function getUpvoters(uint256 postId) view returns(address[])
-func (_ThatsRekt *ThatsRektCallerSession) GetUpvoters(postId *big.Int) ([]common.Address, error) {
-	return _ThatsRekt.Contract.GetUpvoters(&_ThatsRekt.CallOpts, postId)
 }
 
 // HeadPostId is a free data retrieval call binding the contract method 0xf93b72e1.
@@ -670,6 +701,37 @@ func (_ThatsRekt *ThatsRektSession) HeadPostId() (*big.Int, error) {
 // Solidity: function headPostId() view returns(uint256)
 func (_ThatsRekt *ThatsRektCallerSession) HeadPostId() (*big.Int, error) {
 	return _ThatsRekt.Contract.HeadPostId(&_ThatsRekt.CallOpts)
+}
+
+// IsPurged is a free data retrieval call binding the contract method 0x327990bb.
+//
+// Solidity: function isPurged(uint256 postId) view returns(bool)
+func (_ThatsRekt *ThatsRektCaller) IsPurged(opts *bind.CallOpts, postId *big.Int) (bool, error) {
+	var out []interface{}
+	err := _ThatsRekt.contract.Call(opts, &out, "isPurged", postId)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// IsPurged is a free data retrieval call binding the contract method 0x327990bb.
+//
+// Solidity: function isPurged(uint256 postId) view returns(bool)
+func (_ThatsRekt *ThatsRektSession) IsPurged(postId *big.Int) (bool, error) {
+	return _ThatsRekt.Contract.IsPurged(&_ThatsRekt.CallOpts, postId)
+}
+
+// IsPurged is a free data retrieval call binding the contract method 0x327990bb.
+//
+// Solidity: function isPurged(uint256 postId) view returns(bool)
+func (_ThatsRekt *ThatsRektCallerSession) IsPurged(postId *big.Int) (bool, error) {
+	return _ThatsRekt.Contract.IsPurged(&_ThatsRekt.CallOpts, postId)
 }
 
 // IsVictim is a free data retrieval call binding the contract method 0x2d10cc3d.
@@ -794,6 +856,37 @@ func (_ThatsRekt *ThatsRektSession) Owner() (common.Address, error) {
 // Solidity: function owner() view returns(address)
 func (_ThatsRekt *ThatsRektCallerSession) Owner() (common.Address, error) {
 	return _ThatsRekt.Contract.Owner(&_ThatsRekt.CallOpts)
+}
+
+// PeekNextPostId is a free data retrieval call binding the contract method 0x8b46945a.
+//
+// Solidity: function peekNextPostId() view returns(uint256)
+func (_ThatsRekt *ThatsRektCaller) PeekNextPostId(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _ThatsRekt.contract.Call(opts, &out, "peekNextPostId")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// PeekNextPostId is a free data retrieval call binding the contract method 0x8b46945a.
+//
+// Solidity: function peekNextPostId() view returns(uint256)
+func (_ThatsRekt *ThatsRektSession) PeekNextPostId() (*big.Int, error) {
+	return _ThatsRekt.Contract.PeekNextPostId(&_ThatsRekt.CallOpts)
+}
+
+// PeekNextPostId is a free data retrieval call binding the contract method 0x8b46945a.
+//
+// Solidity: function peekNextPostId() view returns(uint256)
+func (_ThatsRekt *ThatsRektCallerSession) PeekNextPostId() (*big.Int, error) {
+	return _ThatsRekt.Contract.PeekNextPostId(&_ThatsRekt.CallOpts)
 }
 
 // PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
@@ -951,6 +1044,68 @@ func (_ThatsRekt *ThatsRektCallerSession) ProxiableUUID() ([32]byte, error) {
 	return _ThatsRekt.Contract.ProxiableUUID(&_ThatsRekt.CallOpts)
 }
 
+// PurgeAdmin is a free data retrieval call binding the contract method 0x06aae84c.
+//
+// Solidity: function purgeAdmin() view returns(address)
+func (_ThatsRekt *ThatsRektCaller) PurgeAdmin(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ThatsRekt.contract.Call(opts, &out, "purgeAdmin")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// PurgeAdmin is a free data retrieval call binding the contract method 0x06aae84c.
+//
+// Solidity: function purgeAdmin() view returns(address)
+func (_ThatsRekt *ThatsRektSession) PurgeAdmin() (common.Address, error) {
+	return _ThatsRekt.Contract.PurgeAdmin(&_ThatsRekt.CallOpts)
+}
+
+// PurgeAdmin is a free data retrieval call binding the contract method 0x06aae84c.
+//
+// Solidity: function purgeAdmin() view returns(address)
+func (_ThatsRekt *ThatsRektCallerSession) PurgeAdmin() (common.Address, error) {
+	return _ThatsRekt.Contract.PurgeAdmin(&_ThatsRekt.CallOpts)
+}
+
+// PurgeRemover is a free data retrieval call binding the contract method 0xdf52dc43.
+//
+// Solidity: function purgeRemover() view returns(address)
+func (_ThatsRekt *ThatsRektCaller) PurgeRemover(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ThatsRekt.contract.Call(opts, &out, "purgeRemover")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// PurgeRemover is a free data retrieval call binding the contract method 0xdf52dc43.
+//
+// Solidity: function purgeRemover() view returns(address)
+func (_ThatsRekt *ThatsRektSession) PurgeRemover() (common.Address, error) {
+	return _ThatsRekt.Contract.PurgeRemover(&_ThatsRekt.CallOpts)
+}
+
+// PurgeRemover is a free data retrieval call binding the contract method 0xdf52dc43.
+//
+// Solidity: function purgeRemover() view returns(address)
+func (_ThatsRekt *ThatsRektCallerSession) PurgeRemover() (common.Address, error) {
+	return _ThatsRekt.Contract.PurgeRemover(&_ThatsRekt.CallOpts)
+}
+
 // RecentActivePosts is a free data retrieval call binding the contract method 0xccde89ce.
 //
 // Solidity: function recentActivePosts(uint256 limit) view returns(uint256[] ids)
@@ -1013,35 +1168,66 @@ func (_ThatsRekt *ThatsRektCallerSession) TailPostId() (*big.Int, error) {
 	return _ThatsRekt.Contract.TailPostId(&_ThatsRekt.CallOpts)
 }
 
-// VoteOf is a free data retrieval call binding the contract method 0x45ddc85d.
+// WhitelistAdmin is a free data retrieval call binding the contract method 0x4adbe551.
 //
-// Solidity: function voteOf(uint256 , address ) view returns(uint8)
-func (_ThatsRekt *ThatsRektCaller) VoteOf(opts *bind.CallOpts, arg0 *big.Int, arg1 common.Address) (uint8, error) {
+// Solidity: function whitelistAdmin() view returns(address)
+func (_ThatsRekt *ThatsRektCaller) WhitelistAdmin(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _ThatsRekt.contract.Call(opts, &out, "voteOf", arg0, arg1)
+	err := _ThatsRekt.contract.Call(opts, &out, "whitelistAdmin")
 
 	if err != nil {
-		return *new(uint8), err
+		return *new(common.Address), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
 
 }
 
-// VoteOf is a free data retrieval call binding the contract method 0x45ddc85d.
+// WhitelistAdmin is a free data retrieval call binding the contract method 0x4adbe551.
 //
-// Solidity: function voteOf(uint256 , address ) view returns(uint8)
-func (_ThatsRekt *ThatsRektSession) VoteOf(arg0 *big.Int, arg1 common.Address) (uint8, error) {
-	return _ThatsRekt.Contract.VoteOf(&_ThatsRekt.CallOpts, arg0, arg1)
+// Solidity: function whitelistAdmin() view returns(address)
+func (_ThatsRekt *ThatsRektSession) WhitelistAdmin() (common.Address, error) {
+	return _ThatsRekt.Contract.WhitelistAdmin(&_ThatsRekt.CallOpts)
 }
 
-// VoteOf is a free data retrieval call binding the contract method 0x45ddc85d.
+// WhitelistAdmin is a free data retrieval call binding the contract method 0x4adbe551.
 //
-// Solidity: function voteOf(uint256 , address ) view returns(uint8)
-func (_ThatsRekt *ThatsRektCallerSession) VoteOf(arg0 *big.Int, arg1 common.Address) (uint8, error) {
-	return _ThatsRekt.Contract.VoteOf(&_ThatsRekt.CallOpts, arg0, arg1)
+// Solidity: function whitelistAdmin() view returns(address)
+func (_ThatsRekt *ThatsRektCallerSession) WhitelistAdmin() (common.Address, error) {
+	return _ThatsRekt.Contract.WhitelistAdmin(&_ThatsRekt.CallOpts)
+}
+
+// WhitelistRemover is a free data retrieval call binding the contract method 0x68aa349f.
+//
+// Solidity: function whitelistRemover() view returns(address)
+func (_ThatsRekt *ThatsRektCaller) WhitelistRemover(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ThatsRekt.contract.Call(opts, &out, "whitelistRemover")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// WhitelistRemover is a free data retrieval call binding the contract method 0x68aa349f.
+//
+// Solidity: function whitelistRemover() view returns(address)
+func (_ThatsRekt *ThatsRektSession) WhitelistRemover() (common.Address, error) {
+	return _ThatsRekt.Contract.WhitelistRemover(&_ThatsRekt.CallOpts)
+}
+
+// WhitelistRemover is a free data retrieval call binding the contract method 0x68aa349f.
+//
+// Solidity: function whitelistRemover() view returns(address)
+func (_ThatsRekt *ThatsRektCallerSession) WhitelistRemover() (common.Address, error) {
+	return _ThatsRekt.Contract.WhitelistRemover(&_ThatsRekt.CallOpts)
 }
 
 // AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
@@ -1170,46 +1356,88 @@ func (_ThatsRekt *ThatsRektTransactorSession) AmendTitle(postId *big.Int, newTit
 	return _ThatsRekt.Contract.AmendTitle(&_ThatsRekt.TransactOpts, postId, newTitle)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xc4d66de8.
+// Confirm is a paid mutator transaction binding the contract method 0x13a34b28.
 //
-// Solidity: function initialize(address initialOwner) returns()
-func (_ThatsRekt *ThatsRektTransactor) Initialize(opts *bind.TransactOpts, initialOwner common.Address) (*types.Transaction, error) {
-	return _ThatsRekt.contract.Transact(opts, "initialize", initialOwner)
+// Solidity: function confirm(uint256 postId, uint8 direction) returns()
+func (_ThatsRekt *ThatsRektTransactor) Confirm(opts *bind.TransactOpts, postId *big.Int, direction uint8) (*types.Transaction, error) {
+	return _ThatsRekt.contract.Transact(opts, "confirm", postId, direction)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xc4d66de8.
+// Confirm is a paid mutator transaction binding the contract method 0x13a34b28.
 //
-// Solidity: function initialize(address initialOwner) returns()
-func (_ThatsRekt *ThatsRektSession) Initialize(initialOwner common.Address) (*types.Transaction, error) {
-	return _ThatsRekt.Contract.Initialize(&_ThatsRekt.TransactOpts, initialOwner)
+// Solidity: function confirm(uint256 postId, uint8 direction) returns()
+func (_ThatsRekt *ThatsRektSession) Confirm(postId *big.Int, direction uint8) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.Confirm(&_ThatsRekt.TransactOpts, postId, direction)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xc4d66de8.
+// Confirm is a paid mutator transaction binding the contract method 0x13a34b28.
 //
-// Solidity: function initialize(address initialOwner) returns()
-func (_ThatsRekt *ThatsRektTransactorSession) Initialize(initialOwner common.Address) (*types.Transaction, error) {
-	return _ThatsRekt.Contract.Initialize(&_ThatsRekt.TransactOpts, initialOwner)
+// Solidity: function confirm(uint256 postId, uint8 direction) returns()
+func (_ThatsRekt *ThatsRektTransactorSession) Confirm(postId *big.Int, direction uint8) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.Confirm(&_ThatsRekt.TransactOpts, postId, direction)
 }
 
-// Post is a paid mutator transaction binding the contract method 0x6946444f.
+// Initialize is a paid mutator transaction binding the contract method 0xb5df06b4.
 //
-// Solidity: function post(string title, address[] attackers_, address[] victims_, string note, uint64 attackedAt) returns(uint256 id)
-func (_ThatsRekt *ThatsRektTransactor) Post(opts *bind.TransactOpts, title string, attackers_ []common.Address, victims_ []common.Address, note string, attackedAt uint64) (*types.Transaction, error) {
-	return _ThatsRekt.contract.Transact(opts, "post", title, attackers_, victims_, note, attackedAt)
+// Solidity: function initialize(address initialOwner, address initialWhitelistAdmin, address initialWhitelistRemover, address initialPurgeAdmin, address initialPurgeRemover, address[] initialWhitelisters) returns()
+func (_ThatsRekt *ThatsRektTransactor) Initialize(opts *bind.TransactOpts, initialOwner common.Address, initialWhitelistAdmin common.Address, initialWhitelistRemover common.Address, initialPurgeAdmin common.Address, initialPurgeRemover common.Address, initialWhitelisters []common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.contract.Transact(opts, "initialize", initialOwner, initialWhitelistAdmin, initialWhitelistRemover, initialPurgeAdmin, initialPurgeRemover, initialWhitelisters)
 }
 
-// Post is a paid mutator transaction binding the contract method 0x6946444f.
+// Initialize is a paid mutator transaction binding the contract method 0xb5df06b4.
 //
-// Solidity: function post(string title, address[] attackers_, address[] victims_, string note, uint64 attackedAt) returns(uint256 id)
-func (_ThatsRekt *ThatsRektSession) Post(title string, attackers_ []common.Address, victims_ []common.Address, note string, attackedAt uint64) (*types.Transaction, error) {
-	return _ThatsRekt.Contract.Post(&_ThatsRekt.TransactOpts, title, attackers_, victims_, note, attackedAt)
+// Solidity: function initialize(address initialOwner, address initialWhitelistAdmin, address initialWhitelistRemover, address initialPurgeAdmin, address initialPurgeRemover, address[] initialWhitelisters) returns()
+func (_ThatsRekt *ThatsRektSession) Initialize(initialOwner common.Address, initialWhitelistAdmin common.Address, initialWhitelistRemover common.Address, initialPurgeAdmin common.Address, initialPurgeRemover common.Address, initialWhitelisters []common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.Initialize(&_ThatsRekt.TransactOpts, initialOwner, initialWhitelistAdmin, initialWhitelistRemover, initialPurgeAdmin, initialPurgeRemover, initialWhitelisters)
 }
 
-// Post is a paid mutator transaction binding the contract method 0x6946444f.
+// Initialize is a paid mutator transaction binding the contract method 0xb5df06b4.
 //
-// Solidity: function post(string title, address[] attackers_, address[] victims_, string note, uint64 attackedAt) returns(uint256 id)
-func (_ThatsRekt *ThatsRektTransactorSession) Post(title string, attackers_ []common.Address, victims_ []common.Address, note string, attackedAt uint64) (*types.Transaction, error) {
-	return _ThatsRekt.Contract.Post(&_ThatsRekt.TransactOpts, title, attackers_, victims_, note, attackedAt)
+// Solidity: function initialize(address initialOwner, address initialWhitelistAdmin, address initialWhitelistRemover, address initialPurgeAdmin, address initialPurgeRemover, address[] initialWhitelisters) returns()
+func (_ThatsRekt *ThatsRektTransactorSession) Initialize(initialOwner common.Address, initialWhitelistAdmin common.Address, initialWhitelistRemover common.Address, initialPurgeAdmin common.Address, initialPurgeRemover common.Address, initialWhitelisters []common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.Initialize(&_ThatsRekt.TransactOpts, initialOwner, initialWhitelistAdmin, initialWhitelistRemover, initialPurgeAdmin, initialPurgeRemover, initialWhitelisters)
+}
+
+// Post is a paid mutator transaction binding the contract method 0x65141a5d.
+//
+// Solidity: function post(uint256 expectedPostId, string title, address[] attackers_, address[] victims_, string note, uint64 attackedAt) returns(uint256 id)
+func (_ThatsRekt *ThatsRektTransactor) Post(opts *bind.TransactOpts, expectedPostId *big.Int, title string, attackers_ []common.Address, victims_ []common.Address, note string, attackedAt uint64) (*types.Transaction, error) {
+	return _ThatsRekt.contract.Transact(opts, "post", expectedPostId, title, attackers_, victims_, note, attackedAt)
+}
+
+// Post is a paid mutator transaction binding the contract method 0x65141a5d.
+//
+// Solidity: function post(uint256 expectedPostId, string title, address[] attackers_, address[] victims_, string note, uint64 attackedAt) returns(uint256 id)
+func (_ThatsRekt *ThatsRektSession) Post(expectedPostId *big.Int, title string, attackers_ []common.Address, victims_ []common.Address, note string, attackedAt uint64) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.Post(&_ThatsRekt.TransactOpts, expectedPostId, title, attackers_, victims_, note, attackedAt)
+}
+
+// Post is a paid mutator transaction binding the contract method 0x65141a5d.
+//
+// Solidity: function post(uint256 expectedPostId, string title, address[] attackers_, address[] victims_, string note, uint64 attackedAt) returns(uint256 id)
+func (_ThatsRekt *ThatsRektTransactorSession) Post(expectedPostId *big.Int, title string, attackers_ []common.Address, victims_ []common.Address, note string, attackedAt uint64) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.Post(&_ThatsRekt.TransactOpts, expectedPostId, title, attackers_, victims_, note, attackedAt)
+}
+
+// PurgePost is a paid mutator transaction binding the contract method 0x18ec7472.
+//
+// Solidity: function purgePost(uint256 postId) returns()
+func (_ThatsRekt *ThatsRektTransactor) PurgePost(opts *bind.TransactOpts, postId *big.Int) (*types.Transaction, error) {
+	return _ThatsRekt.contract.Transact(opts, "purgePost", postId)
+}
+
+// PurgePost is a paid mutator transaction binding the contract method 0x18ec7472.
+//
+// Solidity: function purgePost(uint256 postId) returns()
+func (_ThatsRekt *ThatsRektSession) PurgePost(postId *big.Int) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.PurgePost(&_ThatsRekt.TransactOpts, postId)
+}
+
+// PurgePost is a paid mutator transaction binding the contract method 0x18ec7472.
+//
+// Solidity: function purgePost(uint256 postId) returns()
+func (_ThatsRekt *ThatsRektTransactorSession) PurgePost(postId *big.Int) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.PurgePost(&_ThatsRekt.TransactOpts, postId)
 }
 
 // RemoveWhitelisted is a paid mutator transaction binding the contract method 0x291d9549.
@@ -1275,6 +1503,132 @@ func (_ThatsRekt *ThatsRektTransactorSession) Retract(postId *big.Int) (*types.T
 	return _ThatsRekt.Contract.Retract(&_ThatsRekt.TransactOpts, postId)
 }
 
+// RevokePurgeAdmin is a paid mutator transaction binding the contract method 0xf6765ecd.
+//
+// Solidity: function revokePurgeAdmin() returns()
+func (_ThatsRekt *ThatsRektTransactor) RevokePurgeAdmin(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ThatsRekt.contract.Transact(opts, "revokePurgeAdmin")
+}
+
+// RevokePurgeAdmin is a paid mutator transaction binding the contract method 0xf6765ecd.
+//
+// Solidity: function revokePurgeAdmin() returns()
+func (_ThatsRekt *ThatsRektSession) RevokePurgeAdmin() (*types.Transaction, error) {
+	return _ThatsRekt.Contract.RevokePurgeAdmin(&_ThatsRekt.TransactOpts)
+}
+
+// RevokePurgeAdmin is a paid mutator transaction binding the contract method 0xf6765ecd.
+//
+// Solidity: function revokePurgeAdmin() returns()
+func (_ThatsRekt *ThatsRektTransactorSession) RevokePurgeAdmin() (*types.Transaction, error) {
+	return _ThatsRekt.Contract.RevokePurgeAdmin(&_ThatsRekt.TransactOpts)
+}
+
+// RevokeWhitelistAdmin is a paid mutator transaction binding the contract method 0x7492b233.
+//
+// Solidity: function revokeWhitelistAdmin() returns()
+func (_ThatsRekt *ThatsRektTransactor) RevokeWhitelistAdmin(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ThatsRekt.contract.Transact(opts, "revokeWhitelistAdmin")
+}
+
+// RevokeWhitelistAdmin is a paid mutator transaction binding the contract method 0x7492b233.
+//
+// Solidity: function revokeWhitelistAdmin() returns()
+func (_ThatsRekt *ThatsRektSession) RevokeWhitelistAdmin() (*types.Transaction, error) {
+	return _ThatsRekt.Contract.RevokeWhitelistAdmin(&_ThatsRekt.TransactOpts)
+}
+
+// RevokeWhitelistAdmin is a paid mutator transaction binding the contract method 0x7492b233.
+//
+// Solidity: function revokeWhitelistAdmin() returns()
+func (_ThatsRekt *ThatsRektTransactorSession) RevokeWhitelistAdmin() (*types.Transaction, error) {
+	return _ThatsRekt.Contract.RevokeWhitelistAdmin(&_ThatsRekt.TransactOpts)
+}
+
+// SetPurgeAdmin is a paid mutator transaction binding the contract method 0x888852d5.
+//
+// Solidity: function setPurgeAdmin(address newAdmin) returns()
+func (_ThatsRekt *ThatsRektTransactor) SetPurgeAdmin(opts *bind.TransactOpts, newAdmin common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.contract.Transact(opts, "setPurgeAdmin", newAdmin)
+}
+
+// SetPurgeAdmin is a paid mutator transaction binding the contract method 0x888852d5.
+//
+// Solidity: function setPurgeAdmin(address newAdmin) returns()
+func (_ThatsRekt *ThatsRektSession) SetPurgeAdmin(newAdmin common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.SetPurgeAdmin(&_ThatsRekt.TransactOpts, newAdmin)
+}
+
+// SetPurgeAdmin is a paid mutator transaction binding the contract method 0x888852d5.
+//
+// Solidity: function setPurgeAdmin(address newAdmin) returns()
+func (_ThatsRekt *ThatsRektTransactorSession) SetPurgeAdmin(newAdmin common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.SetPurgeAdmin(&_ThatsRekt.TransactOpts, newAdmin)
+}
+
+// SetPurgeRemover is a paid mutator transaction binding the contract method 0xa9bba35d.
+//
+// Solidity: function setPurgeRemover(address newRemover) returns()
+func (_ThatsRekt *ThatsRektTransactor) SetPurgeRemover(opts *bind.TransactOpts, newRemover common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.contract.Transact(opts, "setPurgeRemover", newRemover)
+}
+
+// SetPurgeRemover is a paid mutator transaction binding the contract method 0xa9bba35d.
+//
+// Solidity: function setPurgeRemover(address newRemover) returns()
+func (_ThatsRekt *ThatsRektSession) SetPurgeRemover(newRemover common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.SetPurgeRemover(&_ThatsRekt.TransactOpts, newRemover)
+}
+
+// SetPurgeRemover is a paid mutator transaction binding the contract method 0xa9bba35d.
+//
+// Solidity: function setPurgeRemover(address newRemover) returns()
+func (_ThatsRekt *ThatsRektTransactorSession) SetPurgeRemover(newRemover common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.SetPurgeRemover(&_ThatsRekt.TransactOpts, newRemover)
+}
+
+// SetWhitelistAdmin is a paid mutator transaction binding the contract method 0xa8d49e64.
+//
+// Solidity: function setWhitelistAdmin(address newAdmin) returns()
+func (_ThatsRekt *ThatsRektTransactor) SetWhitelistAdmin(opts *bind.TransactOpts, newAdmin common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.contract.Transact(opts, "setWhitelistAdmin", newAdmin)
+}
+
+// SetWhitelistAdmin is a paid mutator transaction binding the contract method 0xa8d49e64.
+//
+// Solidity: function setWhitelistAdmin(address newAdmin) returns()
+func (_ThatsRekt *ThatsRektSession) SetWhitelistAdmin(newAdmin common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.SetWhitelistAdmin(&_ThatsRekt.TransactOpts, newAdmin)
+}
+
+// SetWhitelistAdmin is a paid mutator transaction binding the contract method 0xa8d49e64.
+//
+// Solidity: function setWhitelistAdmin(address newAdmin) returns()
+func (_ThatsRekt *ThatsRektTransactorSession) SetWhitelistAdmin(newAdmin common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.SetWhitelistAdmin(&_ThatsRekt.TransactOpts, newAdmin)
+}
+
+// SetWhitelistRemover is a paid mutator transaction binding the contract method 0xba1b6ffd.
+//
+// Solidity: function setWhitelistRemover(address newRemover) returns()
+func (_ThatsRekt *ThatsRektTransactor) SetWhitelistRemover(opts *bind.TransactOpts, newRemover common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.contract.Transact(opts, "setWhitelistRemover", newRemover)
+}
+
+// SetWhitelistRemover is a paid mutator transaction binding the contract method 0xba1b6ffd.
+//
+// Solidity: function setWhitelistRemover(address newRemover) returns()
+func (_ThatsRekt *ThatsRektSession) SetWhitelistRemover(newRemover common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.SetWhitelistRemover(&_ThatsRekt.TransactOpts, newRemover)
+}
+
+// SetWhitelistRemover is a paid mutator transaction binding the contract method 0xba1b6ffd.
+//
+// Solidity: function setWhitelistRemover(address newRemover) returns()
+func (_ThatsRekt *ThatsRektTransactorSession) SetWhitelistRemover(newRemover common.Address) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.SetWhitelistRemover(&_ThatsRekt.TransactOpts, newRemover)
+}
+
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
 //
 // Solidity: function transferOwnership(address newOwner) returns()
@@ -1296,25 +1650,25 @@ func (_ThatsRekt *ThatsRektTransactorSession) TransferOwnership(newOwner common.
 	return _ThatsRekt.Contract.TransferOwnership(&_ThatsRekt.TransactOpts, newOwner)
 }
 
-// Unvote is a paid mutator transaction binding the contract method 0x51ec4285.
+// Unconfirm is a paid mutator transaction binding the contract method 0xec132ce3.
 //
-// Solidity: function unvote(uint256 postId) returns()
-func (_ThatsRekt *ThatsRektTransactor) Unvote(opts *bind.TransactOpts, postId *big.Int) (*types.Transaction, error) {
-	return _ThatsRekt.contract.Transact(opts, "unvote", postId)
+// Solidity: function unconfirm(uint256 postId) returns()
+func (_ThatsRekt *ThatsRektTransactor) Unconfirm(opts *bind.TransactOpts, postId *big.Int) (*types.Transaction, error) {
+	return _ThatsRekt.contract.Transact(opts, "unconfirm", postId)
 }
 
-// Unvote is a paid mutator transaction binding the contract method 0x51ec4285.
+// Unconfirm is a paid mutator transaction binding the contract method 0xec132ce3.
 //
-// Solidity: function unvote(uint256 postId) returns()
-func (_ThatsRekt *ThatsRektSession) Unvote(postId *big.Int) (*types.Transaction, error) {
-	return _ThatsRekt.Contract.Unvote(&_ThatsRekt.TransactOpts, postId)
+// Solidity: function unconfirm(uint256 postId) returns()
+func (_ThatsRekt *ThatsRektSession) Unconfirm(postId *big.Int) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.Unconfirm(&_ThatsRekt.TransactOpts, postId)
 }
 
-// Unvote is a paid mutator transaction binding the contract method 0x51ec4285.
+// Unconfirm is a paid mutator transaction binding the contract method 0xec132ce3.
 //
-// Solidity: function unvote(uint256 postId) returns()
-func (_ThatsRekt *ThatsRektTransactorSession) Unvote(postId *big.Int) (*types.Transaction, error) {
-	return _ThatsRekt.Contract.Unvote(&_ThatsRekt.TransactOpts, postId)
+// Solidity: function unconfirm(uint256 postId) returns()
+func (_ThatsRekt *ThatsRektTransactorSession) Unconfirm(postId *big.Int) (*types.Transaction, error) {
+	return _ThatsRekt.Contract.Unconfirm(&_ThatsRekt.TransactOpts, postId)
 }
 
 // UpgradeToAndCall is a paid mutator transaction binding the contract method 0x4f1ef286.
@@ -1336,27 +1690,6 @@ func (_ThatsRekt *ThatsRektSession) UpgradeToAndCall(newImplementation common.Ad
 // Solidity: function upgradeToAndCall(address newImplementation, bytes data) payable returns()
 func (_ThatsRekt *ThatsRektTransactorSession) UpgradeToAndCall(newImplementation common.Address, data []byte) (*types.Transaction, error) {
 	return _ThatsRekt.Contract.UpgradeToAndCall(&_ThatsRekt.TransactOpts, newImplementation, data)
-}
-
-// Vote is a paid mutator transaction binding the contract method 0x943e8216.
-//
-// Solidity: function vote(uint256 postId, uint8 direction) returns()
-func (_ThatsRekt *ThatsRektTransactor) Vote(opts *bind.TransactOpts, postId *big.Int, direction uint8) (*types.Transaction, error) {
-	return _ThatsRekt.contract.Transact(opts, "vote", postId, direction)
-}
-
-// Vote is a paid mutator transaction binding the contract method 0x943e8216.
-//
-// Solidity: function vote(uint256 postId, uint8 direction) returns()
-func (_ThatsRekt *ThatsRektSession) Vote(postId *big.Int, direction uint8) (*types.Transaction, error) {
-	return _ThatsRekt.Contract.Vote(&_ThatsRekt.TransactOpts, postId, direction)
-}
-
-// Vote is a paid mutator transaction binding the contract method 0x943e8216.
-//
-// Solidity: function vote(uint256 postId, uint8 direction) returns()
-func (_ThatsRekt *ThatsRektTransactorSession) Vote(postId *big.Int, direction uint8) (*types.Transaction, error) {
-	return _ThatsRekt.Contract.Vote(&_ThatsRekt.TransactOpts, postId, direction)
 }
 
 // ThatsRektAttackersAddedIterator is returned from FilterAttackersAdded and is used to iterate over the raw logs and unpacked data for AttackersAdded events raised by the ThatsRekt contract.
@@ -1507,6 +1840,161 @@ func (_ThatsRekt *ThatsRektFilterer) WatchAttackersAdded(opts *bind.WatchOpts, s
 func (_ThatsRekt *ThatsRektFilterer) ParseAttackersAdded(log types.Log) (*ThatsRektAttackersAdded, error) {
 	event := new(ThatsRektAttackersAdded)
 	if err := _ThatsRekt.contract.UnpackLog(event, "AttackersAdded", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ThatsRektConfirmedIterator is returned from FilterConfirmed and is used to iterate over the raw logs and unpacked data for Confirmed events raised by the ThatsRekt contract.
+type ThatsRektConfirmedIterator struct {
+	Event *ThatsRektConfirmed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ThatsRektConfirmedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ThatsRektConfirmed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ThatsRektConfirmed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ThatsRektConfirmedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ThatsRektConfirmedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ThatsRektConfirmed represents a Confirmed event raised by the ThatsRekt contract.
+type ThatsRektConfirmed struct {
+	PostId       *big.Int
+	Confirmer    common.Address
+	OldDirection uint8
+	NewDirection uint8
+	Raw          types.Log // Blockchain specific contextual infos
+}
+
+// FilterConfirmed is a free log retrieval operation binding the contract event 0x097ad824d639a422c3d350f244fc0f8c23b116959ede9dbc119114e0fae20222.
+//
+// Solidity: event Confirmed(uint256 indexed postId, address indexed confirmer, uint8 oldDirection, uint8 newDirection)
+func (_ThatsRekt *ThatsRektFilterer) FilterConfirmed(opts *bind.FilterOpts, postId []*big.Int, confirmer []common.Address) (*ThatsRektConfirmedIterator, error) {
+
+	var postIdRule []interface{}
+	for _, postIdItem := range postId {
+		postIdRule = append(postIdRule, postIdItem)
+	}
+	var confirmerRule []interface{}
+	for _, confirmerItem := range confirmer {
+		confirmerRule = append(confirmerRule, confirmerItem)
+	}
+
+	logs, sub, err := _ThatsRekt.contract.FilterLogs(opts, "Confirmed", postIdRule, confirmerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ThatsRektConfirmedIterator{contract: _ThatsRekt.contract, event: "Confirmed", logs: logs, sub: sub}, nil
+}
+
+// WatchConfirmed is a free log subscription operation binding the contract event 0x097ad824d639a422c3d350f244fc0f8c23b116959ede9dbc119114e0fae20222.
+//
+// Solidity: event Confirmed(uint256 indexed postId, address indexed confirmer, uint8 oldDirection, uint8 newDirection)
+func (_ThatsRekt *ThatsRektFilterer) WatchConfirmed(opts *bind.WatchOpts, sink chan<- *ThatsRektConfirmed, postId []*big.Int, confirmer []common.Address) (event.Subscription, error) {
+
+	var postIdRule []interface{}
+	for _, postIdItem := range postId {
+		postIdRule = append(postIdRule, postIdItem)
+	}
+	var confirmerRule []interface{}
+	for _, confirmerItem := range confirmer {
+		confirmerRule = append(confirmerRule, confirmerItem)
+	}
+
+	logs, sub, err := _ThatsRekt.contract.WatchLogs(opts, "Confirmed", postIdRule, confirmerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ThatsRektConfirmed)
+				if err := _ThatsRekt.contract.UnpackLog(event, "Confirmed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseConfirmed is a log parse operation binding the contract event 0x097ad824d639a422c3d350f244fc0f8c23b116959ede9dbc119114e0fae20222.
+//
+// Solidity: event Confirmed(uint256 indexed postId, address indexed confirmer, uint8 oldDirection, uint8 newDirection)
+func (_ThatsRekt *ThatsRektFilterer) ParseConfirmed(log types.Log) (*ThatsRektConfirmed, error) {
+	event := new(ThatsRektConfirmed)
+	if err := _ThatsRekt.contract.UnpackLog(event, "Confirmed", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -2265,6 +2753,159 @@ func (_ThatsRekt *ThatsRektFilterer) ParsePostNoteAmended(log types.Log) (*Thats
 	return event, nil
 }
 
+// ThatsRektPostPurgedIterator is returned from FilterPostPurged and is used to iterate over the raw logs and unpacked data for PostPurged events raised by the ThatsRekt contract.
+type ThatsRektPostPurgedIterator struct {
+	Event *ThatsRektPostPurged // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ThatsRektPostPurgedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ThatsRektPostPurged)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ThatsRektPostPurged)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ThatsRektPostPurgedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ThatsRektPostPurgedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ThatsRektPostPurged represents a PostPurged event raised by the ThatsRekt contract.
+type ThatsRektPostPurged struct {
+	PostId *big.Int
+	By     common.Address
+	Raw    types.Log // Blockchain specific contextual infos
+}
+
+// FilterPostPurged is a free log retrieval operation binding the contract event 0x70a991e519cee55704541465ce57e817537363a613fcfc859739c03d70c235c3.
+//
+// Solidity: event PostPurged(uint256 indexed postId, address indexed by)
+func (_ThatsRekt *ThatsRektFilterer) FilterPostPurged(opts *bind.FilterOpts, postId []*big.Int, by []common.Address) (*ThatsRektPostPurgedIterator, error) {
+
+	var postIdRule []interface{}
+	for _, postIdItem := range postId {
+		postIdRule = append(postIdRule, postIdItem)
+	}
+	var byRule []interface{}
+	for _, byItem := range by {
+		byRule = append(byRule, byItem)
+	}
+
+	logs, sub, err := _ThatsRekt.contract.FilterLogs(opts, "PostPurged", postIdRule, byRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ThatsRektPostPurgedIterator{contract: _ThatsRekt.contract, event: "PostPurged", logs: logs, sub: sub}, nil
+}
+
+// WatchPostPurged is a free log subscription operation binding the contract event 0x70a991e519cee55704541465ce57e817537363a613fcfc859739c03d70c235c3.
+//
+// Solidity: event PostPurged(uint256 indexed postId, address indexed by)
+func (_ThatsRekt *ThatsRektFilterer) WatchPostPurged(opts *bind.WatchOpts, sink chan<- *ThatsRektPostPurged, postId []*big.Int, by []common.Address) (event.Subscription, error) {
+
+	var postIdRule []interface{}
+	for _, postIdItem := range postId {
+		postIdRule = append(postIdRule, postIdItem)
+	}
+	var byRule []interface{}
+	for _, byItem := range by {
+		byRule = append(byRule, byItem)
+	}
+
+	logs, sub, err := _ThatsRekt.contract.WatchLogs(opts, "PostPurged", postIdRule, byRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ThatsRektPostPurged)
+				if err := _ThatsRekt.contract.UnpackLog(event, "PostPurged", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParsePostPurged is a log parse operation binding the contract event 0x70a991e519cee55704541465ce57e817537363a613fcfc859739c03d70c235c3.
+//
+// Solidity: event PostPurged(uint256 indexed postId, address indexed by)
+func (_ThatsRekt *ThatsRektFilterer) ParsePostPurged(log types.Log) (*ThatsRektPostPurged, error) {
+	event := new(ThatsRektPostPurged)
+	if err := _ThatsRekt.contract.UnpackLog(event, "PostPurged", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // ThatsRektPostRemovedIterator is returned from FilterPostRemoved and is used to iterate over the raw logs and unpacked data for PostRemoved events raised by the ThatsRekt contract.
 type ThatsRektPostRemovedIterator struct {
 	Event *ThatsRektPostRemoved // Event containing the contract specifics and raw log
@@ -2558,6 +3199,312 @@ func (_ThatsRekt *ThatsRektFilterer) WatchPostTitleAmended(opts *bind.WatchOpts,
 func (_ThatsRekt *ThatsRektFilterer) ParsePostTitleAmended(log types.Log) (*ThatsRektPostTitleAmended, error) {
 	event := new(ThatsRektPostTitleAmended)
 	if err := _ThatsRekt.contract.UnpackLog(event, "PostTitleAmended", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ThatsRektPurgeAdminTransferredIterator is returned from FilterPurgeAdminTransferred and is used to iterate over the raw logs and unpacked data for PurgeAdminTransferred events raised by the ThatsRekt contract.
+type ThatsRektPurgeAdminTransferredIterator struct {
+	Event *ThatsRektPurgeAdminTransferred // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ThatsRektPurgeAdminTransferredIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ThatsRektPurgeAdminTransferred)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ThatsRektPurgeAdminTransferred)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ThatsRektPurgeAdminTransferredIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ThatsRektPurgeAdminTransferredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ThatsRektPurgeAdminTransferred represents a PurgeAdminTransferred event raised by the ThatsRekt contract.
+type ThatsRektPurgeAdminTransferred struct {
+	PreviousAdmin common.Address
+	NewAdmin      common.Address
+	Raw           types.Log // Blockchain specific contextual infos
+}
+
+// FilterPurgeAdminTransferred is a free log retrieval operation binding the contract event 0x00c5706759a5b9a68f03d9044a2d6fb4401210a0063438026a8bd5e1c97d3899.
+//
+// Solidity: event PurgeAdminTransferred(address indexed previousAdmin, address indexed newAdmin)
+func (_ThatsRekt *ThatsRektFilterer) FilterPurgeAdminTransferred(opts *bind.FilterOpts, previousAdmin []common.Address, newAdmin []common.Address) (*ThatsRektPurgeAdminTransferredIterator, error) {
+
+	var previousAdminRule []interface{}
+	for _, previousAdminItem := range previousAdmin {
+		previousAdminRule = append(previousAdminRule, previousAdminItem)
+	}
+	var newAdminRule []interface{}
+	for _, newAdminItem := range newAdmin {
+		newAdminRule = append(newAdminRule, newAdminItem)
+	}
+
+	logs, sub, err := _ThatsRekt.contract.FilterLogs(opts, "PurgeAdminTransferred", previousAdminRule, newAdminRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ThatsRektPurgeAdminTransferredIterator{contract: _ThatsRekt.contract, event: "PurgeAdminTransferred", logs: logs, sub: sub}, nil
+}
+
+// WatchPurgeAdminTransferred is a free log subscription operation binding the contract event 0x00c5706759a5b9a68f03d9044a2d6fb4401210a0063438026a8bd5e1c97d3899.
+//
+// Solidity: event PurgeAdminTransferred(address indexed previousAdmin, address indexed newAdmin)
+func (_ThatsRekt *ThatsRektFilterer) WatchPurgeAdminTransferred(opts *bind.WatchOpts, sink chan<- *ThatsRektPurgeAdminTransferred, previousAdmin []common.Address, newAdmin []common.Address) (event.Subscription, error) {
+
+	var previousAdminRule []interface{}
+	for _, previousAdminItem := range previousAdmin {
+		previousAdminRule = append(previousAdminRule, previousAdminItem)
+	}
+	var newAdminRule []interface{}
+	for _, newAdminItem := range newAdmin {
+		newAdminRule = append(newAdminRule, newAdminItem)
+	}
+
+	logs, sub, err := _ThatsRekt.contract.WatchLogs(opts, "PurgeAdminTransferred", previousAdminRule, newAdminRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ThatsRektPurgeAdminTransferred)
+				if err := _ThatsRekt.contract.UnpackLog(event, "PurgeAdminTransferred", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParsePurgeAdminTransferred is a log parse operation binding the contract event 0x00c5706759a5b9a68f03d9044a2d6fb4401210a0063438026a8bd5e1c97d3899.
+//
+// Solidity: event PurgeAdminTransferred(address indexed previousAdmin, address indexed newAdmin)
+func (_ThatsRekt *ThatsRektFilterer) ParsePurgeAdminTransferred(log types.Log) (*ThatsRektPurgeAdminTransferred, error) {
+	event := new(ThatsRektPurgeAdminTransferred)
+	if err := _ThatsRekt.contract.UnpackLog(event, "PurgeAdminTransferred", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ThatsRektPurgeRemoverTransferredIterator is returned from FilterPurgeRemoverTransferred and is used to iterate over the raw logs and unpacked data for PurgeRemoverTransferred events raised by the ThatsRekt contract.
+type ThatsRektPurgeRemoverTransferredIterator struct {
+	Event *ThatsRektPurgeRemoverTransferred // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ThatsRektPurgeRemoverTransferredIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ThatsRektPurgeRemoverTransferred)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ThatsRektPurgeRemoverTransferred)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ThatsRektPurgeRemoverTransferredIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ThatsRektPurgeRemoverTransferredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ThatsRektPurgeRemoverTransferred represents a PurgeRemoverTransferred event raised by the ThatsRekt contract.
+type ThatsRektPurgeRemoverTransferred struct {
+	PreviousRemover common.Address
+	NewRemover      common.Address
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterPurgeRemoverTransferred is a free log retrieval operation binding the contract event 0x28ce69b5347f5af68f15277e8dc315bf2620588714c7f5b4e33c4454108f7638.
+//
+// Solidity: event PurgeRemoverTransferred(address indexed previousRemover, address indexed newRemover)
+func (_ThatsRekt *ThatsRektFilterer) FilterPurgeRemoverTransferred(opts *bind.FilterOpts, previousRemover []common.Address, newRemover []common.Address) (*ThatsRektPurgeRemoverTransferredIterator, error) {
+
+	var previousRemoverRule []interface{}
+	for _, previousRemoverItem := range previousRemover {
+		previousRemoverRule = append(previousRemoverRule, previousRemoverItem)
+	}
+	var newRemoverRule []interface{}
+	for _, newRemoverItem := range newRemover {
+		newRemoverRule = append(newRemoverRule, newRemoverItem)
+	}
+
+	logs, sub, err := _ThatsRekt.contract.FilterLogs(opts, "PurgeRemoverTransferred", previousRemoverRule, newRemoverRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ThatsRektPurgeRemoverTransferredIterator{contract: _ThatsRekt.contract, event: "PurgeRemoverTransferred", logs: logs, sub: sub}, nil
+}
+
+// WatchPurgeRemoverTransferred is a free log subscription operation binding the contract event 0x28ce69b5347f5af68f15277e8dc315bf2620588714c7f5b4e33c4454108f7638.
+//
+// Solidity: event PurgeRemoverTransferred(address indexed previousRemover, address indexed newRemover)
+func (_ThatsRekt *ThatsRektFilterer) WatchPurgeRemoverTransferred(opts *bind.WatchOpts, sink chan<- *ThatsRektPurgeRemoverTransferred, previousRemover []common.Address, newRemover []common.Address) (event.Subscription, error) {
+
+	var previousRemoverRule []interface{}
+	for _, previousRemoverItem := range previousRemover {
+		previousRemoverRule = append(previousRemoverRule, previousRemoverItem)
+	}
+	var newRemoverRule []interface{}
+	for _, newRemoverItem := range newRemover {
+		newRemoverRule = append(newRemoverRule, newRemoverItem)
+	}
+
+	logs, sub, err := _ThatsRekt.contract.WatchLogs(opts, "PurgeRemoverTransferred", previousRemoverRule, newRemoverRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ThatsRektPurgeRemoverTransferred)
+				if err := _ThatsRekt.contract.UnpackLog(event, "PurgeRemoverTransferred", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParsePurgeRemoverTransferred is a log parse operation binding the contract event 0x28ce69b5347f5af68f15277e8dc315bf2620588714c7f5b4e33c4454108f7638.
+//
+// Solidity: event PurgeRemoverTransferred(address indexed previousRemover, address indexed newRemover)
+func (_ThatsRekt *ThatsRektFilterer) ParsePurgeRemoverTransferred(log types.Log) (*ThatsRektPurgeRemoverTransferred, error) {
+	event := new(ThatsRektPurgeRemoverTransferred)
+	if err := _ThatsRekt.contract.UnpackLog(event, "PurgeRemoverTransferred", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -2862,9 +3809,9 @@ func (_ThatsRekt *ThatsRektFilterer) ParseVictimsAdded(log types.Log) (*ThatsRek
 	return event, nil
 }
 
-// ThatsRektVotedIterator is returned from FilterVoted and is used to iterate over the raw logs and unpacked data for Voted events raised by the ThatsRekt contract.
-type ThatsRektVotedIterator struct {
-	Event *ThatsRektVoted // Event containing the contract specifics and raw log
+// ThatsRektWhitelistAdminTransferredIterator is returned from FilterWhitelistAdminTransferred and is used to iterate over the raw logs and unpacked data for WhitelistAdminTransferred events raised by the ThatsRekt contract.
+type ThatsRektWhitelistAdminTransferredIterator struct {
+	Event *ThatsRektWhitelistAdminTransferred // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -2878,7 +3825,7 @@ type ThatsRektVotedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *ThatsRektVotedIterator) Next() bool {
+func (it *ThatsRektWhitelistAdminTransferredIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -2887,7 +3834,7 @@ func (it *ThatsRektVotedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(ThatsRektVoted)
+			it.Event = new(ThatsRektWhitelistAdminTransferred)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2902,7 +3849,7 @@ func (it *ThatsRektVotedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(ThatsRektVoted)
+		it.Event = new(ThatsRektWhitelistAdminTransferred)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2918,62 +3865,60 @@ func (it *ThatsRektVotedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *ThatsRektVotedIterator) Error() error {
+func (it *ThatsRektWhitelistAdminTransferredIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *ThatsRektVotedIterator) Close() error {
+func (it *ThatsRektWhitelistAdminTransferredIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// ThatsRektVoted represents a Voted event raised by the ThatsRekt contract.
-type ThatsRektVoted struct {
-	PostId       *big.Int
-	Voter        common.Address
-	OldDirection uint8
-	NewDirection uint8
-	Raw          types.Log // Blockchain specific contextual infos
+// ThatsRektWhitelistAdminTransferred represents a WhitelistAdminTransferred event raised by the ThatsRekt contract.
+type ThatsRektWhitelistAdminTransferred struct {
+	PreviousAdmin common.Address
+	NewAdmin      common.Address
+	Raw           types.Log // Blockchain specific contextual infos
 }
 
-// FilterVoted is a free log retrieval operation binding the contract event 0x19adb7d3e13e2d662a94a50dfe0d354cd07a4f56f757fe2d58e8d188797b7703.
+// FilterWhitelistAdminTransferred is a free log retrieval operation binding the contract event 0x780008ae49c9be745883f9a2ca6d2e68e9063350aaa0782ee3f00316965d2515.
 //
-// Solidity: event Voted(uint256 indexed postId, address indexed voter, uint8 oldDirection, uint8 newDirection)
-func (_ThatsRekt *ThatsRektFilterer) FilterVoted(opts *bind.FilterOpts, postId []*big.Int, voter []common.Address) (*ThatsRektVotedIterator, error) {
+// Solidity: event WhitelistAdminTransferred(address indexed previousAdmin, address indexed newAdmin)
+func (_ThatsRekt *ThatsRektFilterer) FilterWhitelistAdminTransferred(opts *bind.FilterOpts, previousAdmin []common.Address, newAdmin []common.Address) (*ThatsRektWhitelistAdminTransferredIterator, error) {
 
-	var postIdRule []interface{}
-	for _, postIdItem := range postId {
-		postIdRule = append(postIdRule, postIdItem)
+	var previousAdminRule []interface{}
+	for _, previousAdminItem := range previousAdmin {
+		previousAdminRule = append(previousAdminRule, previousAdminItem)
 	}
-	var voterRule []interface{}
-	for _, voterItem := range voter {
-		voterRule = append(voterRule, voterItem)
+	var newAdminRule []interface{}
+	for _, newAdminItem := range newAdmin {
+		newAdminRule = append(newAdminRule, newAdminItem)
 	}
 
-	logs, sub, err := _ThatsRekt.contract.FilterLogs(opts, "Voted", postIdRule, voterRule)
+	logs, sub, err := _ThatsRekt.contract.FilterLogs(opts, "WhitelistAdminTransferred", previousAdminRule, newAdminRule)
 	if err != nil {
 		return nil, err
 	}
-	return &ThatsRektVotedIterator{contract: _ThatsRekt.contract, event: "Voted", logs: logs, sub: sub}, nil
+	return &ThatsRektWhitelistAdminTransferredIterator{contract: _ThatsRekt.contract, event: "WhitelistAdminTransferred", logs: logs, sub: sub}, nil
 }
 
-// WatchVoted is a free log subscription operation binding the contract event 0x19adb7d3e13e2d662a94a50dfe0d354cd07a4f56f757fe2d58e8d188797b7703.
+// WatchWhitelistAdminTransferred is a free log subscription operation binding the contract event 0x780008ae49c9be745883f9a2ca6d2e68e9063350aaa0782ee3f00316965d2515.
 //
-// Solidity: event Voted(uint256 indexed postId, address indexed voter, uint8 oldDirection, uint8 newDirection)
-func (_ThatsRekt *ThatsRektFilterer) WatchVoted(opts *bind.WatchOpts, sink chan<- *ThatsRektVoted, postId []*big.Int, voter []common.Address) (event.Subscription, error) {
+// Solidity: event WhitelistAdminTransferred(address indexed previousAdmin, address indexed newAdmin)
+func (_ThatsRekt *ThatsRektFilterer) WatchWhitelistAdminTransferred(opts *bind.WatchOpts, sink chan<- *ThatsRektWhitelistAdminTransferred, previousAdmin []common.Address, newAdmin []common.Address) (event.Subscription, error) {
 
-	var postIdRule []interface{}
-	for _, postIdItem := range postId {
-		postIdRule = append(postIdRule, postIdItem)
+	var previousAdminRule []interface{}
+	for _, previousAdminItem := range previousAdmin {
+		previousAdminRule = append(previousAdminRule, previousAdminItem)
 	}
-	var voterRule []interface{}
-	for _, voterItem := range voter {
-		voterRule = append(voterRule, voterItem)
+	var newAdminRule []interface{}
+	for _, newAdminItem := range newAdmin {
+		newAdminRule = append(newAdminRule, newAdminItem)
 	}
 
-	logs, sub, err := _ThatsRekt.contract.WatchLogs(opts, "Voted", postIdRule, voterRule)
+	logs, sub, err := _ThatsRekt.contract.WatchLogs(opts, "WhitelistAdminTransferred", previousAdminRule, newAdminRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2983,8 +3928,8 @@ func (_ThatsRekt *ThatsRektFilterer) WatchVoted(opts *bind.WatchOpts, sink chan<
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(ThatsRektVoted)
-				if err := _ThatsRekt.contract.UnpackLog(event, "Voted", log); err != nil {
+				event := new(ThatsRektWhitelistAdminTransferred)
+				if err := _ThatsRekt.contract.UnpackLog(event, "WhitelistAdminTransferred", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3005,12 +3950,165 @@ func (_ThatsRekt *ThatsRektFilterer) WatchVoted(opts *bind.WatchOpts, sink chan<
 	}), nil
 }
 
-// ParseVoted is a log parse operation binding the contract event 0x19adb7d3e13e2d662a94a50dfe0d354cd07a4f56f757fe2d58e8d188797b7703.
+// ParseWhitelistAdminTransferred is a log parse operation binding the contract event 0x780008ae49c9be745883f9a2ca6d2e68e9063350aaa0782ee3f00316965d2515.
 //
-// Solidity: event Voted(uint256 indexed postId, address indexed voter, uint8 oldDirection, uint8 newDirection)
-func (_ThatsRekt *ThatsRektFilterer) ParseVoted(log types.Log) (*ThatsRektVoted, error) {
-	event := new(ThatsRektVoted)
-	if err := _ThatsRekt.contract.UnpackLog(event, "Voted", log); err != nil {
+// Solidity: event WhitelistAdminTransferred(address indexed previousAdmin, address indexed newAdmin)
+func (_ThatsRekt *ThatsRektFilterer) ParseWhitelistAdminTransferred(log types.Log) (*ThatsRektWhitelistAdminTransferred, error) {
+	event := new(ThatsRektWhitelistAdminTransferred)
+	if err := _ThatsRekt.contract.UnpackLog(event, "WhitelistAdminTransferred", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ThatsRektWhitelistRemoverTransferredIterator is returned from FilterWhitelistRemoverTransferred and is used to iterate over the raw logs and unpacked data for WhitelistRemoverTransferred events raised by the ThatsRekt contract.
+type ThatsRektWhitelistRemoverTransferredIterator struct {
+	Event *ThatsRektWhitelistRemoverTransferred // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ThatsRektWhitelistRemoverTransferredIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ThatsRektWhitelistRemoverTransferred)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ThatsRektWhitelistRemoverTransferred)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ThatsRektWhitelistRemoverTransferredIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ThatsRektWhitelistRemoverTransferredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ThatsRektWhitelistRemoverTransferred represents a WhitelistRemoverTransferred event raised by the ThatsRekt contract.
+type ThatsRektWhitelistRemoverTransferred struct {
+	PreviousRemover common.Address
+	NewRemover      common.Address
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterWhitelistRemoverTransferred is a free log retrieval operation binding the contract event 0x1238d49b83f1d9a79330ff8c39c6f65a914331d29985c3f4c1a7ae51e9aae2e8.
+//
+// Solidity: event WhitelistRemoverTransferred(address indexed previousRemover, address indexed newRemover)
+func (_ThatsRekt *ThatsRektFilterer) FilterWhitelistRemoverTransferred(opts *bind.FilterOpts, previousRemover []common.Address, newRemover []common.Address) (*ThatsRektWhitelistRemoverTransferredIterator, error) {
+
+	var previousRemoverRule []interface{}
+	for _, previousRemoverItem := range previousRemover {
+		previousRemoverRule = append(previousRemoverRule, previousRemoverItem)
+	}
+	var newRemoverRule []interface{}
+	for _, newRemoverItem := range newRemover {
+		newRemoverRule = append(newRemoverRule, newRemoverItem)
+	}
+
+	logs, sub, err := _ThatsRekt.contract.FilterLogs(opts, "WhitelistRemoverTransferred", previousRemoverRule, newRemoverRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ThatsRektWhitelistRemoverTransferredIterator{contract: _ThatsRekt.contract, event: "WhitelistRemoverTransferred", logs: logs, sub: sub}, nil
+}
+
+// WatchWhitelistRemoverTransferred is a free log subscription operation binding the contract event 0x1238d49b83f1d9a79330ff8c39c6f65a914331d29985c3f4c1a7ae51e9aae2e8.
+//
+// Solidity: event WhitelistRemoverTransferred(address indexed previousRemover, address indexed newRemover)
+func (_ThatsRekt *ThatsRektFilterer) WatchWhitelistRemoverTransferred(opts *bind.WatchOpts, sink chan<- *ThatsRektWhitelistRemoverTransferred, previousRemover []common.Address, newRemover []common.Address) (event.Subscription, error) {
+
+	var previousRemoverRule []interface{}
+	for _, previousRemoverItem := range previousRemover {
+		previousRemoverRule = append(previousRemoverRule, previousRemoverItem)
+	}
+	var newRemoverRule []interface{}
+	for _, newRemoverItem := range newRemover {
+		newRemoverRule = append(newRemoverRule, newRemoverItem)
+	}
+
+	logs, sub, err := _ThatsRekt.contract.WatchLogs(opts, "WhitelistRemoverTransferred", previousRemoverRule, newRemoverRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ThatsRektWhitelistRemoverTransferred)
+				if err := _ThatsRekt.contract.UnpackLog(event, "WhitelistRemoverTransferred", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseWhitelistRemoverTransferred is a log parse operation binding the contract event 0x1238d49b83f1d9a79330ff8c39c6f65a914331d29985c3f4c1a7ae51e9aae2e8.
+//
+// Solidity: event WhitelistRemoverTransferred(address indexed previousRemover, address indexed newRemover)
+func (_ThatsRekt *ThatsRektFilterer) ParseWhitelistRemoverTransferred(log types.Log) (*ThatsRektWhitelistRemoverTransferred, error) {
+	event := new(ThatsRektWhitelistRemoverTransferred)
+	if err := _ThatsRekt.contract.UnpackLog(event, "WhitelistRemoverTransferred", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
