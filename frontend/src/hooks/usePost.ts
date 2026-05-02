@@ -1,10 +1,12 @@
 import { useCallback, useState } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { readContract } from 'wagmi/actions'
 import {
   registryAbi,
   registryAddress,
   type SupportedChainId,
 } from '../lib/contracts'
+import { wagmiConfig } from '../lib/wagmi'
 import { requiredConfirmations } from '../lib/chains'
 
 /**
@@ -76,6 +78,13 @@ export function usePost(): {
     SupportedChainId | undefined
   >(undefined)
 
+  // The `peekNextPostId()` read happens INSIDE `submit()` inside a Promise
+  // chain (not async/await — keeping `submit`'s public type as
+  // `(params) => void` so the existing PostFormModal call site stays
+  // unchanged). Read failures land here and fold into the exposed
+  // `error` field below — same surface as a broadcast or receipt error.
+  const [readError, setReadError] = useState<Error | null>(null)
+
   // Chain-aware "truly confirmed" threshold. L2s flip green at 1 block;
   // L1 mainnet waits for 3. See `requiredConfirmations` for the table.
   // When `submittedChainId` is undefined (no tx in flight) the
@@ -96,6 +105,7 @@ export function usePost(): {
 
   const submit = useCallback(
     (params: PostSubmitParams) => {
+      setReadError(null)
       const { chainId, title, attackers, victims, note, attackedAt } = params
 
       const address = registryAddress(chainId)
@@ -112,19 +122,37 @@ export function usePost(): {
       // chainId is a key in REGISTRY_PROXIES — i.e. a SupportedChainId.
       const supportedChainId = chainId as SupportedChainId
       setSubmittedChainId(supportedChainId)
-      writeContract({
+
+      // Read peekNextPostId() immediately before broadcast — minimizes
+      // the gap between "what slot the contract said is next" and "what
+      // slot the tx tries to claim." A racer can still front-run between
+      // this read and the tx mining; that's the design (see contract's
+      // PostIdMismatch revert and `peekNextPostId` natspec).
+      readContract(wagmiConfig, {
         address,
         abi: registryAbi,
-        functionName: 'post',
-        args: [title, attackers, victims, note, attackedAt],
+        functionName: 'peekNextPostId',
         chainId: supportedChainId,
       })
+        .then((expectedPostId) => {
+          writeContract({
+            address,
+            abi: registryAbi,
+            functionName: 'post',
+            args: [expectedPostId, title, attackers, victims, note, attackedAt],
+            chainId: supportedChainId,
+          })
+        })
+        .catch((err: unknown) => {
+          setReadError(err instanceof Error ? err : new Error(String(err)))
+        })
     },
     [writeContract],
   )
 
   const reset = useCallback(() => {
     setSubmittedChainId(undefined)
+    setReadError(null)
     resetWrite()
   }, [resetWrite])
 
@@ -138,7 +166,7 @@ export function usePost(): {
     // Surface whichever stage failed; receipt errors only fire post-broadcast,
     // so `broadcastError` (rejection / chain mismatch / sim failure) takes
     // precedence in the early flow.
-    error: broadcastError ?? receiptError ?? null,
+    error: readError ?? broadcastError ?? receiptError ?? null,
     /** Convenience: any "in flight" state — wallet popup OR mining. */
     isPending: isBroadcasting || isMining,
     submittedChainId,
