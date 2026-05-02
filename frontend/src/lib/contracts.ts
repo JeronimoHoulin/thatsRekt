@@ -121,17 +121,25 @@ export const registryAbi = [
     inputs: [],
     outputs: [{ name: '', type: 'uint256' }],
   },
-  // Submit a new alert. Reverts unless caller is whitelisted.
-  //   title       — required, 1..200 bytes
-  //   attackers_  — addresses suspected of perpetrating the attack
-  //   victims_    — addresses that lost funds
-  //   note        — free-form description
-  //   attackedAt  — unix seconds, > 0, <= block.timestamp
+  // Submit a new alert with optimistic id commitment. Reverts unless
+  // the caller is whitelisted AND the next assigned id matches the
+  // caller's `expectedPostId` claim.
+  //   expectedPostId  — caller's claim of the next post id; must equal
+  //                     postCount + 1 or the call reverts
+  //                     `PostIdMismatch(expected, actual)`. Read it via
+  //                     `peekNextPostId()` immediately before signing so
+  //                     pre-published share URLs land at the asserted id.
+  //   title           — required, 1..200 bytes
+  //   attackers_      — addresses suspected of perpetrating the attack
+  //   victims_        — addresses that lost funds
+  //   note            — free-form description
+  //   attackedAt      — unix seconds, > 0, <= block.timestamp
   {
     type: 'function',
     name: 'post',
     stateMutability: 'nonpayable',
     inputs: [
+      { name: 'expectedPostId', type: 'uint256' },
       { name: 'title', type: 'string' },
       { name: 'attackers_', type: 'address[]' },
       { name: 'victims_', type: 'address[]' },
@@ -139,5 +147,15 @@ export const registryAbi = [
       { name: 'attackedAt', type: 'uint64' },
     ],
     outputs: [{ name: 'id', type: 'uint256' }],
+  },
+  // Convenience view: id the next successful `post()` will receive
+  // (i.e. `postCount + 1`). Frontend calls this to populate
+  // `expectedPostId` immediately before broadcasting a post tx.
+  {
+    type: 'function',
+    name: 'peekNextPostId',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
   },
 ] as const
