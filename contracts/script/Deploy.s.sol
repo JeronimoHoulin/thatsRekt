@@ -232,7 +232,15 @@ contract Deploy is Script {
     ) public {
         require(deployerAddr != address(0), "deployer is zero");
         require(multisig != address(0), "GOVERNANCE_OWNER env var is zero");
-        require(multisig.code.length > 0, "GOVERNANCE_OWNER has no code (must be a Safe / contract)");
+        // v1.1.0 launch posture: GOVERNANCE_OWNER may be an EOA. The
+        // historical Safe-only requirement was a launch-time guardrail
+        // for the v1.0.0 deploy where governance had to be a multisig
+        // from day one. For this re-launch (no live integrators yet,
+        // small whitelisted set) we explicitly accept an EOA owner —
+        // the upgrade timelock can swap it for a Safe later.
+        if (multisig.code.length == 0) {
+            console2.log("[deploy] WARN: GOVERNANCE_OWNER is an EOA, not a Safe:", multisig);
+        }
         require(operator != address(0), "WHITELIST_OPERATOR env var is zero");
         require(purgeRemoverEOA != address(0), "PURGE_REMOVER_EOA resolved to zero");
 
