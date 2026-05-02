@@ -127,21 +127,21 @@ contract Deploy is Script {
     ///      Bump only if its bytecode/config changes (rare — delay
     ///      tweaks happen through this timelock itself, not via
     ///      redeploy).
-    bytes32 public constant UPGRADE_TIMELOCK_SALT = keccak256("thatsRekt.upgradeTimelock.v1");
+    bytes32 public constant UPGRADE_TIMELOCK_SALT = keccak256("thatsRekt.upgradeTimelock.v2");
 
     /// @dev 3-day TimelockController. Holds the `whitelistAdmin` slot —
     ///      adds posters and self-rotates. Bump only if its
     ///      bytecode/config changes.
-    bytes32 public constant ADD_TIMELOCK_SALT = keccak256("thatsRekt.addTimelock.v1");
+    bytes32 public constant ADD_TIMELOCK_SALT = keccak256("thatsRekt.addTimelock.v2");
 
     /// @dev 1-day TimelockController. Holds the `purgeAdmin` slot —
     ///      governance-driven content moderation (`purgePost`). Bump
     ///      only if its bytecode/config changes.
-    bytes32 public constant PURGE_TIMELOCK_SALT = keccak256("thatsRekt.purgeTimelock.v1");
+    bytes32 public constant PURGE_TIMELOCK_SALT = keccak256("thatsRekt.purgeTimelock.v2");
 
     /// @dev NOT versioned — the proxy is the canonical permanent address
     ///      that integrators bake in. Never change this salt.
-    bytes32 public constant PROXY_SALT = keccak256("thatsRekt.proxy");
+    bytes32 public constant PROXY_SALT = keccak256("thatsRekt.proxy.v2");
 
     /*//////////////////////////////////////////////////////////////
                                 DELAYS
