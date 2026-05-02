@@ -2464,6 +2464,118 @@ contract ThatsRektTest is Test {
         assertEq(bytes(reg.postTitle(id)).length, cap);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                  EXPECTED-POSTID COMMITMENT (#122)
+    //////////////////////////////////////////////////////////////*/
+
+    function test_post_succeedsWhenExpectedMatches() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](0);
+        address[] memory vic = new address[](0);
+
+        uint256 expected = reg.peekNextPostId();
+        vm.prank(alice);
+        uint256 got = reg.post(expected, "title", atk, vic, "", uint64(block.timestamp));
+        assertEq(got, expected, "id should equal claimed expected");
+        assertEq(reg.postCount(), expected, "postCount advances to the claimed value");
+    }
+
+    function test_post_revertsWhenExpectedTooLow() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](0);
+        address[] memory vic = new address[](0);
+
+        // First post advances postCount → 1.
+        _post(alice, address(0), address(0));
+
+        // Caller now claims id=1 again — already taken.
+        vm.expectRevert(abi.encodeWithSelector(ThatsRekt.PostIdMismatch.selector, uint256(1), uint256(2)));
+        vm.prank(alice);
+        reg.post(1, "title", atk, vic, "", uint64(block.timestamp));
+    }
+
+    function test_post_revertsWhenExpectedTooHigh() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](0);
+        address[] memory vic = new address[](0);
+
+        // postCount is 0; next will be 1 — but caller claims 99.
+        vm.expectRevert(abi.encodeWithSelector(ThatsRekt.PostIdMismatch.selector, uint256(99), uint256(1)));
+        vm.prank(alice);
+        reg.post(99, "title", atk, vic, "", uint64(block.timestamp));
+    }
+
+    function test_post_revertsWhenExpectedZero() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](0);
+        address[] memory vic = new address[](0);
+
+        vm.expectRevert(abi.encodeWithSelector(ThatsRekt.PostIdMismatch.selector, uint256(0), uint256(1)));
+        vm.prank(alice);
+        reg.post(0, "title", atk, vic, "", uint64(block.timestamp));
+    }
+
+    function test_peekNextPostId_advancesAfterSuccessfulPost() public {
+        _whitelist(alice);
+
+        assertEq(reg.peekNextPostId(), 1, "starts at 1");
+        _post(alice, address(0), address(0));
+        assertEq(reg.peekNextPostId(), 2);
+        _post(alice, address(0), address(0));
+        assertEq(reg.peekNextPostId(), 3);
+    }
+
+    function test_post_revertedTxLeavesPostCountUnchanged() public {
+        _whitelist(alice);
+        address[] memory atk = new address[](0);
+        address[] memory vic = new address[](0);
+
+        uint256 before_ = reg.postCount();
+
+        vm.expectRevert(abi.encodeWithSelector(ThatsRekt.PostIdMismatch.selector, uint256(99), uint256(1)));
+        vm.prank(alice);
+        reg.post(99, "title", atk, vic, "", uint64(block.timestamp));
+
+        assertEq(reg.postCount(), before_, "revert must roll back the increment");
+    }
+
+    function test_post_raceScenarioRetryAtCorrectId() public {
+        _whitelist(alice);
+        _whitelist(bob);
+        address[] memory atk = new address[](0);
+        address[] memory vic = new address[](0);
+
+        // A and B both observe peekNextPostId == 1 in the mempool.
+        uint256 aTarget = reg.peekNextPostId(); // 1
+
+        // B mines first.
+        vm.prank(bob);
+        uint256 bId = reg.post(1, "B's content", atk, vic, "", uint64(block.timestamp));
+        assertEq(bId, 1);
+
+        // A's tx mines second — claim 1, but the slot is gone.
+        vm.expectRevert(abi.encodeWithSelector(ThatsRekt.PostIdMismatch.selector, uint256(1), uint256(2)));
+        vm.prank(alice);
+        reg.post(aTarget, "A's content", atk, vic, "", uint64(block.timestamp));
+
+        // A re-targets the new next slot and succeeds.
+        uint256 nextForA = reg.peekNextPostId();
+        vm.prank(alice);
+        uint256 aId = reg.post(nextForA, "A's content", atk, vic, "", uint64(block.timestamp));
+        assertEq(aId, 2);
+    }
+
+    function test_post_whitelistGateFiresBeforeIdCheck() public {
+        // alice is NOT whitelisted; she also passes a wrong expectedPostId.
+        // The whitelist revert must fire first, NOT PostIdMismatch.
+        address[] memory atk = new address[](0);
+        address[] memory vic = new address[](0);
+
+        vm.expectRevert(ThatsRekt.NotWhitelisted.selector);
+        vm.prank(alice);
+        reg.post(99, "title", atk, vic, "", uint64(block.timestamp));
+    }
+
     function test_amendTitle_posterCanAmend() public {
         _whitelist(alice);
         uint256 id = _post(alice, bob, address(0));
