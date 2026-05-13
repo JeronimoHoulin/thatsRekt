@@ -614,7 +614,8 @@
     "attackedAt": "2025-11-03T07:46:47Z",
     "title": "Balancer V2 — _upscaleArray rounding error compounds across batchSwap, $128M",
     "attackers": [
-      "0x506D1f9EFe24f0d47853aDca907EB8d89AE03207"
+      "0x506D1f9EFe24f0d47853aDca907EB8d89AE03207",
+      "0x54B53503c0e2173Df29f8da735fBd45Ee8aBa30d"
     ],
     "victims": [],
     "chainsAffected": [
@@ -625,7 +626,7 @@
       "optimism",
       "avalanche"
     ],
-    "note": "**Rounding bug in `_upscaleArray`** combined with crafted `batchSwap` calls drove pool balances into the 8-9 wei range, where Solidity integer division rounded ~10% per swap.\n\n## attack vector\n\n`_upscaleArray` was supposed to normalize pool token balances to 18 decimals. The rounding-down behavior, harmless at normal balances, became catastrophic when balances were driven near zero. Attacker ran 65+ micro-swaps inside the **attack contract's constructor** to keep all state changes atomic, draining V2 boosted pools across six chains in under 30 minutes.\n\n## impact\n\n- Funds drained: $128.64M (WETH/osETH/wstETH from V2 boosted pools)\n- Affected chains: Ethereum, Base, Arbitrum, Polygon, Optimism, Avalanche\n- Attacker EOA: `0x506D1f9E...` (`Balancer Exploiter 1`)\n- Attack contract: `0x54B53503...`\n- Balancer V3 unaffected\n\n## response\n\n**Berachain halted its network and emergency hard-forked** to contain BEX (Balancer V2 fork) damage — first known emergency hard-fork to contain a DeFi protocol bug at L1 level. Balancer V2 boosted pools deprecated.",
+    "note": "**Rounding bug in `_upscaleArray`** combined with crafted `batchSwap` calls drove pool balances into the 8-9 wei range, where Solidity integer division rounded ~10% per swap.\n\n## attack vector\n\n`_upscaleArray` was supposed to normalize pool token balances to 18 decimals. The rounding-down behavior, harmless at normal balances, became catastrophic when balances were driven near zero. Attacker ran 65+ micro-swaps inside the **attack contract's constructor** to keep all state changes atomic, draining V2 boosted pools across six chains in under 30 minutes.\n\n## impact\n\n- Funds drained: $128.64M (WETH/osETH/wstETH from V2 boosted pools)\n- Affected chains: Ethereum, Base, Arbitrum, Polygon, Optimism, Avalanche\n- Attacker EOA: [`0x506D1f9E...`](https://etherscan.io/address/0x506D1f9EFe24f0d47853aDca907EB8d89AE03207) (`Balancer Exploiter 1`)\n- Attack contract: [`0x54B53503...`](https://etherscan.io/address/0x54B53503c0e2173Df29f8da735fBd45Ee8aBa30d)\n- Balancer V3 unaffected\n\n## response\n\n**Berachain halted its network and emergency hard-forked** to contain BEX (Balancer V2 fork) damage — first known emergency hard-fork to contain a DeFi protocol bug at L1 level. Balancer V2 boosted pools deprecated.",
     "sourceUrl": "https://research.checkpoint.com/2025/how-an-attacker-drained-128m-from-balancer-through-rounding-error-exploitation/",
     "amountUsd": 128640000
   },

@@ -614,7 +614,8 @@
     "attackedAt": "2025-11-03T07:46:47Z",
     "title": "Balancer V2 — _upscaleArray rounding error compounds across batchSwap, $128M",
     "attackers": [
-      "0x506D1f9EFe24f0d47853aDca907EB8d89AE03207"
+      "0x506D1f9EFe24f0d47853aDca907EB8d89AE03207",
+      "0x54B53503c0e2173Df29f8da735fBd45Ee8aBa30d"
     ],
     "victims": [],
     "chainsAffected": [
