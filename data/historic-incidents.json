@@ -127,7 +127,8 @@
       "0xc8a65fadf0e0ddaf421f28feab69bf6e2e589963"
     ],
     "victims": [
-      "0x250e76987d838a75310c34bf422ea9f1ac4cc906"
+      "0x250e76987d838a75310c34bf422ea9f1ac4cc906",
+      "0x838bf9E95CB12Dd76a54C9f9D2E3082EAF928270"
     ],
     "chainsAffected": [
       "ethereum",
@@ -518,7 +519,9 @@
     "attackedAt": "2024-09-16T04:14:00Z",
     "title": "DeltaPrime — admin key compromise mints 10^69 dpTokens for ~$6M",
     "attackers": [
-      "0x56e7f67211683857EE31a1220827cac5cdaa634C"
+      "0x56e7f67211683857EE31a1220827cac5cdaa634C",
+      "0x40E4Ff9e018462Ce71Fa34aBdFA27B8C5e2B1AfB",
+      "0xD4CA224a176A59ed1a346FA86C3e921e01659E73"
     ],
     "victims": [],
     "note": "Compromised admin key (0x40e4ff9e...) upgraded DeltaPrime Blue's proxy contracts on Arbitrum to a malicious implementation (0xD4CA224a...), then minted >1.1e69 of DPUSDC/DPARB/DPBTCb/DPWETH and redeemed them for the underlying. ~$5.98M drained, swapped to ETH, bridged to mainnet, and routed through Tornado.Cash. DPRK affiliation suspected but not confirmed at the time of disclosure.",
@@ -548,7 +551,8 @@
     "attackedAt": "2025-03-25T07:57:52Z",
     "title": "Abracadabra — GM Cauldron solvency-check bypass via failed GMX orders, $13M",
     "attackers": [
-      "0xe9A4034E89608Df1731835A3Fd997fd3a82F2f39"
+      "0xe9A4034E89608Df1731835A3Fd997fd3a82F2f39",
+      "0xAF9e33Aa03CAaa613c3Ba4221f7EA3eE2AC38649"
     ],
     "victims": [
       "0x625Fe79547828b1B54467E5Ed822a9A8a074bD61",
@@ -614,9 +618,13 @@
     "attackedAt": "2025-11-03T07:46:47Z",
     "title": "Balancer V2 — _upscaleArray rounding error compounds across batchSwap, $128M",
     "attackers": [
-      "0x506D1f9EFe24f0d47853aDca907EB8d89AE03207"
+      "0x506D1f9EFe24f0d47853aDca907EB8d89AE03207",
+      "0x54B53503c0e2173Df29f8da735fBd45Ee8aBa30d",
+      "0xAa760D53541d8390074c61DEFeaba314675b8e3f"
     ],
-    "victims": [],
+    "victims": [
+      "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+    ],
     "chainsAffected": [
       "ethereum",
       "base",
@@ -638,7 +646,8 @@
     "attackers": [
       "0x04A288a7789DD6Ade935361a4fB1Ec5db513caEd",
       "0x8ED8cF0C1c531C1b20848E78f1CB32fa5B99b81C",
-      "0xb945eC1be1f42777F3AA7D683562800B4CDD3890"
+      "0xb945eC1be1f42777F3AA7D683562800B4CDD3890",
+      "0x15CAd41e6BdCaDc7121ce65080489C92CF6de398"
     ],
     "victims": [
       "0xa27a69Ae180e202fDe5D38189a3F24Fe24E55861",
