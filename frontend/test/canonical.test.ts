@@ -87,11 +87,17 @@ describe('canonical typed-data fingerprints', () => {
   // Recorded values below were produced from the frontend builders
   // against the fixed fixtures + EXPECTED_DOMAIN. The mesh test is
   // expected to compute identical values via viem's hashTypedData.
+  //
+  // Regenerated 2026-05-13 for the v1.2.0 multichain deploy — the
+  // verifyingContract moved from the v1.1.0 Base proxy to the new
+  // canonical CREATE2 address 0xBfaEEE…b89A, so every hash here had
+  // to be recomputed. Mesh's mirror test was updated to the same
+  // values in the same commit; do not bump one side in isolation.
 
   test('CreateComment fixture hash is stable', () => {
     const td = buildCreateTypedData(FIX_POST_ID, FIX_BODY, FIX_SIGNED_AT)
     expect(hashTypedData(td)).toBe(
-      '0x4cc2ac84dc2533f16551dd25cd366739df9a5c5fe21248e0b3143e1bf4601a5e',
+      '0x018722c91126010662d10f1306418de299ea1cb18d691e5d9890fd9b518317a6',
     )
   })
 
@@ -103,14 +109,14 @@ describe('canonical typed-data fingerprints', () => {
       FIX_SIGNED_AT,
     )
     expect(hashTypedData(td)).toBe(
-      '0xa4252bd7819558df94b7226cc0b345b774cd30cc003ce0293de9d8f869fff1fa',
+      '0x2952089c6480cfd3ae728288011dc57e993e2519c99477bda4959851ba76e53d',
     )
   })
 
   test('DeleteComment fixture hash is stable', () => {
     const td = buildDeleteTypedData(FIX_COMMENT_ID, FIX_POST_ID, FIX_SIGNED_AT)
     expect(hashTypedData(td)).toBe(
-      '0xe056613511a58b7f627565644c2a99c13776f1e238ff74b2d57cd612bbeaa3d1',
+      '0xa2972bc91b80acf85f6c11f38a6cc4683e04be04ad0c5287e378eb65747bbde6',
     )
   })
 })

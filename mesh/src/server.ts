@@ -238,6 +238,7 @@ const additionalTypeDefs = /* GraphQL */ `
     netScore: Int!
     confirmations: Int!
     disconfirmations: Int!
+    """True iff the poster retracted this post via \`removePost(id)\`. The gateway filters removed posts out of \`posts(...)\` server-side; surfaced here so per-chain \`<Prefix>_postById(...)\` callers (e.g. direct shared URLs) can render the retract state."""
     removed: Boolean!
     """True iff governance has purged this post. The gateway filters purged posts out of \`posts(...)\` server-side; surfaced here so detail-fetch paths can defensively render a tombstone."""
     purged: Boolean!
@@ -328,16 +329,22 @@ const FetchPostsResponse = z.object({
   posts: z.array(RawPost),
 })
 
-// `purged` is filtered out at the upstream squid via `where: { purged_eq: false }`
-// so we don't pull rows we'd just throw away. We also project the field for
-// downstream consumers (so the unified `posts(...)` resolver can fall through
-// to a tombstone rendering should a stale row sneak in).
+// `purged` AND `removed` are both filtered at the upstream squid so we don't
+// pull rows we'd just throw away. `purged` is the governance scrub path;
+// `removed` is the poster-retract path. The product call (2026-05-13) is
+// that retracted posts behave like purged ones for the unified feed —
+// they're hidden, not surfaced with a "retracted" badge. The retract
+// audit trail is still readable on-chain and via the per-chain
+// `<Prefix>_postById(...)` route (for direct shared URLs); only the
+// unified feed treats retract == delete. `purged` + `removed` are still
+// projected so a stale row that slipped through (e.g. retract event
+// after the squid handed us this row) gets caught at render time.
 const FETCH_POSTS_QUERY = /* GraphQL */ `
   query FetchPosts($limit: Int!) {
     posts(
       orderBy: createdAtBlock_DESC
       limit: $limit
-      where: { purged_eq: false }
+      where: { purged_eq: false, removed_eq: false }
     ) {
       id
       poster { id }
@@ -361,12 +368,14 @@ const FETCH_POSTS_QUERY = /* GraphQL */ `
 // Cheap server-side count for pagination UX. Each squid exposes
 // `postsConnection.totalCount` (Subsquid auto-generated). Per-chain calls
 // in parallel; sum is the upper bound for the unified feed. We filter
-// purged posts out of the count so "showing X of Y" stays honest.
+// both purged AND removed posts out of the count so "showing X of Y"
+// matches what FETCH_POSTS_QUERY actually returns — if these two
+// `where:` clauses ever drift, the feed paginator goes sideways.
 const COUNT_POSTS_QUERY = /* GraphQL */ `
   query CountPosts {
     postsConnection(
       orderBy: createdAtBlock_DESC
-      where: { purged_eq: false }
+      where: { purged_eq: false, removed_eq: false }
     ) { totalCount }
   }
 `

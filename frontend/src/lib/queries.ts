@@ -177,13 +177,42 @@ interface MeshUnifiedPost {
 // detail pages to 404 even when the unified `posts(...)` query returns
 // the post — the detail-page path goes through `<prefix>_postById` and
 // fails fast on an unknown slug.
-const SLUG_TO_PREFIX: Record<string, string> = {
+//
+// Exported so other modules (e.g. PostDetail's chain-slug derivation,
+// the slug-coverage test) read from the same single source of truth.
+// `frontend/test/slug-coverage.test.ts` asserts that this map's keys
+// stay in sync with the live-indexed entries of `chains.ts::CHAINS`.
+export const SLUG_TO_PREFIX: Record<string, string> = {
   'anvil-eth': 'AnvilEth',
   'anvil-base': 'AnvilBase',
   sepolia: 'Sepolia',
+  ethereum: 'Ethereum',
   base: 'Base',
   'base-sepolia': 'BaseSepolia',
   optimism: 'Optimism',
+  arbitrum: 'Arbitrum',
+}
+
+/**
+ * Extract the chain slug from a composite post id (`{slug}-{onchainId}`).
+ *
+ * Returns `undefined` when the id's prefix isn't a known indexed-chain
+ * slug — e.g. legacy bare numeric ids, or a slug we haven't wired into
+ * `SLUG_TO_PREFIX` yet. Iterates longest-slug-first so `base-sepolia-7`
+ * never gets matched as `base` with `sepolia-7` as the on-chain id.
+ *
+ * Distinct from `splitCompositeId` below: that helper's "assume base"
+ * fallback silently rewrites unknown slugs to `base`, which is correct
+ * for the legacy `/post/:id` route with bare numeric ids but DANGEROUS
+ * for the canonical `/post/:chain/:id` route — an unknown slug there
+ * should surface as a not-found, not get rewritten into a Base lookup.
+ */
+export const chainSlugFromCompositeId = (id: string): string | undefined => {
+  const slugs = Object.keys(SLUG_TO_PREFIX).sort((a, b) => b.length - a.length)
+  for (const slug of slugs) {
+    if (id.startsWith(`${slug}-`)) return slug
+  }
+  return undefined
 }
 
 const buildPostDetailQuery = (prefix: string): string => /* GraphQL */ `
