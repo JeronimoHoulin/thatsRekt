@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { fetchPostDetail } from '../lib/queries'
+import { chainSlugFromCompositeId, fetchPostDetail } from '../lib/queries'
 import { fetchCommentCount } from '../lib/comments'
 import { archiveSlugFromUrlId } from '../lib/archive'
 import { AddressLabel } from '../components/AddressLabel'
@@ -19,18 +19,6 @@ import {
 } from '../lib/contracts'
 import { formatTimestamp, relativeTime } from '../lib/format'
 
-// Extract chain slug from a composite post id (`{slug}-{onchainId}`).
-// Returns undefined for legacy bare ids.
-function chainSlugFromId(id: string): string | undefined {
-  const knownSlugs = ['anvil-eth', 'anvil-base', 'sepolia', 'base'].sort(
-    (a, b) => b.length - a.length,
-  )
-  for (const s of knownSlugs) {
-    if (id.startsWith(`${s}-`)) return s
-  }
-  return undefined
-}
-
 export function PostDetail() {
   // Two URL shapes hit this component:
   //   1. /post/:id                  — legacy composite (`base-42`).
@@ -39,8 +27,8 @@ export function PostDetail() {
   //
   // Both render the same detail view. We normalize to the composite id
   // (`{slug}-{onchainId}`) here because every downstream lookup —
-  // archive matcher, GraphQL fetcher, chainSlugFromId — expects that
-  // shape.
+  // archive matcher, GraphQL fetcher, chainSlugFromCompositeId — expects
+  // that shape.
   const params = useParams<{ id?: string; chainSlug?: string; postId?: string }>()
   const postId =
     params.chainSlug && params.postId
@@ -107,7 +95,7 @@ function LivePostDetail({ postId }: { postId: string }) {
     return <PurgedTombstone postId={data.id} purgedAt={data.purgedAtTimestamp} />
   }
 
-  const chainSlug = chainSlugFromId(data.id)
+  const chainSlug = chainSlugFromCompositeId(data.id)
   // Build the canonical share path. The clean `/post/:chain/:postId`
   // shape is what the Mesh OG handler matches and what we want pasted
   // into chats — Telegram et al. render the OG card from that URL.
