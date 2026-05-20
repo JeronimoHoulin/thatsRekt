@@ -1,6 +1,6 @@
 import type { EditEntity, PostDetail, ConfirmationEntity } from '../lib/queries'
 import { AddressLabel } from './AddressLabel'
-import { formatTimestamp, relativeTime } from '../lib/format'
+import { formatTimestamp, relativeTime, extractSourceUrl } from '../lib/format'
 
 // Synthesized "inception" event derived from the post's own creation
 // data (no separate Inception entity exists on-chain — the PostCreated
@@ -13,6 +13,7 @@ interface InceptionData {
   blockNumber: number
   attackerCount: number
   victimCount: number
+  sourceUrl: string | null
 }
 
 type TimelineItem =
@@ -28,6 +29,7 @@ interface TimelineProps {
     | 'createdAtTimestamp'
     | 'attackerLinks'
     | 'victimLinks'
+    | 'note'
   > & {
     /** Block number of post creation. Not on PostDetail directly today —
      *  if absent we still render an inception entry without a block. */
@@ -47,6 +49,7 @@ export function Timeline({ post, log, edits, chainSlug }: TimelineProps) {
       blockNumber: post.createdAtBlock ?? 0,
       attackerCount: post.attackerLinks.length,
       victimCount: post.victimLinks.length,
+      sourceUrl: extractSourceUrl(post.note),
     },
   }
 
@@ -113,6 +116,21 @@ function InceptionRow({
         {data.attackerCount} attacker{data.attackerCount === 1 ? '' : 's'},{' '}
         {data.victimCount} victim{data.victimCount === 1 ? '' : 's'}
       </span>
+      {data.sourceUrl && (
+        <>
+          {' '}
+          <span className="text-neutral-700">·</span>{' '}
+          <a
+            href={data.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rekt-link text-xs uppercase tracking-widest"
+            title={data.sourceUrl}
+          >
+            source
+          </a>
+        </>
+      )}
     </p>
   )
 }

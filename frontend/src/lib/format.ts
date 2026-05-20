@@ -54,3 +54,17 @@ export function twitterUrl(handleOrUrl: string): string {
   const cleaned = handleOrUrl.replace(/^@/, '')
   return `https://x.com/${cleaned}`
 }
+
+/** Extract Twitter/X source URL from note if available.
+ * Note format from relay: "tweet_content\ntweet_url\n[image_urls...]"
+ * Returns null if no URL found or note is empty. */
+export function extractSourceUrl(note: string | undefined): string | null {
+  if (!note || typeof note !== 'string') return null
+  const lines = note.split('\n')
+  if (lines.length < 2) return null
+  const potentialUrl = lines[1].trim()
+  if (potentialUrl.startsWith('http://') || potentialUrl.startsWith('https://')) {
+    return potentialUrl
+  }
+  return null
+}

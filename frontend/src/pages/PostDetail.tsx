@@ -17,7 +17,7 @@ import {
   registryAddress,
   type SupportedChainId,
 } from '../lib/contracts'
-import { formatTimestamp, relativeTime, formatDateOnly } from '../lib/format'
+import { formatTimestamp, relativeTime, formatDateOnly, extractSourceUrl } from '../lib/format'
 
 export function PostDetail() {
   // Two URL shapes hit this component:
@@ -183,6 +183,23 @@ function LivePostDetail({ postId }: { postId: string }) {
               {relativeTime(data.removedAtTimestamp)}
             </Field>
           )}
+          {(() => {
+            const sourceUrl = extractSourceUrl(data.note)
+            if (!sourceUrl) return null
+            return (
+              <Field label="source">
+                <a
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rekt-link break-all"
+                  title={sourceUrl}
+                >
+                  x.com
+                </a>
+              </Field>
+            )
+          })()}
         </dl>
       </header>
 
