@@ -19,8 +19,4 @@ detector/dist/
 detector/workflow-ids.local.json
 
 # Plans / scratchpads (any tasks/ dir, anywhere in the tree).
-# Operator policy (2026-05-13): planning lives outside the repo
-# (Notion + DAMM knowledge vault). Anything that looks like an
-# in-progress plan should never land in git — it gives a false
-# "this is in-flight" signal and rots fast.
 tasks/
