@@ -227,20 +227,33 @@ func (s *Store) MessageIDFor(postID string) (int64, bool) {
 	return ps.MessageID, true
 }
 
-// HasChanged reports whether the given (actionCount, lastUpdatedAt) pair
-// differs from what was last recorded for postID. Returns false when the
-// post is not in the store (it is "new", not "changed").
-// Both fields must change together or individually — any difference counts.
-func (s *Store) HasChanged(postID string, actionCount int, lastUpdatedAt string) bool {
+// HasSnapshot reports whether a post in the store has a non-zero-value
+// amendment snapshot (LastActionCount != 0 or LastUpdatedAt != ""). Returns
+// false for posts that are absent from the store or that have a zero-value
+// snapshot (e.g. posts published before N2 deployed — "pre-N2 posts").
+func (s *Store) HasSnapshot(postID string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	ps, ok := s.state.Posts[postID]
 	if !ok {
 		return false
 	}
-	// Posts published before N2 have zero-value snapshots. Treat them as
-	// unchanged on the first post-upgrade poll to avoid spurious re-edits.
-	if ps.LastActionCount == 0 && ps.LastUpdatedAt == "" {
+	return ps.LastActionCount != 0 || ps.LastUpdatedAt != ""
+}
+
+// HasChanged reports whether the given (actionCount, lastUpdatedAt) pair
+// differs from what was last recorded for postID.
+//
+// Callers must only invoke this after confirming a snapshot exists via
+// HasSnapshot (or equivalent logic in PollOnce). The function returns false
+// for posts absent from the store; the zero-value snapshot case is no longer
+// handled here — PollOnce distinguishes "no snapshot" from "unchanged"
+// explicitly using HasSnapshot.
+func (s *Store) HasChanged(postID string, actionCount int, lastUpdatedAt string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ps, ok := s.state.Posts[postID]
+	if !ok {
 		return false
 	}
 	return ps.LastActionCount != actionCount || ps.LastUpdatedAt != lastUpdatedAt

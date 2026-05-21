@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -126,7 +127,9 @@ func (b *Bot) EditMessageText(ctx context.Context, chatID string, messageID int6
 		return err
 	}
 	if !out.OK {
-		if out.Description == "Bad Request: message is not modified" {
+		// Telegram historically returns this with and without the
+		// "Bad Request:" prefix — use substring match for robustness.
+		if strings.Contains(out.Description, "message is not modified") {
 			return nil
 		}
 		return fmt.Errorf("editMessageText: %s", out.Description)
@@ -159,7 +162,9 @@ func (b *Bot) EditReplyMarkup(ctx context.Context, chatID string, messageID int6
 	if !out.OK {
 		// 400 with "message is not modified" is benign — return nil so
 		// the caller doesn't spam logs on idempotent re-presses.
-		if out.Description == "Bad Request: message is not modified" {
+		// Telegram historically returns this with and without the
+		// "Bad Request:" prefix — use substring match for robustness.
+		if strings.Contains(out.Description, "message is not modified") {
 			return nil
 		}
 		return fmt.Errorf("editMessageReplyMarkup: %s", out.Description)

@@ -112,14 +112,20 @@ func (s *Service) runPoll(ctx context.Context) {
 	s.PollOnce(ctx)
 }
 
-// PollOnce fetches the latest posts and processes each one:
-//   - New post (id > last-seen high-water mark) → publish.
-//   - Known post that has changed (ActionCount or LastUpdatedAt differ
-//     from the stored snapshot) → edit the existing Telegram message.
-//   - Known post that is unchanged → skip.
+// PollOnce fetches the latest posts and routes each one through the full
+// post lifecycle. Every state is handled explicitly — no post is silently
+// dropped:
 //
-// On a post that is not new and not in the store (started after it was
-// created), if it has changed we fall back to a fresh publish.
+//  1. New (id > last-seen high-water mark) → publish fresh.
+//  2. Mapped (in Posts map) + no snapshot yet (pre-N2 post with zero-value
+//     LastActionCount/LastUpdatedAt) → back-fill the baseline snapshot using
+//     the current on-chain values; do NOT edit the Telegram message.
+//     The next poll that detects a real change will then edit correctly.
+//  3. Mapped + snapshot exists + unchanged → skip.
+//  4. Mapped + snapshot exists + changed → edit the existing Telegram message
+//     in place (amendment handling).
+//  5. Not new + not in Posts map (notifier never published it) →
+//     fall back to a fresh publish.
 //
 // PollOnce is exported so service_test.go can drive it directly.
 func (s *Service) PollOnce(ctx context.Context) {
@@ -136,8 +142,8 @@ func (s *Service) PollOnce(ctx context.Context) {
 	})
 
 	for _, p := range posts {
+		// --- State 1: brand-new post ---
 		if s.isNew(p) {
-			// Brand-new post — publish fresh.
 			if err := s.publish(ctx, p); err != nil {
 				s.Logger.Warn("publish failed", "post_id", p.ID, "err", err)
 				// Don't bump LastSeen — try again next cycle.
@@ -147,18 +153,14 @@ func (s *Service) PollOnce(ctx context.Context) {
 			continue
 		}
 
-		// Post is not new (id ≤ last-seen). Check if it has been amended
-		// since we last processed it.
-		if !s.Store.HasChanged(p.ID, p.ActionCount, p.LastUpdatedAt) {
-			continue
-		}
-
-		// Post has changed. Look up its stored Telegram message id.
+		// Post is not new (id ≤ last-seen high-water mark). Look up the
+		// stored Telegram message id to determine which sub-state we're in.
 		msgID, known := s.Store.MessageIDFor(p.ID)
 		if !known {
-			// The notifier never published this post (started after it was
-			// created). Fall back to a fresh publish.
-			s.Logger.Info("amended post not in store — publishing fresh",
+			// --- State 5: not-new + not mapped ---
+			// The notifier never published this post. Fall back to a fresh
+			// publish (acceptance criterion 4 of issue #128).
+			s.Logger.Info("not-new post absent from store — publishing fresh",
 				"post_id", p.ID,
 				"action_count", p.ActionCount,
 			)
@@ -168,7 +170,26 @@ func (s *Service) PollOnce(ctx context.Context) {
 			continue
 		}
 
-		// Edit the existing Telegram message in place.
+		// Post is mapped. Differentiate by snapshot state.
+		if !s.Store.HasSnapshot(p.ID) {
+			// --- State 2: mapped + no snapshot (pre-N2 post) ---
+			// Back-fill the baseline with the current on-chain values so the
+			// next genuine amendment is detected. Do NOT edit the message.
+			s.Store.UpdatePostSnapshot(p.ID, p.ActionCount, p.LastUpdatedAt)
+			s.Logger.Info("back-filled snapshot for pre-N2 post",
+				"post_id", p.ID,
+				"action_count", p.ActionCount,
+				"last_updated_at", p.LastUpdatedAt,
+			)
+			continue
+		}
+
+		// --- State 3: mapped + snapshot + unchanged ---
+		if !s.Store.HasChanged(p.ID, p.ActionCount, p.LastUpdatedAt) {
+			continue
+		}
+
+		// --- State 4: mapped + snapshot + changed → edit in place ---
 		if err := s.amendEdit(ctx, p, msgID); err != nil {
 			s.Logger.Warn("amendment edit failed", "post_id", p.ID, "err", err)
 			// Don't update snapshot — next poll will retry.
@@ -230,7 +251,12 @@ func (s *Service) amendEdit(ctx context.Context, p graphql.Post, msgID int64) er
 	text := telegram.FormatPostMessage(p)
 
 	// Retrieve current vote counts so the keyboard edit preserves them.
-	ps, _ := s.Store.PostState(p.ID)
+	// Guard the ok return: a missing PostState must not silently zero out
+	// the vote counts on the edited keyboard.
+	ps, ok := s.Store.PostState(p.ID)
+	if !ok {
+		return fmt.Errorf("amendEdit: PostState not found for post %s — cannot preserve vote counts; skipping edit", p.ID)
+	}
 	kb := telegram.VoteKeyboard(p.ID, ps.UpVotes, ps.DownVotes)
 
 	if err := s.Bot.EditMessageText(ctx, s.ChannelID, msgID, text, kb); err != nil {
