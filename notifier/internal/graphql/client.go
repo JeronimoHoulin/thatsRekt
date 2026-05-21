@@ -83,13 +83,12 @@ func NewClient(url string) *Client {
 // GraphQL indexer dependency (v2):
 //
 //   - `lastUpdatedAt` — already present in the Mesh UnifiedPost type.
-//   - `actionCount` — NOT YET exposed by the indexer or mesh. This field
-//     is required for deriving "rev N" in FormatPostMessage. Until the
-//     indexer is updated (see DAMM-Cap/damm-thatsrekt-relayer#49 and the
-//     escalation note in the PR for ThatsRekt/thatsRekt#127), the field
-//     will be absent from the response. json.Unmarshal will leave
-//     Post.ActionCount at its zero value (0), and FormatPostMessage will
-//     defensively fall back to rev 1.
+//   - `actionCount` — NOT YET exposed by the indexer or mesh. The struct
+//     field Post.ActionCount is retained for forward-compatibility: once
+//     the indexer upgrade lands (tracked in ThatsRekt/thatsRekt#132),
+//     re-add `actionCount` to the query below and json.Unmarshal will
+//     populate the field automatically. Until then, ActionCount stays 0
+//     and FormatPostMessage renders rev 1 as the safe default.
 //
 // What the indexer/mesh must add to unblock full rev-N functionality:
 //
@@ -102,12 +101,12 @@ func NewClient(url string) *Client {
 //
 // Until that change lands, the notifier is correct at rev=1 for all posts.
 func (c *Client) LatestPosts(ctx context.Context, limit int) ([]Post, error) {
-	// NOTE: `actionCount` is listed here speculatively — the field does not
-	// yet exist in the mesh schema. When the indexer upgrade lands (see
-	// above), no notifier code change will be needed: json.Unmarshal will
-	// populate Post.ActionCount automatically once the mesh returns the
-	// field. If the field is absent the query still succeeds; ActionCount
-	// stays 0 and the formatter falls back to rev 1.
+	// NOTE: `actionCount` is intentionally absent from this query.
+	// GraphQL validates the full selection set against the schema before
+	// execution: an unknown field causes a hard validation error and the
+	// server returns zero data — there is no partial success. The field is
+	// not yet in the Mesh UnifiedPost schema; re-add it here once
+	// ThatsRekt/thatsRekt#132 has merged and the schema exposes it.
 	const query = `
 		query Notifier($limit: Int!) {
 			posts(limit: $limit, offset: 0) {
@@ -125,7 +124,6 @@ func (c *Client) LatestPosts(ctx context.Context, limit int) ([]Post, error) {
 					lastUpdatedAt
 					attackers
 					victims
-					actionCount
 				}
 			}
 		}

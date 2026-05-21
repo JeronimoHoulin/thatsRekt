@@ -3,10 +3,15 @@ package telegram_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ThatsRekt/thatsRekt/notifier/internal/graphql"
 	"github.com/ThatsRekt/thatsRekt/notifier/internal/telegram"
 )
+
+// fixedNow is the reference wall-clock used across all tests so that
+// relative-time assertions are deterministic.
+var fixedNow = time.Date(2026, 5, 21, 16, 0, 0, 0, time.UTC)
 
 // v2Note builds a self-describing note string for tests.
 func v2Note(summary, chains, txs, sources string) string {
@@ -44,13 +49,13 @@ func makePost(opts struct {
 	updatedAt   string
 }) graphql.Post {
 	return graphql.Post{
-		ID:           opts.chain.Slug + "-7",
-		Chain:        opts.chain,
-		Title:        opts.title,
-		Note:         opts.note,
-		ActionCount:  opts.actionCount,
-		Attackers:    opts.attackers,
-		Victims:      opts.victims,
+		ID:            opts.chain.Slug + "-7",
+		Chain:         opts.chain,
+		Title:         opts.title,
+		Note:          opts.note,
+		ActionCount:   opts.actionCount,
+		Attackers:     opts.attackers,
+		Victims:       opts.victims,
 		LastUpdatedAt: opts.updatedAt,
 	}
 }
@@ -63,6 +68,7 @@ var baseChain = graphql.Chain{
 
 // TestFormatPostMessage_CreatePostOnly covers a freshly created post (rev 1,
 // no amendments, no victims). This is acceptance criterion 1 + 3 + 4.
+// updatedAt is 2h before fixedNow so the relative-time line is deterministic.
 func TestFormatPostMessage_CreatePostOnly(t *testing.T) {
 	note := v2Note(
 		"Butter Bridge V3.1 drained via reentrancy",
@@ -85,16 +91,16 @@ func TestFormatPostMessage_CreatePostOnly(t *testing.T) {
 		attackers:   []string{"0x4059e47b062D9F959e2059b48cD6dB264EF5279F"},
 		victims:     nil,
 		chain:       baseChain,
-		updatedAt:   "2026-05-20T14:00:00Z",
+		updatedAt:   "2026-05-21T14:00:00Z", // 2h before fixedNow
 	})
 
-	msg := telegram.FormatPostMessage(p)
+	msg := telegram.FormatPostMessageAt(p, fixedNow)
 
-	// Must contain the title and revision
-	assertContains(t, msg, "Butter Bridge V3.1", "title")
+	// Line 2 must show relative time, not the title.
+	assertContains(t, msg, "2h ago on base", "relative-time line")
 	assertContains(t, msg, "rev 1", "rev derived from action count")
 
-	// Summary from parsed note
+	// Summary from parsed note (still references the protocol name)
 	assertContains(t, msg, "Butter Bridge V3.1 drained via reentrancy", "summary from note")
 
 	// Attacker section present with abbreviated address
@@ -105,8 +111,8 @@ func TestFormatPostMessage_CreatePostOnly(t *testing.T) {
 	// No victims section for a post without victims
 	assertAbsent(t, msg, "Victims:", "victims section must be absent when no victims")
 
-	// Source attribution
-	assertContains(t, msg, "@rektreporter", "source attribution")
+	// Source attribution renders as "Source: @handle" line
+	assertContains(t, msg, "Source: @rektreporter", "source attribution")
 
 	// No score/confidence
 	assertAbsent(t, msg, "score", "no score")
@@ -117,6 +123,7 @@ func TestFormatPostMessage_CreatePostOnly(t *testing.T) {
 
 // TestFormatPostMessage_AmendedPost covers an amended post (rev > 1).
 // Acceptance criterion 3: rev derived from action count.
+// updatedAt is 1h before fixedNow.
 func TestFormatPostMessage_AmendedPost(t *testing.T) {
 	note := v2Note(
 		"MapProtocol bridge exploited for 3M USDC",
@@ -139,13 +146,13 @@ func TestFormatPostMessage_AmendedPost(t *testing.T) {
 		attackers:   []string{"0xDEADBEEF0000000000000000000000000000DEAD"},
 		victims:     nil,
 		chain:       graphql.Chain{ChainID: 1, Slug: "ethereum", Name: "Ethereum"},
-		updatedAt:   "2026-05-21T10:00:00Z",
+		updatedAt:   "2026-05-21T15:00:00Z", // 1h before fixedNow
 	})
 
-	msg := telegram.FormatPostMessage(p)
+	msg := telegram.FormatPostMessageAt(p, fixedNow)
 
 	assertContains(t, msg, "rev 3", "rev derived from action count of 3")
-	assertContains(t, msg, "MapProtocol Bridge Exploit", "title")
+	assertContains(t, msg, "1h ago", "relative-time line")
 	assertContains(t, msg, "MapProtocol bridge exploited for 3M USDC", "summary")
 	// Multi-chain attacked set from note
 	assertContains(t, msg, "ethereum", "attacked chain from note")
@@ -179,7 +186,7 @@ func TestFormatPostMessage_WithVictims(t *testing.T) {
 		updatedAt:   "2026-05-21T11:00:00Z",
 	})
 
-	msg := telegram.FormatPostMessage(p)
+	msg := telegram.FormatPostMessageAt(p, fixedNow)
 
 	assertContains(t, msg, "Attackers:", "attackers section")
 	assertContains(t, msg, "Victims:", "victims section must be present when victims exist")
@@ -210,7 +217,7 @@ func TestFormatPostMessage_WithoutVictims(t *testing.T) {
 		updatedAt:   "2026-05-21T12:00:00Z",
 	})
 
-	msg := telegram.FormatPostMessage(p)
+	msg := telegram.FormatPostMessageAt(p, fixedNow)
 	assertAbsent(t, msg, "Victims:", "victims section must be absent")
 }
 
@@ -237,7 +244,7 @@ func TestFormatPostMessage_ExplorerLinks(t *testing.T) {
 		updatedAt:   "2026-05-21T13:00:00Z",
 	})
 
-	msg := telegram.FormatPostMessage(p)
+	msg := telegram.FormatPostMessageAt(p, fixedNow)
 
 	// Attacker address should be an HTML link
 	assertContains(t, msg, `href=`, "attacker should be an HTML anchor")
@@ -268,13 +275,126 @@ func TestFormatPostMessage_HTMLEscaping(t *testing.T) {
 		updatedAt:   "2026-05-21T14:00:00Z",
 	})
 
-	msg := telegram.FormatPostMessage(p)
+	msg := telegram.FormatPostMessageAt(p, fixedNow)
 
 	// Must not contain raw injected tags
 	assertAbsent(t, msg, "<script>", "raw script tag must be escaped")
 	assertAbsent(t, msg, "<b>bold title</b>", "raw bold title must be escaped")
 	// Must contain escaped form
 	assertContains(t, msg, "&lt;script&gt;", "escaped script tag in summary")
+}
+
+// TestFormatPostMessage_ZeroActionCountFallsBackToRev1 covers the production
+// state where the indexer has not yet been upgraded to expose actionCount.
+// Post.ActionCount will be 0 (json.Unmarshal zero-value) and the formatter
+// must render "rev 1" — not "rev 0".
+func TestFormatPostMessage_ZeroActionCountFallsBackToRev1(t *testing.T) {
+	note := v2Note("Flash loan attack on FooVault", "base", "0xdeadbeef", "@researcher")
+	p := makePost(struct {
+		title       string
+		note        string
+		actionCount int
+		attackers   []string
+		victims     []string
+		chain       graphql.Chain
+		updatedAt   string
+	}{
+		title:       "FooVault Flash Loan",
+		note:        note,
+		actionCount: 0, // indexer not yet upgraded — zero value from json.Unmarshal
+		attackers:   []string{"0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"},
+		victims:     nil,
+		chain:       baseChain,
+		updatedAt:   "2026-05-21T15:30:00Z",
+	})
+
+	msg := telegram.FormatPostMessageAt(p, fixedNow)
+
+	assertContains(t, msg, "rev 1", "actionCount=0 must fall back to rev 1")
+	assertAbsent(t, msg, "rev 0", "rev 0 must never appear")
+}
+
+// TestFormatPostMessage_RelativeTime checks the relative-time line for
+// several durations against the fixed reference time.
+func TestFormatPostMessage_RelativeTime(t *testing.T) {
+	cases := []struct {
+		updatedAt string
+		wantLine  string
+	}{
+		{"2026-05-21T15:55:00Z", "just now on"},  // 5m ago < 1m? no, 5m — expect "5m ago"
+		{"2026-05-21T15:59:30Z", "just now on"},  // 30s ago → "just now"
+		{"2026-05-21T15:00:00Z", "1h ago on"},    // exactly 1h
+		{"2026-05-21T14:00:00Z", "2h ago on"},    // exactly 2h
+		{"2026-05-20T16:00:00Z", "1d ago on"},    // exactly 24h
+		{"", "just now on"},                      // empty timestamp → "just now"
+	}
+	// Fix the 5m case: 15:55 is 5 minutes before 16:00
+	cases[0] = struct {
+		updatedAt string
+		wantLine  string
+	}{"2026-05-21T15:55:00Z", "5m ago on"}
+
+	note := v2Note("summary", "base", "0xaabb", "@src")
+
+	for _, tc := range cases {
+		p := makePost(struct {
+			title       string
+			note        string
+			actionCount int
+			attackers   []string
+			victims     []string
+			chain       graphql.Chain
+			updatedAt   string
+		}{
+			title:       "T",
+			note:        note,
+			actionCount: 1,
+			attackers:   []string{"0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+			chain:       baseChain,
+			updatedAt:   tc.updatedAt,
+		})
+		msg := telegram.FormatPostMessageAt(p, fixedNow)
+		assertContains(t, msg, tc.wantLine, "relative-time line for updatedAt="+tc.updatedAt)
+	}
+}
+
+// TestFormatPostMessage_MultiLineSource verifies that the Source section
+// renders @handle tokens with the "Source:" label and URL tokens on their
+// own line — matching the spec's target format.
+func TestFormatPostMessage_MultiLineSource(t *testing.T) {
+	// note has both a @handle and a URL
+	note := v2Note(
+		"Bridge hack on Base",
+		"base",
+		"0xdeadbeef1234567890123456789012345678901234567890123456789012abcd",
+		"@rektreporter, https://rekt.news/bridge-hack",
+	)
+	p := makePost(struct {
+		title       string
+		note        string
+		actionCount int
+		attackers   []string
+		victims     []string
+		chain       graphql.Chain
+		updatedAt   string
+	}{
+		title:       "Bridge Hack",
+		note:        note,
+		actionCount: 1,
+		attackers:   []string{"0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+		chain:       baseChain,
+		updatedAt:   "2026-05-21T14:00:00Z",
+	})
+
+	msg := telegram.FormatPostMessageAt(p, fixedNow)
+
+	// @handle must appear as "Source: @rektreporter" (its own labelled line)
+	assertContains(t, msg, "Source: @rektreporter", "handle gets Source: prefix")
+	// URL must appear on its own line without the "Source:" prefix
+	assertContains(t, msg, "https://rekt.news/bridge-hack", "URL present")
+	assertAbsent(t, msg, "Source: https://", "URL must not carry Source: prefix")
+	// Both tokens must not be comma-joined on a single line
+	assertAbsent(t, msg, "@rektreporter, https://", "tokens must not be comma-joined")
 }
 
 // --- helpers ---
