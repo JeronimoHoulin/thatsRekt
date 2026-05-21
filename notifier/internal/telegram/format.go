@@ -148,11 +148,14 @@ func FormatPostMessageAt(p graphql.Post, now time.Time) string {
 // The title is HTML-escaped and wrapped in <s>…</s> (Telegram HTML struck-through).
 // No summary, attackers, tx hashes, or sources are rendered — the retraction
 // supersedes the original content.
-func FormatRetractedMessage(p graphql.Post) string {
+//
+// title is the post title from postById (the per-chain query that is the
+// only data path for retracted posts). The full post struct is not needed here.
+func FormatRetractedMessage(title string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "⚠️ <s><b>RETRACTED</b></s>\n")
-	if p.Title != "" {
-		fmt.Fprintf(&b, "<s>%s</s>\n", html(p.Title))
+	if title != "" {
+		fmt.Fprintf(&b, "<s>%s</s>\n", html(title))
 	}
 	fmt.Fprintf(&b, "<s>This post has been retracted on-chain.</s>")
 	return b.String()

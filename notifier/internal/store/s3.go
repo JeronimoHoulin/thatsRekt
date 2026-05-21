@@ -61,9 +61,18 @@ type PostState struct {
 	LastActionCount int    `json:"lastActionCount"`
 	LastUpdatedAt   string `json:"lastUpdatedAt"`
 
+	// ChainSlug is the chain this post lives on (e.g. "base", "ethereum").
+	// Stored at publish time so the retract-detection pass can call the
+	// correct per-chain <Prefix>_postById query without re-deriving the
+	// chain from the composite post id. Zero-value ("") for posts recorded
+	// before N3 deployed; those posts are skipped by the retract pass
+	// (they will be picked up as soon as they next appear in the posts feed
+	// and their chain slug is re-recorded via publish).
+	ChainSlug string `json:"chainSlug,omitempty"`
+
 	// Retracted records that this post has already been edited to the
 	// RETRACTED state in Telegram. Once true, subsequent polls that still
-	// see Removed=true are no-ops — the retract edit is idempotent.
+	// see removed=true are no-ops — the retract edit is idempotent.
 	Retracted bool `json:"retracted,omitempty"`
 }
 
@@ -194,17 +203,47 @@ func (s *Store) SetLastSeen(chainSlug, id string) {
 }
 
 // RegisterPost records that we just posted `postID` to Telegram with
-// message id `msgID`. Initialises empty vote state.
-func (s *Store) RegisterPost(postID string, msgID int64) {
+// message id `msgID` for the given `chainSlug`. Initialises empty vote state.
+func (s *Store) RegisterPost(postID string, msgID int64, chainSlug string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	ps := s.state.Posts[postID] // preserve existing snapshot if any
 	ps.MessageID = msgID
+	ps.ChainSlug = chainSlug
 	if ps.Voters == nil {
 		ps.Voters = map[string]string{}
 	}
 	s.state.Posts[postID] = ps
 	s.dirty = true
+}
+
+// StoredPostEntry is a minimal snapshot of a stored post, used by the
+// retract-detection pass to iterate posts without exposing the full PostState.
+type StoredPostEntry struct {
+	PostID    string
+	MessageID int64
+	ChainSlug string
+}
+
+// StoredPosts returns all posts currently tracked by the store that are not
+// yet marked retracted and have a known chain slug (set at publish time).
+// The retract-detection pass iterates this slice to decide which posts to
+// probe via the per-chain postById query.
+func (s *Store) StoredPosts() []StoredPostEntry {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]StoredPostEntry, 0, len(s.state.Posts))
+	for id, ps := range s.state.Posts {
+		if ps.Retracted || ps.ChainSlug == "" {
+			continue
+		}
+		out = append(out, StoredPostEntry{
+			PostID:    id,
+			MessageID: ps.MessageID,
+			ChainSlug: ps.ChainSlug,
+		})
+	}
+	return out
 }
 
 // UpdatePostSnapshot records the on-chain action count and lastUpdatedAt for

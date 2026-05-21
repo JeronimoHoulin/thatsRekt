@@ -87,6 +87,129 @@ func NewClient(url string) *Client {
 	}
 }
 
+// chainSlugToPrefix maps the chain slug (as returned in the unified posts feed)
+// to the GraphQL prefix the Mesh gateway uses for per-chain queries. The
+// prefix is applied by the gateway's RenameRootFields transformer:
+//
+//	"base" → "Base_"     → query field is Base_postById(id: "42") { removed ... }
+//	"ethereum" → "Ethereum_"
+//
+// The mapping must stay in sync with mesh/src/chains.ts. The sentinel "" value
+// means the chain is unknown to this notifier build — PostById returns an error
+// for unknown slugs rather than silently querying the wrong prefix.
+var chainSlugToPrefix = map[string]string{
+	"anvil-eth":    "AnvilEth_",
+	"anvil-base":   "AnvilBase_",
+	"sepolia":      "Sepolia_",
+	"ethereum":     "Ethereum_",
+	"base":         "Base_",
+	"base-sepolia": "BaseSepolia_",
+	"optimism":     "Optimism_",
+	"arbitrum":     "Arbitrum_",
+}
+
+// PostByIdResult is the minimal shape returned by the per-chain postById
+// query. Only Removed and Title are needed by the retract-detection pass.
+type PostByIdResult struct {
+	Removed bool
+	Title   string
+}
+
+// PostById calls the per-chain `<Prefix>_postById(id: <onchainID>)` query
+// on the Mesh gateway to read the current `removed` flag for a specific post.
+// This is the correct data path for retract detection: the unified `posts(...)`
+// feed filters retracted posts out server-side (removed_eq: false), so
+// `removed: true` is only ever observable via the per-chain postById route.
+//
+// `chainSlug` is the slug as stored in the notifier's post map (e.g. "base").
+// `onchainID` is the bare integer id of the post on that chain (NOT the
+// composite "{chainSlug}-{onchainID}" form — the per-chain query takes the
+// raw on-chain integer).
+func (c *Client) PostById(ctx context.Context, chainSlug, onchainID string) (*PostByIdResult, error) {
+	prefix, ok := chainSlugToPrefix[chainSlug]
+	if !ok {
+		return nil, fmt.Errorf("PostById: unknown chain slug %q — add it to chainSlugToPrefix", chainSlug)
+	}
+
+	// Build the query dynamically using the chain prefix. The field name is
+	// e.g. "Base_postById" for chain slug "base". We request only the fields
+	// needed by the retract-detection pass.
+	query := fmt.Sprintf(`
+		query NotifierPostById($id: String!) {
+			%spostById(id: $id) {
+				id
+				removed
+				title
+				attackerLinks { address { id } }
+			}
+		}
+	`, prefix)
+
+	body, err := json.Marshal(map[string]any{
+		"query":     query,
+		"variables": map[string]any{"id": onchainID},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("PostById marshal query: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.URL, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("PostById new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "thatsrekt-notifier/1")
+
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("PostById do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("PostById read body: %w", err)
+	}
+	if resp.StatusCode/100 != 2 {
+		return nil, fmt.Errorf("PostById graphql %d: %s", resp.StatusCode, truncate(string(raw), 200))
+	}
+
+	// The response data key is the prefixed field name, e.g. "Base_postById".
+	// We decode into a map to avoid hard-coding the prefix in a struct tag.
+	var out struct {
+		Data   map[string]json.RawMessage `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("PostById unmarshal response: %w", err)
+	}
+	if len(out.Errors) > 0 {
+		return nil, fmt.Errorf("PostById graphql error: %s", out.Errors[0].Message)
+	}
+
+	fieldName := prefix + "postById"
+	raw2, ok2 := out.Data[fieldName]
+	if !ok2 {
+		return nil, fmt.Errorf("PostById: field %q not found in response", fieldName)
+	}
+	// A null result means the post id does not exist on this chain's squid.
+	if string(raw2) == "null" {
+		return nil, nil
+	}
+
+	var post struct {
+		Removed bool   `json:"removed"`
+		Title   string `json:"title"`
+	}
+	if err := json.Unmarshal(raw2, &post); err != nil {
+		return nil, fmt.Errorf("PostById unmarshal post: %w", err)
+	}
+
+	return &PostByIdResult{Removed: post.Removed, Title: post.Title}, nil
+}
+
 // LatestPosts fetches the most recent `limit` posts in DESC order. Caller
 // dedupes against last-seen state to find the newly-arrived ones and detects
 // amendments via the ActionCount / lastUpdatedAt snapshot fields.
@@ -98,13 +221,14 @@ func NewClient(url string) *Client {
 //   - Detect amendments: if the stored snapshot for a known post has a
 //     different actionCount or lastUpdatedAt, the post was amended on-chain.
 //
-// `removed` is included for N3 retract handling. When the indexer has indexed
-// a PostRemoved event for a post, this field is true. The notifier detects the
-// false→true transition and edits the Telegram message to RETRACTED state.
-// NOTE: `removed` is NOT yet exposed by the indexer/mesh schema as of N3. The
-// field is included here for forward-compatibility; once the indexer is updated
-// (tracked in a follow-up issue), json.Unmarshal will populate it automatically.
-// Until then, Removed stays false (zero-value) and retract detection is dormant.
+// `removed` is included in the query struct for forward-compatibility. In
+// practice the unified `posts(...)` feed never returns a post with
+// removed=true because the gateway filters retracted posts out server-side
+// (removed_eq: false — see mesh/src/server.ts). Retract detection therefore
+// does NOT rely on this field from the feed. Instead, the notifier's separate
+// retract-detection pass calls the per-chain <Prefix>_postById query for each
+// stored post to observe the removed flag (see PostById and checkRetracts in
+// service.go).
 func (c *Client) LatestPosts(ctx context.Context, limit int) ([]Post, error) {
 	const query = `
 		query Notifier($limit: Int!) {

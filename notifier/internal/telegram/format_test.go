@@ -424,7 +424,7 @@ func TestFormatRetractedMessage(t *testing.T) {
 		updatedAt:   "2026-05-21T14:00:00Z",
 	})
 
-	msg := telegram.FormatRetractedMessage(p)
+	msg := telegram.FormatRetractedMessage(p.Title)
 
 	// Must contain the RETRACTED marker.
 	assertContains(t, msg, "RETRACTED", "retracted marker")
@@ -459,7 +459,7 @@ func TestFormatRetractedMessage_HTMLSafe(t *testing.T) {
 		updatedAt:   "2026-05-21T14:00:00Z",
 	})
 
-	msg := telegram.FormatRetractedMessage(p)
+	msg := telegram.FormatRetractedMessage(p.Title)
 
 	assertAbsent(t, msg, "<b>evil title</b>", "raw HTML must be escaped in retracted message")
 	assertContains(t, msg, "RETRACTED", "retracted marker must still be present")
