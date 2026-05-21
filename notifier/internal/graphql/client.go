@@ -19,6 +19,18 @@ import (
 // Post mirrors the subset of the unified `posts.items[]` shape we need to
 // render a Telegram message. Match field names exactly to the GraphQL
 // response so json.Decode handles the mapping.
+//
+// v2 additions:
+//   - ActionCount — the count of on-chain actions for this post
+//     (1 createPost + N-1 amendments). Used to derive "rev N" in the
+//     Telegram message without storing a separate revision field.
+//     NOTE: ActionCount requires the indexer/mesh to expose this field
+//     (see GraphQL indexer dependency note in LatestPosts). Zero-value
+//     (0) is treated as "unknown" and the notifier renders "rev 1" as
+//     the safe default.
+//   - LastUpdatedAt — ISO-8601 timestamp of the most recent on-chain
+//     action (createPost or amendment). Used in the "updated · rev N"
+//     line of the message.
 type Post struct {
 	ID                 string   `json:"id"` // composite: `{chainSlug}-{onchainId}`
 	Chain              Chain    `json:"chain"`
@@ -32,6 +44,15 @@ type Post struct {
 	AttackedAt         string   `json:"attackedAt"`
 	Attackers          []string `json:"attackers"`
 	Victims            []string `json:"victims"`
+
+	// v2: action count used to derive revision number (rev = ActionCount).
+	// Zero means the indexer has not yet been upgraded to expose this field;
+	// the notifier falls back to rev 1 in that case.
+	ActionCount int `json:"actionCount"`
+
+	// v2: ISO-8601 timestamp of the latest on-chain write for this post.
+	// Mirrors the existing `lastUpdatedAt` field on the mesh UnifiedPost type.
+	LastUpdatedAt string `json:"lastUpdatedAt"`
 }
 
 type Chain struct {
@@ -58,7 +79,35 @@ func NewClient(url string) *Client {
 
 // LatestPosts fetches the most recent `limit` posts in DESC order. Caller
 // dedupes against last-seen state to find the newly-arrived ones.
+//
+// GraphQL indexer dependency (v2):
+//
+//   - `lastUpdatedAt` — already present in the Mesh UnifiedPost type.
+//   - `actionCount` — NOT YET exposed by the indexer or mesh. This field
+//     is required for deriving "rev N" in FormatPostMessage. Until the
+//     indexer is updated (see DAMM-Cap/damm-thatsrekt-relayer#49 and the
+//     escalation note in the PR for ThatsRekt/thatsRekt#127), the field
+//     will be absent from the response. json.Unmarshal will leave
+//     Post.ActionCount at its zero value (0), and FormatPostMessage will
+//     defensively fall back to rev 1.
+//
+// What the indexer/mesh must add to unblock full rev-N functionality:
+//
+//  1. The per-chain squid schema needs an `actionCount: Int!` field on
+//     the `Post` entity, maintained as `1 + len(post.edits)` by the
+//     processor (incremented on every AmendNote, AmendTitle, AddAttackers,
+//     AddVictims event).
+//  2. The Mesh `UnifiedPost` type and its `FETCH_POSTS_QUERY` must project
+//     `actionCount` so it reaches the notifier.
+//
+// Until that change lands, the notifier is correct at rev=1 for all posts.
 func (c *Client) LatestPosts(ctx context.Context, limit int) ([]Post, error) {
+	// NOTE: `actionCount` is listed here speculatively — the field does not
+	// yet exist in the mesh schema. When the indexer upgrade lands (see
+	// above), no notifier code change will be needed: json.Unmarshal will
+	// populate Post.ActionCount automatically once the mesh returns the
+	// field. If the field is absent the query still succeeds; ActionCount
+	// stays 0 and the formatter falls back to rev 1.
 	const query = `
 		query Notifier($limit: Int!) {
 			posts(limit: $limit, offset: 0) {
@@ -73,8 +122,10 @@ func (c *Client) LatestPosts(ctx context.Context, limit int) ([]Post, error) {
 					netScore
 					createdAtTimestamp
 					attackedAt
+					lastUpdatedAt
 					attackers
 					victims
+					actionCount
 				}
 			}
 		}
