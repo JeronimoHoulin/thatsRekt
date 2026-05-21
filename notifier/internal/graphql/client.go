@@ -55,6 +55,14 @@ type Post struct {
 	// v2: ISO-8601 timestamp of the latest on-chain write for this post.
 	// Used alongside ActionCount for amendment change-detection.
 	LastUpdatedAt string `json:"lastUpdatedAt"`
+
+	// v2 (N3): set to true when a PostRemoved event has been indexed for
+	// this post. The notifier uses the false→true transition to edit the
+	// Telegram message to a struck-through RETRACTED state.
+	// NOTE: PostRemoved does NOT bump ActionCount or LastUpdatedAt — it is
+	// a removal path, not an amendment. N3 therefore adds Removed as its
+	// own independent change-detection signal (see PollOnce state 6).
+	Removed bool `json:"removed"`
 }
 
 type Chain struct {
@@ -89,6 +97,14 @@ func NewClient(url string) *Client {
 //   - Derive "rev N" in the message body.
 //   - Detect amendments: if the stored snapshot for a known post has a
 //     different actionCount or lastUpdatedAt, the post was amended on-chain.
+//
+// `removed` is included for N3 retract handling. When the indexer has indexed
+// a PostRemoved event for a post, this field is true. The notifier detects the
+// false→true transition and edits the Telegram message to RETRACTED state.
+// NOTE: `removed` is NOT yet exposed by the indexer/mesh schema as of N3. The
+// field is included here for forward-compatibility; once the indexer is updated
+// (tracked in a follow-up issue), json.Unmarshal will populate it automatically.
+// Until then, Removed stays false (zero-value) and retract detection is dormant.
 func (c *Client) LatestPosts(ctx context.Context, limit int) ([]Post, error) {
 	const query = `
 		query Notifier($limit: Int!) {
@@ -108,6 +124,7 @@ func (c *Client) LatestPosts(ctx context.Context, limit int) ([]Post, error) {
 					actionCount
 					attackers
 					victims
+					removed
 				}
 			}
 		}

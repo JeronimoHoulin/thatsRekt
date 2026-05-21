@@ -125,7 +125,16 @@ func (s *Service) runPoll(ctx context.Context) {
 //  4. Mapped + snapshot exists + changed → edit the existing Telegram message
 //     in place (amendment handling).
 //  5. Not new + not in Posts map (notifier never published it) →
-//     fall back to a fresh publish.
+//     fall back to a fresh publish, UNLESS the post is retracted, in which
+//     case it is a no-op (posting a fresh "retracted" message would be noise).
+//  6. Mapped + post is retracted (Removed=true) + not yet marked retracted →
+//     edit the existing Telegram message to a struck-through RETRACTED state.
+//     This is independent of N2's change-detection: PostRemoved does NOT bump
+//     ActionCount or LastUpdatedAt. Idempotent: once the store marks the post
+//     retracted, subsequent polls are skipped.
+//
+// State 6 is evaluated before states 2–4 so that a post that is simultaneously
+// retracted and "changed" (rare edge case) is handled as a retract, not an edit.
 //
 // PollOnce is exported so service_test.go can drive it directly.
 func (s *Service) PollOnce(ctx context.Context) {
@@ -157,7 +166,16 @@ func (s *Service) PollOnce(ctx context.Context) {
 		// stored Telegram message id to determine which sub-state we're in.
 		msgID, known := s.Store.MessageIDFor(p.ID)
 		if !known {
-			// --- State 5: not-new + not mapped ---
+			// Post is not in the store. A retracted-and-unmapped post is a
+			// no-op — there is no message to edit and posting a fresh
+			// "retracted" message would be channel noise (State 5 retract no-op).
+			if p.Removed {
+				s.Logger.Info("retracted post absent from store — no-op",
+					"post_id", p.ID,
+				)
+				continue
+			}
+			// --- State 5: not-new + not mapped + not retracted ---
 			// The notifier never published this post. Fall back to a fresh
 			// publish (acceptance criterion 4 of issue #128).
 			s.Logger.Info("not-new post absent from store — publishing fresh",
@@ -170,7 +188,23 @@ func (s *Service) PollOnce(ctx context.Context) {
 			continue
 		}
 
-		// Post is mapped. Differentiate by snapshot state.
+		// --- State 6: mapped + retracted (N3) ---
+		// Evaluated before the N2 snapshot states so that a post that is both
+		// amended and retracted is handled as a retract (the stronger signal).
+		if p.Removed {
+			// Idempotency guard: if the RETRACTED edit was already applied in a
+			// previous poll, skip silently.
+			if s.Store.IsRetracted(p.ID) {
+				continue
+			}
+			if err := s.retractEdit(ctx, p, msgID); err != nil {
+				s.Logger.Warn("retract edit failed", "post_id", p.ID, "err", err)
+				// Do NOT mark retracted — retry on next poll.
+			}
+			continue
+		}
+
+		// Post is mapped and not retracted. Differentiate by snapshot state.
 		if !s.Store.HasSnapshot(p.ID) {
 			// --- State 2: mapped + no snapshot (pre-N2 post) ---
 			// Back-fill the baseline with the current on-chain values so the
@@ -270,6 +304,31 @@ func (s *Service) amendEdit(ctx context.Context, p graphql.Post, msgID int64) er
 		"message_id", msgID,
 		"action_count", p.ActionCount,
 		"last_updated_at", p.LastUpdatedAt,
+	)
+	return nil
+}
+
+// retractEdit edits an existing Telegram message to the struck-through
+// RETRACTED state (N3). It reuses the Bot.EditMessageText mechanism from
+// amendEdit but renders the RETRACTED format instead of the live format.
+//
+// The message is never deleted — the channel stays auditable.
+// On success the store is marked retracted so subsequent polls are no-ops.
+func (s *Service) retractEdit(ctx context.Context, p graphql.Post, msgID int64) error {
+	text := telegram.FormatRetractedMessage(p)
+
+	// Retracted messages carry no vote keyboard — the post is gone.
+	// Pass nil to remove the existing keyboard (Telegram removes it when
+	// nil is supplied via editMessageText).
+	if err := s.Bot.EditMessageText(ctx, s.ChannelID, msgID, text, nil); err != nil {
+		return fmt.Errorf("retract edit message text: %w", err)
+	}
+
+	s.Store.MarkRetracted(p.ID)
+	s.Logger.Info("retracted",
+		"post_id", p.ID,
+		"chain", p.Chain.Slug,
+		"message_id", msgID,
 	)
 	return nil
 }

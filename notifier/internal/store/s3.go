@@ -60,6 +60,11 @@ type PostState struct {
 	// those are treated as "unchanged" (no spurious re-edit on first boot).
 	LastActionCount int    `json:"lastActionCount"`
 	LastUpdatedAt   string `json:"lastUpdatedAt"`
+
+	// Retracted records that this post has already been edited to the
+	// RETRACTED state in Telegram. Once true, subsequent polls that still
+	// see Removed=true are no-ops — the retract edit is idempotent.
+	Retracted bool `json:"retracted,omitempty"`
 }
 
 // Store is the S3-backed state holder. Methods are safe to call from
@@ -257,6 +262,31 @@ func (s *Store) HasChanged(postID string, actionCount int, lastUpdatedAt string)
 		return false
 	}
 	return ps.LastActionCount != actionCount || ps.LastUpdatedAt != lastUpdatedAt
+}
+
+// IsRetracted reports whether the RETRACTED edit has already been applied to
+// this post's Telegram message. Returns false for unknown posts, so the first
+// retract poll always triggers the edit.
+func (s *Store) IsRetracted(postID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ps, ok := s.state.Posts[postID]
+	if !ok {
+		return false
+	}
+	return ps.Retracted
+}
+
+// MarkRetracted records that the RETRACTED edit has been applied for postID.
+// Subsequent calls with the same postID are idempotent (setting true to true
+// is a no-op; the dirty flag is still set to ensure the state is persisted).
+func (s *Store) MarkRetracted(postID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ps := s.state.Posts[postID]
+	ps.Retracted = true
+	s.state.Posts[postID] = ps
+	s.dirty = true
 }
 
 // PostState returns the current vote-tracking state for a post. The second

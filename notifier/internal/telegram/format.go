@@ -134,6 +134,30 @@ func FormatPostMessageAt(p graphql.Post, now time.Time) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
+// FormatRetractedMessage renders the struck-through RETRACTED state for a post
+// that has been removed on-chain. It replaces the live message in place — the
+// channel stays auditable (no delete) but the message visually signals that
+// the post has been retracted.
+//
+// Format:
+//
+//	⚠️ <s>RETRACTED</s>
+//	<s><title></s>
+//	<s>This post has been retracted on-chain.</s>
+//
+// The title is HTML-escaped and wrapped in <s>…</s> (Telegram HTML struck-through).
+// No summary, attackers, tx hashes, or sources are rendered — the retraction
+// supersedes the original content.
+func FormatRetractedMessage(p graphql.Post) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "⚠️ <s><b>RETRACTED</b></s>\n")
+	if p.Title != "" {
+		fmt.Fprintf(&b, "<s>%s</s>\n", html(p.Title))
+	}
+	fmt.Fprintf(&b, "<s>This post has been retracted on-chain.</s>")
+	return b.String()
+}
+
 // VoteKeyboard builds the cosmetic ✓/✗ inline keyboard. The callback_data
 // payload is `vote:{up|down}:{postId}` so the press handler can identify
 // which post + direction without needing a separate lookup table.
