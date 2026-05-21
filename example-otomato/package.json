@@ -1,0 +1,23 @@
+{
+  "name": "example-otomato",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cookie-cutter Otomato workflow: monitors security X accounts, classifies tweets per protocol, POSTs detections to a hosted relay.",
+  "scripts": {
+    "create":    "tsx src/create.ts",
+    "check":     "tsx src/check.ts",
+    "typecheck": "tsc --noEmit",
+    "clean":     "rm -rf node_modules dist workflow-ids.json"
+  },
+  "dependencies": {
+    "dotenv":      "16.4.5",
+    "otomato-sdk": "2.0.557",
+    "zod":         "3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.0",
+    "tsx":         "4.15.0",
+    "typescript":  "5.4.5"
+  }
+}

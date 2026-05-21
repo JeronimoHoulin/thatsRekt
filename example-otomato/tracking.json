@@ -1,0 +1,34 @@
+{
+  "alertEmails": [
+    "your_email@example.com"
+  ],
+  "monitoredAccounts": [
+    { "username": "CertiKAlert",    "includeRetweets": false },
+    { "username": "zachxbt",        "includeRetweets": true  },
+    { "username": "peckshield",     "includeRetweets": false },
+    { "username": "lookonchain",    "includeRetweets": true  },
+    { "username": "PeckShieldAlert","includeRetweets": true  }
+  ],
+  "protocols": [
+    {
+      "name": "Aave",
+      "twitterHandle": "aave",
+      "keywords": ["aave", "AAVE", "$AAVE"]
+    },
+    {
+      "name": "Sky",
+      "twitterHandle": "sky",
+      "keywords": ["sky", "sUSDS", "$sUSDS", "USDS", "$usds"]
+    },
+    {
+      "name": "Ethena",
+      "twitterHandle": "ethena_labs",
+      "keywords": ["ethena", "sUSDe", "$sUSDe", "USDe", "$USDe"]
+    },
+    {
+      "name": "Ether.fi",
+      "twitterHandle": "ether_fi",
+      "keywords": ["etherfi", "ether_fi", "eETH", "weETH", "$eETH", "$weETH"]
+    }
+  ]
+}
