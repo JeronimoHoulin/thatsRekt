@@ -213,7 +213,7 @@ export function ConfirmVoteButtons({
     clearOptimistic()
   }, [error])
 
-  const handleClick = (clicked: 1 | 2) => {
+  const handleClick = async (clicked: 1 | 2) => {
     // Disconnected → open the connect picker. No tx submitted.
     if (!isConnected) {
       setModalOpen(true)
@@ -234,9 +234,22 @@ export function ConfirmVoteButtons({
       ? { kind: 'clear' }
       : { kind: 'vote', direction: clicked }
 
+    // `submit` is async: it prompts a chain switch if needed, then fires the
+    // wallet popup. Returns `false` if the user rejected the chain switch —
+    // in that case nothing was submitted and there is nothing to revert.
+    setPendingDirection(clicked)
+    const submitted = await submit({ postId, action })
+
+    if (!submitted) {
+      // User cancelled the chain switch — bail without touching the overlay.
+      setPendingDirection(null)
+      return
+    }
+
     // ---- optimistic overlay --------------------------------------------
-    // Predict the post-action counts + the user's new highlight.
-    // Subtract the user's PREVIOUS contribution, then add the new one.
+    // Chain switch accepted; writeContract has been called. Predict the
+    // post-action counts + the user's new highlight. Subtract the user's
+    // PREVIOUS contribution, then add the new one.
     let nextUp = upCount
     let nextDown = downCount
     if (currentVote === ConfirmDirection.Up) nextUp = Math.max(0, nextUp - 1)
@@ -249,9 +262,6 @@ export function ConfirmVoteButtons({
     setOptimisticUp(nextUp)
     setOptimisticDown(nextDown)
     setOptimisticVote(isToggleOff ? ConfirmDirection.None : clicked)
-
-    setPendingDirection(clicked)
-    submit({ postId, action })
   }
 
   const isAnyPending = isBroadcasting || isMining
@@ -296,7 +306,7 @@ export function ConfirmVoteButtons({
           isActive={displayIsUp}
           isPending={isAnyPending && pendingDirection === ConfirmDirection.Up}
           isDisabled={isAnyPending}
-          onClick={() => handleClick(ConfirmDirection.Up)}
+          onClick={() => { void handleClick(ConfirmDirection.Up) }}
           ariaLabel={
             displayIsUp
               ? 'remove up vote'
@@ -311,7 +321,7 @@ export function ConfirmVoteButtons({
           isActive={displayIsDown}
           isPending={isAnyPending && pendingDirection === ConfirmDirection.Down}
           isDisabled={isAnyPending}
-          onClick={() => handleClick(ConfirmDirection.Down)}
+          onClick={() => { void handleClick(ConfirmDirection.Down) }}
           ariaLabel={
             displayIsDown
               ? 'remove down vote'
@@ -321,6 +331,17 @@ export function ConfirmVoteButtons({
           }
         />
       </span>
+      {error && (
+        <span
+          className="block mt-1 font-mono text-[10px] uppercase tracking-widest text-red-700 border border-red-700 px-1 py-0.5 bg-red-50"
+          role="alert"
+          data-testid="vote-error"
+        >
+          {('shortMessage' in error && typeof error.shortMessage === 'string'
+            ? error.shortMessage
+            : error.message) || 'tx failed'}
+        </span>
+      )}
       <WhitelistGateModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
