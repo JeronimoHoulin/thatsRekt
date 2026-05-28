@@ -69,7 +69,7 @@ function LivePostCard({ post }: { post: FeedPost }) {
   const detailHref = livePostHref(post)
 
   return (
-    <article className="space-y-3">
+    <article className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {chainSlug && <ChainBadge slug={chainSlug} />}
         <span className="font-mono text-neutral-600">#{post.id}</span>
@@ -87,7 +87,7 @@ function LivePostCard({ post }: { post: FeedPost }) {
         <NotePreview body={body} />
       )}
 
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs uppercase tracking-widest text-neutral-700">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1.5 text-xs uppercase tracking-widest text-neutral-700">
         <span className="inline-flex items-center gap-1">
           [guardian: <AddressLabel addr={post.poster.id} chainSlug={chainSlug} />]
         </span>
@@ -105,7 +105,7 @@ function LivePostCard({ post }: { post: FeedPost }) {
         </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-4 sm:gap-3">
         {numericPostId !== null && voteChainId !== null && (
           <ConfirmVoteButtons
             chainId={voteChainId}
@@ -118,7 +118,7 @@ function LivePostCard({ post }: { post: FeedPost }) {
         <ShareButton path={detailHref} />
         <Link
           to={detailHref}
-          className="inline-block text-xs font-black uppercase tracking-widest rekt-link"
+          className="inline-block py-1 text-xs font-black uppercase tracking-widest rekt-link"
         >
           more →
         </Link>
@@ -168,7 +168,7 @@ function ArchivePostCard({ post }: { post: ArchivePost }) {
   const detailHref = `/post/${archivePostUrlId(post)}`
 
   return (
-    <article className="space-y-3">
+    <article className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <ChainBadge slug={post.chain} />
         <ArchiveChip />
@@ -200,7 +200,7 @@ function ArchivePostCard({ post }: { post: ArchivePost }) {
         <NotePreview body={body} />
       )}
 
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs uppercase tracking-widest text-neutral-700">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1.5 text-xs uppercase tracking-widest text-neutral-700">
         <span>
           [{post.attackers.length} attacker{post.attackers.length === 1 ? '' : 's'}]
         </span>
@@ -224,11 +224,11 @@ function ArchivePostCard({ post }: { post: ArchivePost }) {
         </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-4 sm:gap-3">
         <ShareButton path={detailHref} />
         <Link
           to={detailHref}
-          className="inline-block text-xs font-black uppercase tracking-widest rekt-link"
+          className="inline-block py-1 text-xs font-black uppercase tracking-widest rekt-link"
         >
           more →
         </Link>
