@@ -129,10 +129,13 @@ describe('ScrollManager', () => {
       </MemoryRouter>,
     )
 
-    // Prime scrollY=400 so the "/" cleanup saves it when we navigate away.
+    // Prime scrollY=400 and fire a scroll event so the listener captures it.
     Object.defineProperty(window, 'scrollY', { value: 400, writable: true, configurable: true })
+    window.dispatchEvent(new Event('scroll'))
+    // Wait for the rAF-throttled listener to flush.
+    await waitForRaf()
 
-    // Navigate to post (PUSH) — cleanup of "/" fires and saves scrollY=400.
+    // Navigate to post (PUSH) — the listener has already saved scrollY=400 for "/".
     await act(async () => {
       within(container).getByText('go to post').click()
     })
@@ -216,9 +219,10 @@ describe('ScrollManager', () => {
     //      uses direct scrollTo(0,0) so the stub has no effect here).
     //   2. Set scrollY=700 AFTER initial render (the "/" PUSH effect already ran).
     //   3. Install window.rAF stub + clamping scrollTo stub.
-    //   4. PUSH to post — "/" cleanup saves scrollY=700.
-    //   5. Reset to short document + scrollY=0, clear rafQueue.
-    //   6. POP — drives the rAF poll loop manually, verifying clamping.
+    //   4. Dispatch a scroll event so the listener saves 700 for the feed key.
+    //   5. PUSH to post — listener has already captured 700.
+    //   6. Reset to short document + scrollY=0, clear rafQueue.
+    //   7. POP — drives the rAF poll loop manually, verifying clamping.
     //
     // -------------------------------------------------------------------------
 
@@ -312,22 +316,29 @@ describe('ScrollManager', () => {
       }) as typeof window.scrollTo,
     )
 
-    // --- Step 4: PUSH to post — "/" cleanup saves fakeScrollY=700 -----------
+    // --- Step 4: Dispatch scroll event so the listener captures 700 -----------
+    window.dispatchEvent(new Event('scroll'))
+    // Flush the rAF queued by the scroll listener (one entry in rafQueue).
+    flushRafs(1)
+
+    // Verify the listener captured 700 by clearing the queue state.
+    rafQueue.length = 0
+
+    // --- Step 5: PUSH to post — listener has already captured 700 for "/" ----
     await act(async () => {
       within(container).getByText('go to post').click()
     })
 
-    // Verify the "/" key got the right value (700 was reachable → saved=700).
     // The PUSH to "/post" calls scrollTo(0,0) → fakeScrollY=0 now.
-    // Cleanup of "/" ran BEFORE that, saving 700. Good.
+    // The listener already saved 700 for "/" before this navigation.
 
-    // --- Step 5: Reset to SHORT document + scrollY=0 -------------------------
+    // --- Step 6: Reset to SHORT document + scrollY=0 -------------------------
     fakeScrollY = 0
     fakeScrollHeight = 300  // short — target 700 unreachable (maxScroll = 0)
     scrollToSpy.mockClear()
     rafQueue.length = 0
 
-    // --- Step 6: POP — ScrollManager queues the first rAF tick ---------------
+    // --- Step 7: POP — ScrollManager queues the first rAF tick ---------------
     await act(async () => {
       navigateRef!(-1)
     })
@@ -351,6 +362,165 @@ describe('ScrollManager', () => {
     expect(rafQueue.length).toBe(0)
 
     // --- Restore ---------------------------------------------------------------
+    Object.defineProperty(window, 'requestAnimationFrame', {
+      value: origWindowRaf,
+      writable: true,
+      configurable: true,
+    })
+    Object.defineProperty(window, 'cancelAnimationFrame', {
+      value: origWindowCaf,
+      writable: true,
+      configurable: true,
+    })
+    Object.defineProperty(window, 'scrollY', { value: 0, writable: true, configurable: true })
+    Object.defineProperty(document.documentElement, 'scrollHeight', {
+      value: 768,
+      writable: true,
+      configurable: true,
+    })
+  })
+
+  it('captures pre-navigation scroll position via listener, not cleanup (save-timing regression)', async () => {
+    // -------------------------------------------------------------------------
+    // Reproduces the EXACT save-timing bug that caused both prior fixes to fail
+    // in the real browser:
+    //
+    //   OLD (cleanup-save): positions.set(key, window.scrollY) ran in useEffect
+    //   cleanup — AFTER React committed the destination route (shorter page).
+    //   The browser had already clamped scrollY (e.g. 700 → 219). The cleanup
+    //   therefore saved 219. The POP restore faithfully returned 219 (wrong).
+    //
+    //   NEW (listener-save): The passive scroll listener records scrollY
+    //   continuously while the user is on the page, BEFORE any navigation.
+    //   When the user fires a scroll event at 700, we save 700 immediately.
+    //   By the time navigation happens, 700 is already in the map. The
+    //   post-navigation clamp scroll fires AGAINST the new key (currentKey is
+    //   updated synchronously in useLayoutEffect), so it never overwrites the
+    //   feed's 700.
+    //
+    // Test structure (mirrors the real browser sequence):
+    //   1. Mount ScrollManager at feed key K1.
+    //   2. Set scrollY=700, dispatch scroll event, flush the rAF throttle →
+    //      listener records 700 for K1.
+    //   3. Simulate navigation to post (key K2, PUSH). Before the PUSH effect
+    //      runs, set scrollY=219 (the clamped value) and dispatch a scroll event
+    //      — this models the browser clamping scroll when the shorter page
+    //      commits. Because currentKey was updated to K2 in useLayoutEffect,
+    //      the listener writes 219 to K2, not K1. K1 retains 700.
+    //   4. POP back to K1 → assert window.scrollTo is eventually called with 700.
+    // -------------------------------------------------------------------------
+
+    // Controllable rAF queue (stub window.rAF for deterministic flushing).
+    type RafCallback = FrameRequestCallback
+    const rafQueue: Array<{ id: number; cb: RafCallback }> = []
+    let rafIdCounter = 0
+
+    const origWindowRaf = window.requestAnimationFrame
+    const origWindowCaf = window.cancelAnimationFrame
+
+    Object.defineProperty(window, 'requestAnimationFrame', {
+      value: (cb: RafCallback): number => {
+        rafIdCounter += 1
+        rafQueue.push({ id: rafIdCounter, cb })
+        return rafIdCounter
+      },
+      writable: true,
+      configurable: true,
+    })
+    Object.defineProperty(window, 'cancelAnimationFrame', {
+      value: (id: number): void => {
+        const idx = rafQueue.findIndex((entry) => entry.id === id)
+        if (idx !== -1) rafQueue.splice(idx, 1)
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    function flushRafs(n?: number): void {
+      const count = n !== undefined ? Math.min(n, rafQueue.length) : rafQueue.length
+      for (let i = 0; i < count; i++) {
+        const entry = rafQueue.shift()
+        if (entry !== undefined) entry.cb(performance.now())
+      }
+    }
+
+    // Tall document so scrollTo(0, 700) actually sticks.
+    let fakeScrollY = 0
+    const fakeScrollHeight = 11000
+    Object.defineProperty(window, 'scrollY', { get: () => fakeScrollY, configurable: true })
+    Object.defineProperty(document.documentElement, 'scrollHeight', {
+      value: fakeScrollHeight,
+      writable: true,
+      configurable: true,
+    })
+    Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true })
+
+    scrollToSpy.mockRestore()
+    scrollToSpy = spyOn(window, 'scrollTo').mockImplementation(
+      ((_x: number, y: number): void => {
+        const maxScroll = Math.max(0, fakeScrollHeight - 768)
+        fakeScrollY = Math.min(Math.max(0, y), maxScroll)
+      }) as typeof window.scrollTo,
+    )
+
+    let navigateRef: ((delta: number) => void) | null = null
+
+    function BackNavigatorPage() {
+      const navigate = useNavigate()
+      navigateRef = (delta: number) => navigate(delta)
+      return <div>post page</div>
+    }
+
+    // --- Step 1: Mount at feed (K1) ------------------------------------------
+    const { container } = render(
+      <MemoryRouter initialEntries={['/', '/post/base-1']} initialIndex={0}>
+        <ScrollManager />
+        <Routes>
+          <Route path="/" element={<NavigatorPage to="/post/base-1" label="go to post" />} />
+          <Route path="/post/base-1" element={<BackNavigatorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Flush the PUSH effect's scrollTo(0,0) seeded rAF (none expected; direct call).
+    // Flush any rAF queued by the initial scroll listener setup (none expected).
+    rafQueue.length = 0
+
+    // --- Step 2: Set scrollY=700 and flush the listener's rAF ----------------
+    fakeScrollY = 700
+    window.dispatchEvent(new Event('scroll'))
+    // Flush the rAF queued by the scroll listener — saves 700 for K1.
+    flushRafs(1)
+
+    // --- Step 3: Navigate to post (PUSH) with clamp scroll at K2 -------------
+    await act(async () => {
+      within(container).getByText('go to post').click()
+    })
+    // After PUSH, useLayoutEffect has updated currentKey to K2.
+    // Simulate the browser clamping scroll when the shorter post page commits.
+    fakeScrollY = 219
+    window.dispatchEvent(new Event('scroll'))
+    // Flush the rAF — should write 219 to K2 (NOT K1) because currentKey=K2.
+    flushRafs(1)
+
+    // Clear any rAF residue before POP.
+    rafQueue.length = 0
+    scrollToSpy.mockClear()
+
+    // --- Step 4: POP back to K1 ----------------------------------------------
+    await act(async () => {
+      navigateRef!(-1)
+    })
+
+    // POP effect enqueues the rAF poll. Flush it.
+    flushRafs(5)
+
+    // The restore target must be 700 (the pre-navigation position), not 219
+    // (the post-navigation clamp value).
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 700)
+    expect(fakeScrollY).toBe(700)
+
+    // Cleanup.
     Object.defineProperty(window, 'requestAnimationFrame', {
       value: origWindowRaf,
       writable: true,

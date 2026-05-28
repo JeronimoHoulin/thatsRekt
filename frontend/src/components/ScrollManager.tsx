@@ -23,13 +23,24 @@
  *
  *   - PUSH / REPLACE (forward navigation): scroll to the top.
  *
- * Positions are saved keyed by location.key in a useRef<Map> so they
- * persist for the whole session without triggering re-renders.
+ * Scroll positions are saved continuously by a passive scroll listener
+ * (keyed by the CURRENT history entry key) via a ref. This guarantees
+ * the pre-navigation scroll position (e.g. 700 on the feed) is captured
+ * BEFORE the browser ever has a chance to clamp it.
+ *
+ * The key insight: the old approach saved positions in useEffect cleanup,
+ * which runs AFTER React commits and paints the destination route. At that
+ * point the DOM shows the (shorter) destination page and the browser has
+ * already clamped window.scrollY — so the cleanup was saving the clamped
+ * value (e.g. 219), not the real feed position (700).
+ *
+ * The scroll listener captures the true position continuously while the
+ * user is on the page, well before any navigation occurs.
  *
  * history.scrollRestoration is set to 'manual' once so the browser's own
  * heuristic doesn't fight us.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useLocation, useNavigationType } from 'react-router-dom'
 
 /** Tolerance in pixels: within this distance we consider the target reached. */
@@ -45,6 +56,10 @@ export function ScrollManager(): null {
   // Keyed by location.key (unique per history entry, stable on revisit).
   const positions = useRef<Map<string, number>>(new Map())
 
+  // Tracks the CURRENT history entry key. Updated synchronously in
+  // useLayoutEffect so the scroll listener always writes to the right slot.
+  const currentKey = useRef<string>(location.key)
+
   // Disable the browser's own scroll-restoration once, globally.
   useEffect(() => {
     if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
@@ -52,18 +67,52 @@ export function ScrollManager(): null {
     }
   }, [])
 
+  // Passive, rAF-throttled scroll listener — continuously records the true
+  // scroll position for the CURRENT history entry.  By recording on every
+  // scroll event we capture the real feed position (e.g. 700) long before
+  // the user navigates away.  The listener always writes to currentKey.current
+  // so it is immune to stale closure issues.
+  useEffect(() => {
+    let pendingRaf: number | null = null
+
+    function onScroll(): void {
+      if (pendingRaf !== null) return
+      pendingRaf = window.requestAnimationFrame(() => {
+        pendingRaf = null
+        positions.current.set(currentKey.current, window.scrollY)
+      })
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (pendingRaf !== null) {
+        window.cancelAnimationFrame(pendingRaf)
+        pendingRaf = null
+      }
+    }
+  }, [])
+
+  // Update currentKey synchronously BEFORE paint (useLayoutEffect) so that
+  // any clamp-scroll the browser fires when it commits the shorter destination
+  // page is recorded against the NEW entry's key — not the one we're leaving.
+  useLayoutEffect(() => {
+    currentKey.current = location.key
+  }, [location.key])
+
   useEffect(() => {
     const key = location.key
 
     if (navType === 'POP') {
+      // Snapshot the saved value immediately into a local const so that any
+      // scroll events fired during the restore poll cannot shift our target.
       const saved = positions.current.get(key) ?? 0
 
       // If target is top, a single call is enough — 0 is always reachable.
       if (saved === 0) {
         window.scrollTo(0, 0)
-        return () => {
-          positions.current.set(key, window.scrollY)
-        }
+        return
       }
 
       // rAF polling loop: re-apply scrollTo every frame until scrollY reaches
@@ -98,16 +147,13 @@ export function ScrollManager(): null {
           window.cancelAnimationFrame(rafId)
           rafId = null
         }
-        // Save current scroll before leaving this entry.
-        positions.current.set(key, window.scrollY)
       }
     } else {
       // PUSH or REPLACE — always start at the top.
+      // Seed the position map so POPs back here start from 0.
+      positions.current.set(key, 0)
       window.scrollTo(0, 0)
-      return () => {
-        // Save current scroll before leaving this entry.
-        positions.current.set(key, window.scrollY)
-      }
+      return
     }
   }, [location.key, navType])
 
