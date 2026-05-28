@@ -41,10 +41,10 @@ export function App() {
   useDisconnectIfNotWhitelisted()
 
   return (
-    <div className="mx-auto flex min-h-full max-w-3xl flex-col px-6 py-10">
+    <div className="mx-auto flex min-h-full max-w-3xl flex-col px-4 sm:px-6 py-6 sm:py-10">
       {IS_MOCK_MODE && <MockBanner />}
       <Header />
-      <main className="flex-1 pt-10">
+      <main className="flex-1 pt-6 sm:pt-10">
         <Routes>
           <Route path="/" element={<Feed />} />
           {/*
@@ -201,7 +201,7 @@ function Header() {
           horizontal level. Putting the nav here gives it room to
           breathe — no more competing with the right-side CTAs. */}
       <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <p className="text-xs uppercase tracking-widest text-neutral-700">
+        <p className="text-[11px] sm:text-xs uppercase tracking-widest text-neutral-600 sm:text-neutral-700">
           on-chain hack alerts for the public good
         </p>
         <nav className="hidden sm:flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs uppercase tracking-widest">

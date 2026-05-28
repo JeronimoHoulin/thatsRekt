@@ -18,6 +18,10 @@ const PAGE_SIZE = 20
 /** Archive entries (static JSON) revealed per "load more" click. Same
  *  cadence as the live feed so the two feel consistent. */
 const ARCHIVE_PAGE_SIZE = 20
+/** When archive is visible, cap live posts at this count so the user
+ *  isn't forced to doom-scroll before reaching the archive section.
+ *  A "show more posts" button lets them expand back to full pagination. */
+const LIVE_POSTS_WHEN_ARCHIVE = 10
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'newest', label: 'newest' },
@@ -200,6 +204,7 @@ function FeedBody({
       hasNextPage={hasNextPage}
       isFetchingNextPage={isFetchingNextPage}
       onLoadMore={onLoadMore}
+      showArchive={showArchive}
     />
   )
   const renderArchive = !archiveEmpty && <ArchiveSection posts={archivePosts} />
@@ -255,9 +260,9 @@ function FilterBar({
   isRefreshing: boolean
 }) {
   return (
-    <div className="border-b border-black pb-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-        <div className="flex items-baseline gap-3">
+    <div className="border-b border-black pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div className="flex items-center gap-3">
           <span className="text-[10px] uppercase tracking-widest text-neutral-700">sort:</span>
           <div className="flex gap-1">
             {SORT_OPTIONS.map((opt) => {
@@ -268,7 +273,7 @@ function FilterBar({
                   type="button"
                   onClick={() => onSortChange(opt.value)}
                   className={
-                    'px-2 py-0.5 text-xs uppercase tracking-widest border ' +
+                    'px-3 sm:px-2 py-2 sm:py-0.5 text-xs uppercase tracking-widest border touch-manipulation ' +
                     (active
                       ? 'border-black bg-black text-[#f5f4ee]'
                       : 'border-transparent text-neutral-700 hover:border-black hover:text-black')
@@ -281,15 +286,14 @@ function FilterBar({
           </div>
         </div>
 
-        {/* Right side of the primary row: chain selector then a small
-            icon-only refresh button at the far right. Archive toggle is
-            a content-mode switch and gets its own line below. */}
+        {/* Right side: chain selector + icon-only refresh. Archive toggle
+            is a content-mode switch and gets its own line below. */}
         <div className="flex items-center gap-x-2">
           <ChainSelector value={chainFilter} onChange={onChainChange} />
           <RefreshButton onRefresh={onRefresh} isFetching={isRefreshing} />
         </div>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         <ArchiveToggle value={showArchive} onChange={onShowArchiveChange} />
       </div>
     </div>
@@ -310,7 +314,7 @@ function ArchiveToggle({
         onClick={() => onChange(!value)}
         aria-pressed={value}
         className={
-          'px-2 py-0.5 text-xs uppercase tracking-widest border ' +
+          'px-3 sm:px-2 py-2 sm:py-0.5 text-xs uppercase tracking-widest border touch-manipulation ' +
           (value
             ? 'border-black bg-black text-[#f5f4ee]'
             : 'border-black text-neutral-700 hover:bg-black hover:text-[#f5f4ee]')
@@ -334,22 +338,53 @@ function LiveSection({
   hasNextPage,
   isFetchingNextPage,
   onLoadMore,
+  showArchive,
 }: {
   posts: FeedPost[]
   totalCount: number
   hasNextPage: boolean
   isFetchingNextPage: boolean
   onLoadMore: () => void
+  showArchive: boolean
 }) {
+  const [showAllLive, setShowAllLive] = useState(false)
+
+  // Reset cap whenever the archive toggle flips so the user always starts
+  // with the compact view when they re-enable the archive.
+  useEffect(() => {
+    setShowAllLive(false)
+  }, [showArchive])
+
+  const capped = showArchive && !showAllLive
+  const displayedPosts = capped ? posts.slice(0, LIVE_POSTS_WHEN_ARCHIVE) : posts
+
   return (
     <div>
-      {posts.map((post, i) => (
+      {displayedPosts.map((post, i) => (
         <div key={post.id}>
           {i > 0 && <hr className="my-8 border-t-2 border-black" />}
           <PostCard item={{ kind: 'live', post }} />
         </div>
       ))}
-      {hasNextPage ? (
+
+      {capped ? (
+        // Archive-visible mode: offer a single "show more posts" escape hatch
+        // instead of infinite scroll, so the archive section stays reachable.
+        <div className="mt-8 flex flex-col items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowAllLive(true)}
+            className="px-4 py-2 text-xs uppercase tracking-widest font-black border-2 border-black hover:bg-black hover:text-[#f5f4ee] transition-colors"
+          >
+            [ show more posts ]
+          </button>
+          {totalCount > LIVE_POSTS_WHEN_ARCHIVE && (
+            <p className="text-[10px] uppercase tracking-widest text-neutral-500">
+              showing {displayedPosts.length} of {totalCount}
+            </p>
+          )}
+        </div>
+      ) : hasNextPage ? (
         <div className="mt-8 flex flex-col items-center gap-2">
           <button
             type="button"
