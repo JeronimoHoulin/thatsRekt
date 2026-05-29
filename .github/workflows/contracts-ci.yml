@@ -50,6 +50,12 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          # Pin to the toolchain that produced the canonical v1.2.0 bytecode.
+          # forge >= 1.7 emits different bytecode (solc metadata / via_ir codegen
+          # drift) -> different CREATE2 addresses -> CanonicalAddressParity gate
+          # fails. This MUST match the version used for the on-chain deploys.
+          version: "1.5.1"
 
       - name: forge build
         run: forge build
