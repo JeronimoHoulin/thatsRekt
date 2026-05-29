@@ -4,44 +4,55 @@ pragma solidity 0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {Deploy} from "../script/Deploy.s.sol";
 import {ThatsRekt} from "../src/ThatsRekt.sol";
-import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-/// @notice Regression gate: asserts that the five canonical CREATE2 addresses
-///         produced by `Deploy.s.sol` with the production role tuple exactly
-///         match the live v1.2.0 addresses deployed on Ethereum mainnet, Base,
+/// @notice Regression gate: verifies that executing the real `Deploy.deploy()`
+///         script with the canonical v1.2.0 production tuple produces contracts
+///         at the five live addresses deployed on Ethereum mainnet, Base,
 ///         Arbitrum, and Optimism — and, crucially, that they WILL match on any
 ///         future chain deployment including BNB Chain (BSC, chain 56).
 ///
-///         === Why this test exists ===
-///         CREATE2 addresses are computed from (factory, salt, initCodeHash).
-///         The CREATE2 factory address and salt strings are chain-agnostic; the
-///         initCodeHash is determined by the compiler output and constructor
-///         arguments. Provided the same deployer EOA, the same governance tuple,
-///         and the same Solidity compiler+optimizer settings are used, the proxy
-///         address is IDENTICAL on every EVM chain.
+///         === Why this test uses the REAL deploy path ===
+///         The previous version of this test re-implemented init-code construction
+///         in `_predictAll()`, independent of `Deploy.deploy()`. That approach
+///         proved chain-independence (CREATE2 addresses are chain-agnostic) but
+///         was BLIND to deploy-wiring regressions: reordering `sharedExecutors`,
+///         swapping proposer/canceller assignments, or changing `initialize()`
+///         argument order inside `Deploy.deploy()` would change every TLC + proxy
+///         address yet leave the re-implemented prediction unchanged — the gate
+///         would pass green while a non-canonical BSC deploy was about to ship.
 ///
-///         This test locks that invariant. If anyone:
-///           - bumps a Solidity/OZ dependency (changes ThatsRekt bytecode)
-///           - changes any salt constant in Deploy.s.sol
-///           - changes the deployer EOA
-///           - reorders or changes the canonical role tuple
-///           - changes optimizer settings
+///         This version drives the gate through the REAL deploy: it calls
+///         `Deploy.deploy(DEPLOYER, GOV_SAFE, OPERATOR, PURGE_EOA, whitelisters)`
+///         with the canonical tuple and then asserts the RESULTING on-chain
+///         artifacts exist exactly at the expected canonical addresses and carry
+///         the correct role wiring.  Any wiring change inside `Deploy.deploy()`
+///         that would shift an address or mis-wire a role is now caught here.
 ///
-///         …the predicted addresses will no longer match the live canonical
-///         values, this test will FAIL loudly, and the mismatch must be resolved
-///         BEFORE spending any gas on a new chain deployment. The proxy address
-///         is the top-priority cross-chain invariant for integrators.
-///
-///         === BSC (chain 56) proof ===
+///         === CREATE2 + chain-independence ===
 ///         computeCreate2Address uses only (factory, salt, initCodeHash) — no
-///         chainId. Therefore this test running on any EVM is simultaneously a
-///         proof that the same bytecode + tuple yields the canonical addresses on
-///         BSC. No RPC, no broadcast, no BSC node required.
+///         chainId.  Because `Deploy.deploy()` uses the singleton CREATE2 factory
+///         (`0x4e59b44847b379578588920cA78FbF26c0B4956C`) the addresses produced
+///         by this test are simultaneously a proof that the same bytecode + tuple
+///         yields the canonical addresses on BSC. No RPC, no broadcast, no BSC
+///         node required.
+///
+///         === Deployer EOA caveat ===
+///         The DEPLOYER constant below must match the actual BSC broadcaster EOA.
+///         If the broadcaster changes, the TLC addresses diverge (the deployer is
+///         the temporary DEFAULT_ADMIN encoded in every TLC's constructor
+///         calldata).  This caveat is called out in the relayer issue #112.
+///
+///         === What this test catches (compared to the old prediction approach) ===
+///           - Reordering `sharedExecutors` inside `Deploy.deploy()`
+///           - Swapping proposer / canceller on any TLC
+///           - Changing the `initialize()` argument order on the proxy
+///           - Salt bumps in any of the five `*_SALT` constants
+///           - Compiler / optimizer changes (bytecode changes → address drift)
+///           - Dependency bumps that touch TLC or proxy bytecode
 ///
 ///         === Canonical production tuple (v1.2.0) ===
-///         These are the exact values that were used for the live deploys on
-///         Ethereum/Base/Arbitrum/Optimism and must be reproduced on BSC:
+///         These are the exact values used for the live deploys on
+///         Ethereum / Base / Arbitrum / Optimism and must be reproduced on BSC:
 ///
 ///           DEPLOYER_ADDRESS      = 0xb5a6c8ca369e38050784e2a6793bee6447109340
 ///           GOVERNANCE_OWNER      = 0x59E4DBc95BD312A882Bb36b7f3E8298682340679
@@ -62,6 +73,10 @@ contract CanonicalAddressParityTest is Test {
     // will land at a different address than the one already live on other chains.
     // -----------------------------------------------------------------------
 
+    /// @dev The EOA that must sign the BSC broadcast. Encoded as the temporary
+    ///      DEFAULT_ADMIN in every TLC's constructor — changing this shifts all
+    ///      TLC addresses. Must match the actual broadcaster or the deploy is
+    ///      non-canonical (see relayer issue #112).
     address constant DEPLOYER  = 0xb5A6c8ca369e38050784e2A6793beE6447109340;
     address constant GOV_SAFE  = 0x59E4DBc95BD312A882Bb36b7f3E8298682340679;
     address constant OPERATOR  = 0xda1b9dFA299d655135C1ECdc4f0b4c9aED9a7f45;
@@ -92,110 +107,55 @@ contract CanonicalAddressParityTest is Test {
         d = new Deploy();
     }
 
-    /// @notice Core parity gate. Computes all five CREATE2 addresses using the
-    ///         exact same logic as PredictAddresses.s.sol (which mirrors
-    ///         Deploy.s.sol) and asserts they match the canonical live addresses.
+    /// @notice Core parity gate. Runs the REAL `Deploy.deploy()` with the
+    ///         canonical production tuple, then asserts:
+    ///           (a) Every contract landed at its expected canonical address.
+    ///           (b) The proxy's on-chain role wiring is correct.
     ///
-    ///         Failure means the current codebase would deploy to a DIFFERENT
-    ///         address than the one live on all existing chains — BSC deployment
+    ///         This is NOT a prediction re-implementation. The real deploy code
+    ///         runs; if it diverges from the canonical wiring (executor order,
+    ///         proposer/canceller assignment, initialize() arg order) the
+    ///         CREATE2 addresses produced will differ and the code-existence
+    ///         checks below will fail.
+    ///
+    ///         Failure means the current `Deploy.s.sol` would deploy to different
+    ///         addresses than the ones live on all existing chains — BSC deployment
     ///         MUST be blocked until the discrepancy is understood and resolved.
-    function test_canonicalAddressParity() public view {
-        (
-            address impl,
-            address upgradeTLC,
-            address addTLC,
-            address purgeTLC,
-            address proxy
-        ) = _predictAll();
+    function test_canonicalAddressParity() public {
+        // Run the real deploy with the canonical production tuple.
+        // DEPLOYER is used as the temporary DEFAULT_ADMIN in every TLC's
+        // constructor and renounced at the end of the dance.
+        d.deploy(DEPLOYER, GOV_SAFE, OPERATOR, PURGE_EOA, _canonicalWhitelisters());
 
-        assertEq(impl,       EXPECTED_IMPL,        "impl address mismatch: parity BROKEN");
-        assertEq(upgradeTLC, EXPECTED_UPGRADE_TLC, "upgradeTLC address mismatch: parity BROKEN");
-        assertEq(addTLC,     EXPECTED_ADD_TLC,     "addTLC address mismatch: parity BROKEN");
-        assertEq(purgeTLC,   EXPECTED_PURGE_TLC,   "purgeTLC address mismatch: parity BROKEN");
-        assertEq(proxy,      EXPECTED_PROXY,       "proxy address mismatch: BSC deploy BLOCKED");
+        // ----------------------------------------------------------------
+        // (a) Address parity: every contract must exist at its canonical
+        //     address.  A wiring change in Deploy.deploy() shifts the
+        //     CREATE2 address → nothing lands here → assertion fails.
+        // ----------------------------------------------------------------
+        assertGt(EXPECTED_IMPL.code.length,        0, "impl not at canonical address: parity BROKEN");
+        assertGt(EXPECTED_UPGRADE_TLC.code.length, 0, "upgradeTLC not at canonical address: parity BROKEN");
+        assertGt(EXPECTED_ADD_TLC.code.length,     0, "addTLC not at canonical address: parity BROKEN");
+        assertGt(EXPECTED_PURGE_TLC.code.length,   0, "purgeTLC not at canonical address: parity BROKEN");
+        assertGt(EXPECTED_PROXY.code.length,       0, "proxy not at canonical address: BSC deploy BLOCKED");
+
+        // ----------------------------------------------------------------
+        // (b) Proxy role wiring: confirms initialize() arg order is correct
+        //     and that the right TLC controls each slot.  A swap of
+        //     upgradeTLC ↔ addTLC in the initialize() call, for example,
+        //     passes (a) but fails here.
+        // ----------------------------------------------------------------
+        ThatsRekt proxy = ThatsRekt(EXPECTED_PROXY);
+
+        assertEq(proxy.owner(),           EXPECTED_UPGRADE_TLC, "proxy.owner != upgradeTLC: wiring BROKEN");
+        assertEq(proxy.whitelistAdmin(),  EXPECTED_ADD_TLC,     "proxy.whitelistAdmin != addTLC: wiring BROKEN");
+        assertEq(proxy.whitelistRemover(), OPERATOR,            "proxy.whitelistRemover != OPERATOR: wiring BROKEN");
+        assertEq(proxy.purgeAdmin(),      EXPECTED_PURGE_TLC,   "proxy.purgeAdmin != purgeTLC: wiring BROKEN");
+        assertEq(proxy.purgeRemover(),    PURGE_EOA,            "proxy.purgeRemover != PURGE_EOA: wiring BROKEN");
     }
 
     // -----------------------------------------------------------------------
-    // Internal helpers — pure address computation, no state changes
+    // Internal helpers
     // -----------------------------------------------------------------------
-
-    /// @dev Replicates the five-step CREATE2 prediction from
-    ///      PredictAddresses.s.sol using the canonical production tuple.
-    ///      All logic here must stay in sync with Deploy.s.sol / PredictAddresses.s.sol.
-    function _predictAll() internal view returns (
-        address impl,
-        address upgradeTLC,
-        address addTLC,
-        address purgeTLC,
-        address proxy
-    ) {
-        // Shared executor list: [GOV_SAFE, address(0)] — matches Deploy.s.sol's
-        // `sharedExecutors`. address(0) makes EXECUTOR_ROLE open (anyone can
-        // execute after the delay).
-        address[] memory sharedExecutors = new address[](2);
-        sharedExecutors[0] = GOV_SAFE;
-        sharedExecutors[1] = address(0);
-
-        // 1. Implementation — no constructor args, so only creationCode matters.
-        impl = vm.computeCreate2Address(
-            d.IMPL_SALT(),
-            keccak256(type(ThatsRekt).creationCode),
-            CREATE2_FACTORY
-        );
-
-        // 2. Upgrade TLC (7-day) — proposer = GOV_SAFE, deployer as temp admin.
-        address[] memory upProp = new address[](1);
-        upProp[0] = GOV_SAFE;
-        upgradeTLC = vm.computeCreate2Address(
-            d.UPGRADE_TIMELOCK_SALT(),
-            keccak256(_tlcInitCode(d.UPGRADE_DELAY(), upProp, sharedExecutors, DEPLOYER)),
-            CREATE2_FACTORY
-        );
-
-        // 3. Add TLC (3-day) — proposer = GOV_SAFE, deployer as temp admin.
-        address[] memory addProp = new address[](1);
-        addProp[0] = GOV_SAFE;
-        addTLC = vm.computeCreate2Address(
-            d.ADD_TIMELOCK_SALT(),
-            keccak256(_tlcInitCode(d.ADD_DELAY(), addProp, sharedExecutors, DEPLOYER)),
-            CREATE2_FACTORY
-        );
-
-        // 4. Purge TLC (1-day) — proposer = PURGE_EOA, deployer as temp admin.
-        address[] memory purgeProp = new address[](1);
-        purgeProp[0] = PURGE_EOA;
-        purgeTLC = vm.computeCreate2Address(
-            d.PURGE_TIMELOCK_SALT(),
-            keccak256(_tlcInitCode(d.PURGE_DELAY(), purgeProp, sharedExecutors, DEPLOYER)),
-            CREATE2_FACTORY
-        );
-
-        // 5. Proxy — depends on the four addresses above.
-        address[] memory whitelisters = _canonicalWhitelisters();
-        bytes memory initCall = abi.encodeCall(
-            ThatsRekt.initialize,
-            (upgradeTLC, addTLC, OPERATOR, purgeTLC, PURGE_EOA, whitelisters)
-        );
-        proxy = vm.computeCreate2Address(
-            d.PROXY_SALT(),
-            keccak256(abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(impl, initCall))),
-            CREATE2_FACTORY
-        );
-    }
-
-    /// @dev Encodes the TimelockController constructor calldata exactly as
-    ///      Deploy.s.sol does. Must stay in sync with `_deployTLCWithSplitRoles`.
-    function _tlcInitCode(
-        uint256 delay,
-        address[] memory proposers,
-        address[] memory executors,
-        address deployerAddr
-    ) internal pure returns (bytes memory) {
-        return abi.encodePacked(
-            type(TimelockController).creationCode,
-            abi.encode(delay, proposers, executors, deployerAddr)
-        );
-    }
 
     /// @dev Returns the six canonical initial whitelisters in order.
     function _canonicalWhitelisters() internal pure returns (address[] memory wl) {
