@@ -307,8 +307,10 @@ accessed via SSM. It is NOT ECS Fargate. Each chain gets a trio of compose servi
 the slug to `MESH_CHAINS` in Secrets Manager + redeploying the compose stack
 (`IMAGE_TAG` = full git SHA, not short).
 
-Three registries must stay in sync. Add the new chain to all three in the same PR (or a
-tightly coupled pair of PRs — indexer+mesh together, then frontend).
+Three data-driven registries must stay in sync. Add the new chain to all three in the same
+PR (or a tightly coupled pair of PRs — indexer+mesh together, then frontend). Two additional
+non-data-driven surfaces must also be updated by hand (§4e) — they are NOT derived from
+`chains.ts` and NOT caught by the slug-coverage test.
 
 ### 4a. Indexer — `indexer/src/chains.ts`
 
@@ -428,6 +430,61 @@ Once all three registry PRs are merged and images are built:
 3. The public TG notifier is chain-agnostic (reads the unified mesh feed) — no change
    required there.
 
+### 4e. Non-data-driven surfaces: README table + OG explorer map
+
+> **Who:** any integrator. Done in the same PR as 4a–4c (or as a follow-up patch before
+> closing the integration issue). These two surfaces are NOT derived from `chains.ts` and
+> are NOT covered by the slug-coverage test — they must be updated by hand.
+
+**⚠️ This is exactly why BSC was partially integrated.** Both surfaces were missed because
+no checklist item reminded the integrator to update them. Do not let the next chain slip.
+
+#### README.md — canonical-address chain table
+
+Add the new chain's row to the table in `README.md` (under the
+`0xBfaEEE9662b4c037De24e5Caa65815350d57b89A` address block). Follow the existing format:
+
+```markdown
+| <Chain Name> | <chainId> | [<explorer-label>](<explorer_url>/address/0xBfaEEE9662b4c037De24e5Caa65815350d57b89A) |
+```
+
+Example — BSC (chain 56):
+
+```markdown
+| BNB Smart Chain | 56 | [bscscan](https://bscscan.com/address/0xBfaEEE9662b4c037De24e5Caa65815350d57b89A) |
+```
+
+The table lives at roughly lines 21–26 of `README.md`. Keep rows ordered by integration
+date (append to the bottom of the table).
+
+#### mesh/src/og.ts — explorerAddressUrl map
+
+Add an entry for the new chain's slug to the `base` object inside `explorerAddressUrl`
+in `mesh/src/og.ts`. This map drives the `author.url` field in the Article JSON-LD block
+that social-card crawlers (Google, Telegram, Discord) consume.
+
+```typescript
+const base: Record<string, string> = {
+  'anvil-eth':  '',
+  'anvil-base': '',
+  'sepolia':    'https://sepolia.etherscan.io',
+  'base':       'https://basescan.org',
+  'base-sepolia': 'https://sepolia.basescan.org',
+  'optimism':   'https://optimistic.etherscan.io',
+  'ethereum':   'https://etherscan.io',           // add if missing
+  'arbitrum':   'https://arbiscan.io',            // add if missing
+  'bsc':        'https://bscscan.com',            // ← new chain example
+}
+```
+
+> **Note:** as of the BSC integration (2026-05), `ethereum` and `arbitrum` were also
+> missing from this map. Any integrator adding a new chain should check whether the
+> already-live chains are present and add any that are absent in the same PR.
+
+- [ ] README.md chain table row added.
+- [ ] `mesh/src/og.ts` `explorerAddressUrl` map entry added (and any already-live chains
+  that were missing have been backfilled).
+
 ---
 
 ## 5. Gas monitor
@@ -493,6 +550,7 @@ Reference: `damm-top-up-monitor#28`.
 | G9 | Compose stack uses full git SHA for `IMAGE_TAG`, not short SHA | `compose pull` fails silently on short SHA → old image runs | Always use the full 40-char SHA |
 | G10 | Apply-gate: Terraform apply + hack-claw routing before poster is whitelisted | Events published to SQS reach the contract, reverts, DLQ fills up | Apply infra and activate routing only AFTER `executeBatch` confirms the poster is whitelisted |
 | G11 | Gas monitor seed without prior funding | Monitor fires immediate below-threshold alert | Fund poster first, then apply seed + deploy |
+| G12 | `README.md` chain table and `mesh/src/og.ts` `explorerAddressUrl` map are NOT data-driven | New chain silently absent from the public README and from Article JSON-LD `author.url` in social cards; slug-coverage test does NOT catch either gap | Update both by hand in §4e — they are not derived from `chains.ts` and no CI gate enforces them |
 
 ### Known limitation: silent drop for non-integrated chains
 
