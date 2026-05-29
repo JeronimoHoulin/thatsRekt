@@ -20,6 +20,7 @@ export type ChainSlug =
   | 'base-sepolia'
   | 'optimism'
   | 'arbitrum'
+  | 'bsc'
 
 export interface ChainEntry {
   /** EIP-155 chain id. Distinct values across all entries (anvil forks
@@ -125,6 +126,18 @@ export const CHAINS: readonly ChainEntry[] = Object.freeze([
     endpoint:
       process.env.GRAPHQL_ARBITRUM_URL ?? 'http://graphql-arbitrum:4357/graphql',
     // Arbitrum One — v1.2.0 deploy 2026-05-07.
+    registryAddress: '0xBfaEEE9662b4c037De24e5Caa65815350d57b89A',
+  },
+  {
+    chainId: 56,
+    slug: 'bsc',
+    name: 'BNB Smart Chain',
+    prefix: 'Bsc_',
+    endpoint:
+      process.env.GRAPHQL_BSC_URL ?? 'http://graphql-bsc:4362/graphql',
+    // BNB Smart Chain — v1.2.0 deploy (CREATE2 canonical proxy, same
+    // address as Ethereum/Base/Arbitrum/Optimism).
+    // Endpoint consumes the graphql-bsc:4362 service added in #117.
     registryAddress: '0xBfaEEE9662b4c037De24e5Caa65815350d57b89A',
   },
 ])
