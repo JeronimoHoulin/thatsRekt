@@ -111,7 +111,10 @@ Must return non-empty bytecode. If the factory is missing, the deploy will fail 
   indexer `startBlock` (step 4). BSC example: block `101156350`.
 - [ ] Verify on the chain's block explorer:
   - Proxy at `0xBfaEEE9662b4c037De24e5Caa65815350d57b89A`
-  - `owner()` == governance Safe `0x59E4DBc95BD312A882Bb36b7f3E8298682340679`
+  - `owner()` == upgradeTLC `0xf6F807f095D6D09c1216ffBd6AaCBB73D8F02aB6` (the 7-day
+    timelock — canonical on every chain). NOTE: this is **not** the governance Safe
+    `0x59E4DBc95BD312A882Bb36b7f3E8298682340679` — the Safe is the upgradeTLC's *proposer*
+    and the `swapOwner` target in step 2, never the proxy's `owner()`.
   - `whitelistAdmin()` == addTLC `0xB83AB5772f919BE72b4AaB98456eDdED5ad68D4f`
   - `whitelistRemover()` == operator `0xda1b9dFA299d655135C1ECdc4f0b4c9aED9a7f45`
 
@@ -128,7 +131,7 @@ grown. Reconcile by:
    owner set (this is immediate, no timelock).
 2. **Add-TLC scheduleBatch** — schedule `addWhitelisted` for every address in the live
    mainnet set that is not in the initial 6, including the relayer poster EOA
-   (`0xFe6B6B95E68dFfEC8d0Cca87Aa1Fe64B40f3B3E`). This has a **3-day timelock** before
+   (`0xFe6B4dFf18D741e725c7c6922CCF69121B2fFFdb`). This has a **3-day timelock** before
    execute.
 
 ### Enumerate the current live whitelister set
@@ -185,7 +188,7 @@ The Safe Transaction Service URL for BSC:
     --rpc-url <new_chain_rpc> \
     --private-key <any_funded_key>
   ```
-- [ ] Fund the relayer poster EOA `0xFe6B6B95E68dFfEC8d0Cca87Aa1Fe64B40f3B3E` with native
+- [ ] Fund the relayer poster EOA `0xFe6B4dFf18D741e725c7c6922CCF69121B2fFFdb` with native
   token on the new chain BEFORE the whitelist executes (else gas will be insufficient for
   the first post).
 
@@ -454,14 +457,14 @@ Reference: `damm-top-up-monitor#28`.
 ## 6. Funding and end-to-end validation
 
 - [ ] Fund deployer EOA `0xb5a6c8…9340` with enough native token for the deploy gas (step 1).
-- [ ] Fund relayer poster `0xFe6B6B95E68dFfEC8d0Cca87Aa1Fe64B40f3B3E` with enough native
+- [ ] Fund relayer poster `0xFe6B4dFf18D741e725c7c6922CCF69121B2fFFdb` with enough native
   token for at least 100 on-chain posts (step 2 + step 5).
 - [ ] Once the 3-day timelock has elapsed and `executeBatch` is run: verify the poster is
   listed as a whitelister on the new chain's proxy:
   ```bash
   cast call 0xBfaEEE9662b4c037De24e5Caa65815350d57b89A \
     "isWhitelisted(address)(bool)" \
-    0xFe6B6B95E68dFfEC8d0Cca87Aa1Fe64B40f3B3E \
+    0xFe6B4dFf18D741e725c7c6922CCF69121B2fFFdb \
     --rpc-url <new_chain_rpc>
   # must return true
   ```
