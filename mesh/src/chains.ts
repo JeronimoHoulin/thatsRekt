@@ -21,6 +21,7 @@ export type ChainSlug =
   | 'optimism'
   | 'arbitrum'
   | 'bsc'
+  | 'polygon'
 
 export interface ChainEntry {
   /** EIP-155 chain id. Distinct values across all entries (anvil forks
@@ -138,6 +139,18 @@ export const CHAINS: readonly ChainEntry[] = Object.freeze([
     // BNB Smart Chain — v1.2.0 deploy (CREATE2 canonical proxy, same
     // address as Ethereum/Base/Arbitrum/Optimism).
     // Endpoint consumes the graphql-bsc:4362 service added in #117.
+    registryAddress: '0xBfaEEE9662b4c037De24e5Caa65815350d57b89A',
+  },
+  {
+    chainId: 137,
+    slug: 'polygon',
+    name: 'Polygon',
+    prefix: 'Polygon_',
+    endpoint:
+      process.env.GRAPHQL_POLYGON_URL ?? 'http://graphql-polygon:4363/graphql',
+    // Polygon mainnet — v1.2.0 deploy (CREATE2 canonical proxy, same
+    // address as Ethereum/Base/Arbitrum/Optimism/BSC).
+    // Endpoint consumes the graphql-polygon:4363 service added in #162.
     registryAddress: '0xBfaEEE9662b4c037De24e5Caa65815350d57b89A',
   },
 ])
