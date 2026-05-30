@@ -46,23 +46,23 @@ function WaysToUse() {
         </p>
       </header>
       <div className="space-y-4 sm:space-y-3">
-        <Bullet label="if you build a wallet">
+        <Bullet label="for wallets">
           Pre-flight every outbound transfer. Check the recipient's
           attacker score before signing — if it's been confirmed by
           peers as a hack address, warn the user before money leaves.
         </Bullet>
-        <Bullet label="if you build a DEX or bridge">
+        <Bullet label="for DEXs or bridges">
           Read directly from the registry on-chain. Block swaps where
           the input or output token has been reported as a victim
           contract; refuse cross-chain releases to flagged addresses.
         </Bullet>
-        <Bullet label="if you run a lending market">
+        <Bullet label="for lending markets">
           A keeper checks whether your own contracts appear in any
           active alert. The second a peer security team posts about
           your protocol being drained, your pause guardian can fire —
           even if your team hasn't woken up yet.
         </Bullet>
-        <Bullet label="if you run a security team or detector">
+        <Bullet label="for security teams or detectors">
           Apply for guardian status. The moment your fork-monitor or
           mempool scanner fires, report the attacker addresses on-chain.
           Other guardians race to confirm or refute. Confirmer
