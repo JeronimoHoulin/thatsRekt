@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Maintainers } from '../components/Maintainers'
 import { BecomeAPosterCallout } from '../components/BecomeAPosterCallout'
 import { TgChannelCTA } from '../components/TgChannelCTA'
@@ -74,6 +75,14 @@ function WaysToUse() {
           — before-the-fact incident reporting, not after-the-fact news.
         </Bullet>
       </div>
+      <p className="text-sm text-neutral-700">
+        <Link
+          to="/docs#use-cases"
+          className="font-mono rekt-link"
+        >
+          see the full onchain use cases with code in the docs →
+        </Link>
+      </p>
     </section>
   )
 }
