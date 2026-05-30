@@ -46,12 +46,6 @@ type State struct {
 
 type PostState struct {
 	MessageID int64 `json:"messageId"`
-	UpVotes   int   `json:"upVotes"`
-	DownVotes int   `json:"downVotes"`
-	// Track which Telegram users have already voted on this post + in
-	// which direction, so a single user can't tap ✓ ten times. Keyed
-	// by `tg_user_id` (string for JSON friendliness).
-	Voters map[string]string `json:"voters"` // direction: "up" | "down"
 
 	// Snapshot of the last on-chain state seen for this post. Used for
 	// amendment change-detection: if the current poll returns a different
@@ -75,6 +69,12 @@ type PostState struct {
 	// see removed=true are no-ops — the retract edit is idempotent.
 	Retracted bool `json:"retracted,omitempty"`
 }
+
+// Backward-compatibility note: existing S3 JSON state may contain the now-
+// removed fields "upVotes", "downVotes", and "voters" in each PostState entry.
+// Go's json.Unmarshal ignores unknown fields by default, so those entries
+// deserialize cleanly into the current struct without error. No migration is
+// required.
 
 // Store is the S3-backed state holder. Methods are safe to call from
 // multiple goroutines concurrently — internal mutex guards the in-memory
@@ -203,16 +203,13 @@ func (s *Store) SetLastSeen(chainSlug, id string) {
 }
 
 // RegisterPost records that we just posted `postID` to Telegram with
-// message id `msgID` for the given `chainSlug`. Initialises empty vote state.
+// message id `msgID` for the given `chainSlug`.
 func (s *Store) RegisterPost(postID string, msgID int64, chainSlug string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	ps := s.state.Posts[postID] // preserve existing snapshot if any
 	ps.MessageID = msgID
 	ps.ChainSlug = chainSlug
-	if ps.Voters == nil {
-		ps.Voters = map[string]string{}
-	}
 	s.state.Posts[postID] = ps
 	s.dirty = true
 }
@@ -342,9 +339,9 @@ func (s *Store) MarkRetracted(postID string) {
 	s.dirty = true
 }
 
-// PostState returns the current vote-tracking state for a post. The second
-// return value is `false` when the post is unknown (e.g. shutdown happened
-// mid-startup before RegisterPost ran).
+// PostState returns the stored state for a post. The second return value is
+// false when the post is unknown (e.g. shutdown happened mid-startup before
+// RegisterPost ran).
 func (s *Store) PostState(postID string) (PostState, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -352,61 +349,6 @@ func (s *Store) PostState(postID string) (PostState, bool) {
 	if !ok {
 		return PostState{}, false
 	}
-	// Return a defensive copy so callers can't mutate the live map.
-	voters := make(map[string]string, len(ps.Voters))
-	for k, v := range ps.Voters {
-		voters[k] = v
-	}
-	ps.Voters = voters
+	// PostState is a value type — returning it by value is already a copy.
 	return ps, true
-}
-
-// ApplyVote registers a vote from `tgUserID` on `postID`. Toggles off if
-// they re-press the same direction; switches if they press the other
-// direction. Returns the resulting (UpVotes, DownVotes) counts and a
-// bool indicating whether the message needs to be re-edited (false if
-// the press was a no-op, e.g. unknown post).
-func (s *Store) ApplyVote(postID, tgUserID, direction string) (up, down int, changed bool) {
-	if direction != "up" && direction != "down" {
-		return 0, 0, false
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	ps, ok := s.state.Posts[postID]
-	if !ok {
-		return 0, 0, false
-	}
-	if ps.Voters == nil {
-		ps.Voters = map[string]string{}
-	}
-	prev := ps.Voters[tgUserID]
-	switch {
-	case prev == direction:
-		// Toggle off — they pressed the same direction twice.
-		delete(ps.Voters, tgUserID)
-		if direction == "up" {
-			ps.UpVotes--
-		} else {
-			ps.DownVotes--
-		}
-	case prev == "up" && direction == "down":
-		ps.Voters[tgUserID] = direction
-		ps.UpVotes--
-		ps.DownVotes++
-	case prev == "down" && direction == "up":
-		ps.Voters[tgUserID] = direction
-		ps.UpVotes++
-		ps.DownVotes--
-	default:
-		// Fresh vote.
-		ps.Voters[tgUserID] = direction
-		if direction == "up" {
-			ps.UpVotes++
-		} else {
-			ps.DownVotes++
-		}
-	}
-	s.state.Posts[postID] = ps
-	s.dirty = true
-	return ps.UpVotes, ps.DownVotes, true
 }

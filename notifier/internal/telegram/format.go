@@ -161,25 +161,6 @@ func FormatRetractedMessage(title string) string {
 	return b.String()
 }
 
-// VoteKeyboard builds the cosmetic ✓/✗ inline keyboard. The callback_data
-// payload is `vote:{up|down}:{postId}` so the press handler can identify
-// which post + direction without needing a separate lookup table.
-//
-// These counts are TELEGRAM-side only — they do NOT affect the on-chain
-// confirm/disconfirm state. The OG-card preview shows the on-chain numbers
-// for canonical truth; the buttons are a low-effort engagement signal for
-// chat readers who don't have a wallet handy.
-func VoteKeyboard(postID string, up, down int) *InlineKeyboardMarkup {
-	return &InlineKeyboardMarkup{
-		InlineKeyboard: [][]InlineKeyboardButton{
-			{
-				{Text: fmt.Sprintf("✓  %d", up), CallbackData: "vote:up:" + postID},
-				{Text: fmt.Sprintf("✗  %d", down), CallbackData: "vote:down:" + postID},
-			},
-		},
-	}
-}
-
 // --- time helpers ---
 
 // relativeTime converts an ISO-8601 UTC timestamp string to a human-readable
