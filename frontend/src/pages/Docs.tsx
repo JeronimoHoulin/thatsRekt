@@ -753,7 +753,7 @@ function SubSection({
   children: React.ReactNode
 }) {
   return (
-    <div className="space-y-3 pt-1">
+    <div className="space-y-4 pt-1">
       <h3 className="font-black uppercase tracking-widest text-xs">
         {heading}
       </h3>
