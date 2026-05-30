@@ -96,14 +96,11 @@ export function FeedTLDR() {
         contracts, free-form context. Other guardians race to vouch
         or refute.
       </p>
-      <p className="text-sm leading-relaxed text-neutral-800">
+      <p className="text-base leading-relaxed text-neutral-800">
         Wallets, DEXs, bridges, and lending markets read this state{' '}
         <strong className="font-black">directly on-chain</strong> to
         protect their users in real time. The live feed is below.{' '}
-        <Link to="/about" className="rekt-link font-black uppercase tracking-widest text-xs">
-          more →
-        </Link>{' '}
-        <Link to="/docs" className="rekt-link font-black uppercase tracking-widest text-xs ml-2">
+        <Link to="/docs" className="rekt-link font-black uppercase tracking-widest text-xs">
           integrate →
         </Link>
       </p>
