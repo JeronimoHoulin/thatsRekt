@@ -160,6 +160,11 @@ function isFormValid(state: FormState): boolean {
   for (const extra of state.extraContacts) {
     if (!isContactValid(extra)) return false
   }
+  // Turnstile token is required. Submit must stay disabled until the widget
+  // fires its callback with a non-empty token. Without this gate the button
+  // enables before the challenge completes, guaranteeing a TurnstileFailed
+  // server response on every submission that races the widget.
+  if (state.turnstileToken === '') return false
   return true
 }
 

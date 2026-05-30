@@ -108,10 +108,9 @@ async function waitForPg(pool: PgPool, timeoutMs = 30_000): Promise<void> {
 let testPool: PgPool
 let submitGuardianApplication: (
   rawInput: unknown,
-  deps?: { verifyTurnstile?: (token: string) => Promise<boolean> },
+  deps?: { verifyTurnstile?: (token: string) => Promise<boolean>; pool?: PgPool },
 ) => Promise<{ __typename: string; applicationId?: string; code?: string; message?: string }>
 let makeTurnstileVerifier: (secret: string) => (token: string) => Promise<boolean>
-let ensureGuardianApplicationsTable: () => Promise<void>
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -130,21 +129,35 @@ beforeAll(async () => {
   // Wait for postgres to be ready.
   await waitForPg(testPool, 30_000)
 
-  // Set META_DB_URL so that when we import guardian.ts, the metaPool
-  // inside it connects to OUR test container (not a prod/default URL).
-  process.env.META_DB_URL = META_DB_URL
+  // Bootstrap the schema directly with testPool.
+  // We do NOT import db.ts here because guardian.test.ts and comments.test.ts
+  // both mock.module('../src/db.ts') process-wide. When all mesh test files
+  // run together the mock is in effect; ensureGuardianApplicationsTable from
+  // the mock is a no-op that does not create the table. Running the DDL
+  // directly against testPool is robust regardless of mock ordering.
+  await testPool.query(`
+    CREATE TABLE IF NOT EXISTS guardian_applications (
+      id                    BIGSERIAL PRIMARY KEY,
+      created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      primary_contact_type  VARCHAR(16) NOT NULL
+                              CHECK (primary_contact_type IN ('telegram', 'email', 'signal', 'twitter')),
+      primary_contact_value VARCHAR(128) NOT NULL CHECK (length(primary_contact_value) >= 1),
+      extra_contacts        JSONB,
+      justification         TEXT NOT NULL CHECK (length(justification) BETWEEN 50 AND 1500),
+      forwarded_at          TIMESTAMPTZ,
+      forwarded_message_id  TEXT,
+      source_ip_hash        VARCHAR(16)
+    )
+  `)
+  await testPool.query(
+    `CREATE INDEX IF NOT EXISTS guardian_applications_created_idx
+       ON guardian_applications(created_at DESC)`,
+  )
 
-  // Import the module under test AFTER setting the env var.
-  // We import db.ts first to get the pool that guardian.ts will use.
-  const dbModule = await import('../src/db.ts')
-  ensureGuardianApplicationsTable = dbModule.ensureGuardianApplicationsTable
-
+  // Import guardian.ts for the resolver and Turnstile verifier.
   const guardianModule = await import('../src/guardian.ts')
   submitGuardianApplication = guardianModule.submitGuardianApplication
   makeTurnstileVerifier = guardianModule.makeTurnstileVerifier
-
-  // Bootstrap the schema.
-  await ensureGuardianApplicationsTable()
 }, 60_000)
 
 afterAll(async () => {
@@ -167,12 +180,6 @@ const validInput = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
-const passDeps = {
-  verifyTurnstile: makeTurnstileVerifier
-    ? makeTurnstileVerifier(TURNSTILE_PASS_SECRET)
-    : async () => true as boolean,
-}
-
 // ---------------------------------------------------------------------------
 // E2E tests
 // ---------------------------------------------------------------------------
@@ -182,7 +189,7 @@ describe('guardian application e2e (real postgres)', () => {
     // Re-bind deps after module is loaded (makeTurnstileVerifier is set in beforeAll).
     const verifyTurnstile = makeTurnstileVerifier(TURNSTILE_PASS_SECRET)
 
-    const result = await submitGuardianApplication(validInput(), { verifyTurnstile })
+    const result = await submitGuardianApplication(validInput(), { verifyTurnstile, pool: testPool })
 
     expect(result.__typename).toBe('GuardianApplicationSuccess')
     expect(typeof result.applicationId).toBe('string')
@@ -223,7 +230,7 @@ describe('guardian application e2e (real postgres)', () => {
 
     const result = await submitGuardianApplication(
       validInput({ honeypot: 'bot-filled-this' }),
-      { verifyTurnstile },
+      { verifyTurnstile, pool: testPool },
     )
 
     // Should pretend success
@@ -248,7 +255,7 @@ describe('guardian application e2e (real postgres)', () => {
           { type: 'twitter', value: '@guardian_x' },
         ],
       }),
-      { verifyTurnstile },
+      { verifyTurnstile, pool: testPool },
     )
 
     expect(result.__typename).toBe('GuardianApplicationSuccess')
@@ -278,7 +285,7 @@ describe('guardian application e2e (real postgres)', () => {
 
     const result = await submitGuardianApplication(
       validInput({ justification: 'too short' }),
-      { verifyTurnstile },
+      { verifyTurnstile, pool: testPool },
     )
 
     expect(result.__typename).toBe('GuardianApplicationError')
