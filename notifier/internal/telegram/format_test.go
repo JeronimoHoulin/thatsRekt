@@ -321,12 +321,12 @@ func TestFormatPostMessage_RelativeTime(t *testing.T) {
 		updatedAt string
 		wantLine  string
 	}{
-		{"2026-05-21T15:55:00Z", "just now on"},  // 5m ago < 1m? no, 5m — expect "5m ago"
-		{"2026-05-21T15:59:30Z", "just now on"},  // 30s ago → "just now"
-		{"2026-05-21T15:00:00Z", "1h ago on"},    // exactly 1h
-		{"2026-05-21T14:00:00Z", "2h ago on"},    // exactly 2h
-		{"2026-05-20T16:00:00Z", "1d ago on"},    // exactly 24h
-		{"", "just now on"},                      // empty timestamp → "just now"
+		{"2026-05-21T15:55:00Z", "just now on"}, // 5m ago < 1m? no, 5m — expect "5m ago"
+		{"2026-05-21T15:59:30Z", "just now on"}, // 30s ago → "just now"
+		{"2026-05-21T15:00:00Z", "1h ago on"},   // exactly 1h
+		{"2026-05-21T14:00:00Z", "2h ago on"},   // exactly 2h
+		{"2026-05-20T16:00:00Z", "1d ago on"},   // exactly 24h
+		{"", "just now on"},                     // empty timestamp → "just now"
 	}
 	// Fix the 5m case: 15:55 is 5 minutes before 16:00
 	cases[0] = struct {

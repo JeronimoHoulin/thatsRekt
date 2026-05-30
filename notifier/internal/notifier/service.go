@@ -1,20 +1,16 @@
 // Package notifier — the long-running pump.
 //
-// Two goroutines, one event loop:
+// One goroutine, one event loop:
 //
 //  1. Poll loop: every PollInterval, fetch the latest N posts from the
 //     Mesh GraphQL endpoint.
 //     - Posts strictly newer than the per-chain high-water mark → publish.
 //     - Posts already published that have changed (new ActionCount /
-//       LastUpdatedAt) → edit in place via the stored tg_message_id.
+//     LastUpdatedAt) → edit in place via the stored tg_message_id.
 //     - Posts already published and unchanged → skip.
 //
-//  2. Callback loop: long-poll Telegram getUpdates. Each callback_query
-//     is a button press — apply the vote via the store, edit the message
-//     to refresh the counts, ack the press.
-//
-// Both write through the same Store. State is flushed to S3 on a debounced
-// timer so we don't hit S3 on every press.
+// State is flushed to S3 on a debounced timer so we don't hit S3 on every
+// poll.
 package notifier
 
 import (
@@ -48,9 +44,6 @@ type GQLClient interface {
 type TelegramBot interface {
 	SendMessage(ctx context.Context, chatID, text string, kb *telegram.InlineKeyboardMarkup) (int64, error)
 	EditMessageText(ctx context.Context, chatID string, messageID int64, text string, kb *telegram.InlineKeyboardMarkup) error
-	EditReplyMarkup(ctx context.Context, chatID string, messageID int64, kb *telegram.InlineKeyboardMarkup) error
-	GetUpdates(ctx context.Context, offset int64, timeout time.Duration) ([]telegram.Update, error)
-	AnswerCallback(ctx context.Context, queryID, text string) error
 }
 
 type Service struct {
@@ -79,10 +72,6 @@ func (s *Service) Run(ctx context.Context) error {
 	// LastSeen returns "" for unknown chains, and the first cycle
 	// records the latest id without spamming.
 	go s.runPoll(ctx)
-
-	// Callback loop has its own goroutine + retry-with-backoff because a
-	// long-poll error shouldn't take the poll loop down.
-	go s.runCallbacks(ctx)
 
 	for {
 		select {
@@ -320,12 +309,12 @@ func onchainPart(id string) string {
 	return id[idx+1:]
 }
 
-// publish sends one post to Telegram + records its message id, initial vote
-// counts, and the current on-chain snapshot (ActionCount + LastUpdatedAt).
+// publish sends one post to Telegram + records its message id and the current
+// on-chain snapshot (ActionCount + LastUpdatedAt). No inline keyboard is
+// attached — the vote subsystem has been removed.
 func (s *Service) publish(ctx context.Context, p graphql.Post) error {
 	text := telegram.FormatPostMessage(p)
-	kb := telegram.VoteKeyboard(p.ID, 0, 0)
-	msgID, err := s.Bot.SendMessage(ctx, s.ChannelID, text, kb)
+	msgID, err := s.Bot.SendMessage(ctx, s.ChannelID, text, nil)
 	if err != nil {
 		return fmt.Errorf("send message: %w", err)
 	}
@@ -345,19 +334,17 @@ func (s *Service) publish(ctx context.Context, p graphql.Post) error {
 // Re-renders with the current on-chain data (bumped rev N), calls
 // editMessageText on the Bot API, and updates the stored snapshot so the
 // next poll won't re-trigger an edit for the same amendment.
+//
+// Keyboard note: the vote subsystem has been removed. Passing nil here is
+// correct for new posts (no keyboard to clear). For any message that still
+// carries a legacy vote keyboard from before this change was deployed, the
+// nil keyboard leaves that existing keyboard intact rather than clearing it.
+// That is an acceptable trade-off; retractEdit explicitly sends an empty
+// keyboard to ensure retracted messages are always button-free.
 func (s *Service) amendEdit(ctx context.Context, p graphql.Post, msgID int64) error {
 	text := telegram.FormatPostMessage(p)
 
-	// Retrieve current vote counts so the keyboard edit preserves them.
-	// Guard the ok return: a missing PostState must not silently zero out
-	// the vote counts on the edited keyboard.
-	ps, ok := s.Store.PostState(p.ID)
-	if !ok {
-		return fmt.Errorf("amendEdit: PostState not found for post %s — cannot preserve vote counts; skipping edit", p.ID)
-	}
-	kb := telegram.VoteKeyboard(p.ID, ps.UpVotes, ps.DownVotes)
-
-	if err := s.Bot.EditMessageText(ctx, s.ChannelID, msgID, text, kb); err != nil {
+	if err := s.Bot.EditMessageText(ctx, s.ChannelID, msgID, text, nil); err != nil {
 		return fmt.Errorf("edit message text: %w", err)
 	}
 
@@ -401,79 +388,4 @@ func (s *Service) retractEdit(ctx context.Context, p *graphql.PostByIdResult, po
 		"message_id", msgID,
 	)
 	return nil
-}
-
-// runCallbacks is the second goroutine — long-polls Telegram for button
-// presses and applies them. Restarts on transient errors with a small
-// backoff so a network blip doesn't take the loop down.
-func (s *Service) runCallbacks(ctx context.Context) {
-	var offset int64
-	backoff := time.Second
-
-	for {
-		if ctx.Err() != nil {
-			return
-		}
-		updates, err := s.Bot.GetUpdates(ctx, offset, 30*time.Second)
-		if err != nil {
-			s.Logger.Warn("getUpdates failed; backing off", "err", err, "backoff", backoff)
-			select {
-			case <-time.After(backoff):
-			case <-ctx.Done():
-				return
-			}
-			if backoff < 60*time.Second {
-				backoff *= 2
-			}
-			continue
-		}
-		backoff = time.Second // reset on success
-
-		for _, u := range updates {
-			if u.UpdateID >= offset {
-				offset = u.UpdateID + 1
-			}
-			if u.CallbackQuery != nil {
-				s.handleCallback(ctx, *u.CallbackQuery)
-			}
-		}
-	}
-}
-
-// handleCallback processes one button press: increment / toggle / switch
-// the cosmetic vote, refresh the message keyboard, ack the press.
-func (s *Service) handleCallback(ctx context.Context, cq telegram.CallbackQuery) {
-	// callback_data shape: "vote:{up|down}:{postId}"
-	parts := strings.SplitN(cq.Data, ":", 3)
-	if len(parts) != 3 || parts[0] != "vote" {
-		// Unknown payload; just ack so the user's spinner clears.
-		_ = s.Bot.AnswerCallback(ctx, cq.ID, "")
-		return
-	}
-	direction := parts[1]
-	postID := parts[2]
-
-	tgUserID := fmt.Sprintf("%d", cq.From.ID)
-	up, down, changed := s.Store.ApplyVote(postID, tgUserID, direction)
-	if !changed {
-		_ = s.Bot.AnswerCallback(ctx, cq.ID, "")
-		return
-	}
-
-	kb := telegram.VoteKeyboard(postID, up, down)
-	if err := s.Bot.EditReplyMarkup(ctx, s.ChannelID, cq.Message.MessageID, kb); err != nil {
-		s.Logger.Warn("edit reply markup failed", "post_id", postID, "err", err)
-		// Still ack — the user got their vote counted in state, the
-		// next vote will pull the message back into sync.
-	}
-
-	// Brief toast acknowledgement.
-	var toast string
-	switch direction {
-	case "up":
-		toast = "vouched ✓"
-	case "down":
-		toast = "refuted ✗"
-	}
-	_ = s.Bot.AnswerCallback(ctx, cq.ID, toast)
 }

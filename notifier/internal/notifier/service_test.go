@@ -20,8 +20,8 @@
 //     removed=true, but the post is not in the store — nothing to edit).
 //   - Retract is idempotent: repeated polls on an already-retracted post do not
 //     trigger additional edits.
-//   - The retract edit sends an explicitly empty keyboard (not nil) to remove
-//     the vote buttons — passing nil would leave the existing keyboard intact.
+//   - The retract edit sends an explicitly empty keyboard (not nil) to clear any
+//     legacy keyboard — passing nil would leave an existing keyboard intact.
 package notifier_test
 
 import (
@@ -31,7 +31,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/ThatsRekt/thatsRekt/notifier/internal/graphql"
 	"github.com/ThatsRekt/thatsRekt/notifier/internal/notifier"
@@ -90,7 +89,7 @@ type editCall struct {
 	chatID    string
 	messageID int64
 	text      string
-	keyboard  *telegram.InlineKeyboardMarkup // nil means not sent; non-nil means sent
+	keyboard  *telegram.InlineKeyboardMarkup // nil means omitted; non-nil means sent
 }
 
 func (b *stubBot) SendMessage(_ context.Context, chatID, text string, _ *telegram.InlineKeyboardMarkup) (int64, error) {
@@ -107,17 +106,6 @@ func (b *stubBot) EditMessageText(_ context.Context, chatID string, messageID in
 	b.edits = append(b.edits, editCall{chatID: chatID, messageID: messageID, text: text, keyboard: kb})
 	return nil
 }
-
-func (b *stubBot) EditReplyMarkup(_ context.Context, _ string, _ int64, _ *telegram.InlineKeyboardMarkup) error {
-	return nil
-}
-
-func (b *stubBot) GetUpdates(_ context.Context, _ int64, _ time.Duration) ([]telegram.Update, error) {
-	// Never returns updates during tests — callbacks not under test here.
-	select {}
-}
-
-func (b *stubBot) AnswerCallback(_ context.Context, _, _ string) error { return nil }
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -398,37 +386,13 @@ func TestPollOnce_PreN2BackfillThenDetect(t *testing.T) {
 	}
 }
 
-// TestPollOnce_AmendEditMissingPostStateReturnsError verifies that amendEdit
-// returns an error (rather than silently wiping vote counts with a zero-value
-// PostState) when PostState returns ok==false for the post being edited.
-// In practice this state should not arise because amendEdit is only reached
-// after MessageIDFor confirms the post is in the map, but we guard it
-// defensively to prevent future regressions.
+// TestPollOnce_AmendEditMissingPostStateReturnsError was previously guarding
+// against amendEdit silently zeroing vote counts when PostState was absent.
+// The vote subsystem has been removed (issue #181); amendEdit no longer reads
+// PostState and so this guard clause is no longer needed. Test retained as a
+// documented tombstone.
 func TestPollOnce_AmendEditMissingPostStateReturnsError(t *testing.T) {
-	// This is tested indirectly: if PostState is absent the edit still goes
-	// through (the guard returns an error before calling EditMessageText).
-	// We simulate by tampering with the store after setup:
-	// use a store that has the post snapshot (so HasChanged fires) and the
-	// message id, then remove the PostState entry between setup and poll.
-	// Because the store API doesn't expose a Delete method we use a
-	// store.StoreWithMissingPostState test double — that does not exist yet,
-	// so this test is written as a unit test against amendEdit's guard clause
-	// via the exported PollOnce path.
-	//
-	// The realistic regression scenario is: service crash between RegisterPost
-	// and UpdatePostSnapshot on a new post. After the crash the Posts map
-	// entry was never written so PostState returns ok==false. We verify that
-	// amendEdit logs a warning and skips the edit rather than issuing an edit
-	// with zero vote counts.
-	//
-	// Since NewInMemory doesn't expose a way to break the Posts map in a
-	// targetted way this test documents the requirement at the service level:
-	// a zero-value PostState must not reach EditMessageText.
-	//
-	// Skipping for now — the guard clause in amendEdit (yellow #1) is the
-	// implementation target; its correctness is validated by code inspection
-	// and the guard returning fmt.Errorf rather than silently proceeding.
-	t.Skip("guard-clause test: validated by code inspection of amendEdit ok-check")
+	t.Skip("vote subsystem removed (#181): PostState guard in amendEdit no longer exists")
 }
 
 // ---- N3: retract handling tests --------------------------------------------
@@ -772,12 +736,14 @@ func TestPollOnce_PreN3BackfillChainSlug(t *testing.T) {
 	}
 }
 
-// TestPollOnce_RetractRemovesVoteKeyboard verifies the yellow-2 fix: the
-// retract edit explicitly sends an empty InlineKeyboardMarkup rather than nil.
-// Passing nil to EditMessageText would omit reply_markup from the request body
-// (omitempty), causing Telegram to leave the existing vote keyboard intact on
-// the retracted message. An explicitly empty keyboard removes the buttons.
-func TestPollOnce_RetractRemovesVoteKeyboard(t *testing.T) {
+// TestPollOnce_RetractClearsKeyboard verifies that the retract edit explicitly
+// sends an empty InlineKeyboardMarkup rather than nil. Passing nil to
+// EditMessageText would omit reply_markup from the request body (omitempty),
+// causing Telegram to leave any existing keyboard intact on the retracted
+// message. An explicitly empty keyboard guarantees the message is button-free
+// after retraction — important for any message that still carries a legacy
+// keyboard from before the vote subsystem was removed (#181).
+func TestPollOnce_RetractClearsKeyboard(t *testing.T) {
 	pub := basePost()
 	st := populatedStore("base-1", 100, pub)
 
@@ -812,9 +778,10 @@ func TestPollOnce_RetractRemovesVoteKeyboard(t *testing.T) {
 	}
 
 	kb := edits[0].keyboard
-	// keyboard must be non-nil — a nil keyboard would leave the existing buttons.
+	// keyboard must be non-nil — a nil keyboard (omitempty) would leave any
+	// existing keyboard intact on the Telegram message.
 	if kb == nil {
-		t.Fatalf("retract keyboard: EditMessageText must receive a non-nil keyboard to clear the vote buttons; got nil")
+		t.Fatalf("retract keyboard: EditMessageText must receive a non-nil keyboard to clear any legacy buttons; got nil")
 	}
 	// The keyboard must have zero rows — an explicit empty InlineKeyboardMarkup.
 	if len(kb.InlineKeyboard) != 0 {
