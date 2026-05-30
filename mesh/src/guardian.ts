@@ -341,7 +341,7 @@ export const submitGuardianApplication = async (
   // 6. Turnstile
   const turnstileOk = await verifyTurnstile(input.turnstileToken)
   if (!turnstileOk) {
-    return errorOf('TurnstileFailed', 'Turnstile verification failed — please try again')
+    return errorOf('TurnstileFailed', 'Turnstile verification failed, please try again')
   }
 
   // 7. Insert
