@@ -676,4 +676,130 @@ describe('ScrollManager', () => {
       configurable: true,
     })
   })
+
+  it('scrolls the #use-cases element into view on /docs#use-cases deep-link arrival (hash-scroll regression)', async () => {
+    // Regression test for the /docs#use-cases hash-scroll path in ScrollManager.
+    //
+    // Sequence:
+    //   1. Render at "/" (initial PUSH — no hash, scrollTo(0,0) direct, no rAF queued).
+    //   2. Install the controllable window.rAF stub.
+    //   3. PUSH-navigate to /docs#use-cases via a click. The PUSH useEffect fires
+    //      and calls window.requestAnimationFrame(pollHash) into our queue.
+    //   4. First rAF tick: #use-cases not yet in DOM — pollHash re-queues.
+    //   5. Inject #use-cases into the DOM.
+    //   6. Second rAF tick: element found — scrollIntoView called.
+    //
+    // Step 1 runs BEFORE the rAF stub so the initial PUSH (scrollTo(0,0)) takes
+    // the direct path and doesn't pollute the queue. This mirrors the pattern
+    // used by the rAF-deadline test above.
+
+    // --- Step 1: Render at "/" with default spy (no rAF stub yet) ---------------
+    let navigateRef: ((to: string) => void) | null = null
+
+    function DocsNavigatorPage() {
+      const navigate = useNavigate()
+      navigateRef = (to: string) => navigate(to)
+      return <button type="button" onClick={() => navigate('/docs#use-cases')}>go to docs</button>
+    }
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/']}>
+        <ScrollManager />
+        <Routes>
+          <Route path="/" element={<DocsNavigatorPage />} />
+          <Route
+            path="/docs"
+            element={
+              // #use-cases intentionally absent — simulates async section render.
+              <div id="placeholder">docs page</div>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Initial PUSH at "/" goes through the no-hash direct scrollTo(0,0) path.
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0)
+    scrollToSpy.mockClear()
+
+    // --- Step 2: Install controllable window.rAF stub ---------------------------
+    type RafCallback = FrameRequestCallback
+    const rafQueue: Array<{ id: number; cb: RafCallback }> = []
+    let rafIdCounter = 0
+    const origWindowRaf = window.requestAnimationFrame
+    const origWindowCaf = window.cancelAnimationFrame
+
+    Object.defineProperty(window, 'requestAnimationFrame', {
+      value: (cb: RafCallback): number => {
+        rafIdCounter += 1
+        rafQueue.push({ id: rafIdCounter, cb })
+        return rafIdCounter
+      },
+      writable: true,
+      configurable: true,
+    })
+    Object.defineProperty(window, 'cancelAnimationFrame', {
+      value: (id: number): void => {
+        const idx = rafQueue.findIndex((entry) => entry.id === id)
+        if (idx !== -1) rafQueue.splice(idx, 1)
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    function flushRafs(n?: number): void {
+      const count = n !== undefined ? Math.min(n, rafQueue.length) : rafQueue.length
+      for (let i = 0; i < count; i++) {
+        const entry = rafQueue.shift()
+        if (entry !== undefined) entry.cb(performance.now())
+      }
+    }
+
+    // Spy on scrollIntoView so we can assert it was called with the right options.
+    const scrollIntoViewSpy = spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => undefined)
+
+    // --- Step 3: PUSH to /docs#use-cases ----------------------------------------
+    // act() runs React effects synchronously. The PUSH useEffect fires, detects
+    // location.hash='#use-cases', and calls window.requestAnimationFrame(pollHash)
+    // via our stub — which stores it in rafQueue (act() does NOT intercept
+    // window.rAF, only globalThis.rAF).
+    await act(async () => {
+      within(container).getByText('go to docs').click()
+    })
+
+    // PUSH useEffect ran: pollHash() queued its first rAF frame.
+    expect(rafQueue.length).toBeGreaterThan(0)
+
+    // --- Step 4: First tick — element missing, pollHash re-queues ---------------
+    flushRafs(1)
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
+    expect(rafQueue.length).toBeGreaterThan(0)
+
+    // --- Step 5: Inject #use-cases so the next tick finds it --------------------
+    const el = document.createElement('section')
+    el.id = 'use-cases'
+    document.body.appendChild(el)
+
+    // --- Step 6: Second tick — element found, scrollIntoView called -------------
+    flushRafs(1)
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1)
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' })
+
+    // Loop must stop once the element is found (no further rAF scheduled).
+    expect(rafQueue.length).toBe(0)
+
+    // --- Cleanup ----------------------------------------------------------------
+    document.body.removeChild(el)
+    scrollIntoViewSpy.mockRestore()
+    Object.defineProperty(window, 'requestAnimationFrame', {
+      value: origWindowRaf,
+      writable: true,
+      configurable: true,
+    })
+    Object.defineProperty(window, 'cancelAnimationFrame', {
+      value: origWindowCaf,
+      writable: true,
+      configurable: true,
+    })
+  })
 })
