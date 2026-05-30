@@ -52,7 +52,7 @@ function UseCases() {
   return (
     <Section heading="use cases">
       <p className="text-base leading-relaxed text-neutral-800">
-        The registry is just data — what makes it useful is integrators
+        The registry is just data; what makes it useful is integrators
         wiring it into their own decision logic. A few concrete shapes
         of integration:
       </p>
@@ -79,8 +79,8 @@ function UseCases() {
           <>
             On every swap path, check{' '}
             <Code>isVictim(token)</Code> for input + output. If true,
-            the pool's been reported as the target of an active attack
-            — refuse to route through it. Cheap onchain read, no
+            the pool's been reported as the target of an active attack.
+            Refuse to route through it. Cheap onchain read, no
             indexer dependency.
           </>
         }
@@ -92,7 +92,7 @@ function UseCases() {
         body={
           <>
             A keeper periodically calls{' '}
-            <Code>isVictim(address(this))</Code> — when it flips true,
+            <Code>isVictim(address(this))</Code>: when it flips true,
             trigger your pause guardian. Even if your team hasn't woken
             up yet, peer security teams' alerts pause new borrows
             within seconds of detection.
@@ -188,7 +188,7 @@ function WhatIs() {
         thatsRekt is an{' '}
         <strong className="font-black">onchain hack alert registry</strong>.
         Whitelisted guardians report structured alerts about active
-        onchain exploits on any EVM chain — attacker addresses,
+        onchain exploits on any EVM chain: attacker addresses,
         victim contracts, and a free-form note. Other guardians race
         to <em>vouch</em> (confirm) or <em>refute</em> (disconfirm).
       </p>
@@ -199,7 +199,7 @@ function WhatIs() {
         wallet can warn before sending to a flagged address, a lending
         market can pause when its own contracts are reported under
         attack. The registry is permissioned to write but{' '}
-        <strong className="font-black">open to read</strong> — every
+        <strong className="font-black">open to read</strong>: every
         score, attack, and confirmer set is queryable from any contract
         or app.
       </p>
@@ -225,31 +225,31 @@ function HowItWorks() {
         applicant applies, the{' '}
         <strong className="font-black">governance multisig</strong>{' '}
         vets and approves them, then submits the address via a{' '}
-        <strong className="font-black">3-day timelock</strong> — the
+        <strong className="font-black">3-day timelock</strong>. The
         onchain whitelist is the source of truth.
       </SubSection>
       <SubSection heading="governance">
-        Three roles, asymmetric delays — adding guardians is slow and
+        Three roles, asymmetric delays: adding guardians is slow and
         public, kicking them out is instant.{' '}
         <strong className="font-black">Removing a misbehaving guardian</strong>{' '}
         is direct multisig action, no delay.{' '}
         <strong className="font-black">Adding a new guardian</strong>{' '}
         goes through a separate{' '}
         <strong className="font-black">3-day TimelockController</strong>{' '}
-        — long enough for integrators to react if the multisig
+        (long enough for integrators to react if the multisig
         schedules a hostile operator, short enough that real-world
-        onboarding doesn't grind. Contract upgrades are gated by a{' '}
+        onboarding doesn't grind). Contract upgrades are gated by a{' '}
         <strong className="font-black">7-day TimelockController</strong>{' '}
         on the owner role, so integrators always have a week to
         disengage if a hostile upgrade is queued. The multisig can
         also instantly{' '}
-        <Code>revokeWhitelistAdmin()</Code> — a kill-switch that zeros
+        <Code>revokeWhitelistAdmin()</Code>, a kill-switch that zeros
         the admin slot, blocking new additions until the owner
         re-installs through the 7-day path.
       </SubSection>
       <SubSection heading="integrators">
         Anyone reading the registry. Two main signals: an address's{' '}
-        <Code>attackerScore</Code> (signed integer — sum of
+        <Code>attackerScore</Code> (signed integer: sum of
         confirmations minus disconfirmations across every active
         attack that names the address as an attacker) and an address's{' '}
         <Code>isVictim</Code> flag (true if the address is currently
@@ -279,8 +279,8 @@ function Architecture() {
           A guardian submits an alert; the contract emits an event; the
           indexer writes it to Postgres; the GraphQL gateway exposes
           it; this site renders it. Reader contracts and dApps tap in
-          at whichever tier matches their needs — direct onchain
-          reads (cheap, no infra), or rich GraphQL queries (free,
+          at whichever tier matches their needs: direct onchain
+          reads (cheap, no infra) or rich GraphQL queries (free,
           public).
         </p>
         <StackDiagram />
@@ -290,7 +290,7 @@ function Architecture() {
         <p className="text-sm leading-relaxed text-neutral-800 mb-2">
           Each post lives forever in storage and events. Confirmer
           activity updates the aggregate{' '}
-          <Code>attackerScore</Code> in real time — readers don't
+          <Code>attackerScore</Code> in real time; readers don't
           need an indexer to consume the score, only a single view
           call against the proxy.
         </p>
@@ -299,7 +299,7 @@ function Architecture() {
 
       <SubSection heading="public read functions">
         <p className="text-sm leading-relaxed text-neutral-800 mb-2">
-          Anyone can call these — no whitelist needed. This is what
+          Anyone can call these (no whitelist needed). This is what
           dApps, indexers, and onchain integrators consume.
         </p>
         <ul className="space-y-1 text-sm leading-relaxed text-neutral-800 list-disc list-inside marker:text-neutral-400">
@@ -375,14 +375,14 @@ function Architecture() {
           <li>
             <Code>addAttackers(postId, addrs)</Code> /{' '}
             <Code>addVictims(postId, addrs)</Code> → append addresses
-            to your own post (no removal — the audit trail is
+            to your own post (no removal; the audit trail is
             append-only).
           </li>
         </ul>
       </SubSection>
 
       <SubSection heading="cross-chain identity">
-        Guardians are EOAs whitelisted independently per chain — the
+        Guardians are EOAs whitelisted independently per chain. The
         same address can report on every chain because CREATE2 makes
         the proxy address identical everywhere. The leaderboard
         aggregates a guardian's lifetime activity across chains by
@@ -393,7 +393,7 @@ function Architecture() {
         For whitelisted operators running automated detectors that
         can't sign transactions themselves, the{' '}
         <Inline>relay/</Inline> service in the monorepo provides a
-        webhook-driven submission path. Single-tenant — bring your
+        webhook-driven submission path. Single-tenant: bring your
         own EOA + bearer token. See{' '}
         <a
           href="https://github.com/ThatsRekt/thatsRekt/blob/master/relay/README.md"
@@ -447,7 +447,7 @@ contract MyBridge {
       <p className="text-sm leading-relaxed text-neutral-700">
         Replace <Inline>0x000…000</Inline> with the proxy address from
         the <strong>reference</strong> table at the bottom of this
-        page. View calls are gas-cheap (~3k) and idempotent — safe to
+        page. View calls are gas-cheap (~3k) and idempotent, safe to
         call inline in any tx hot path.
       </p>
 
@@ -478,8 +478,8 @@ contract MyBridge {
           when at least three whitelisters net-confirm." Tune up for
           fewer false positives, down for tighter safety. The second
           return value (<Inline>appearances</Inline>) is also useful
-          when you want a confidence floor — e.g. only block when the
-          address has been named in 2+ separate posts.
+          when you want a confidence floor (e.g. only block when the
+          address has been named in 2+ separate posts).
         </p>
       </SubSection>
     </Section>
@@ -523,7 +523,7 @@ query LatestPosts {
 }`}</CodeBlock>
 
       <SubSection heading="per-chain queries">
-        Per-chain prefixed roots are also available — useful when you
+        Per-chain prefixed roots are also available, useful when you
         need the full post-detail view including confirmation log +
         edit history:
       </SubSection>
@@ -621,8 +621,6 @@ const PLANNED_DEPLOYMENTS: ReadonlyArray<{
     proxy: '0xBfaEEE9662b4c037De24e5Caa65815350d57b89A',
     status: 'live',
   },
-  { name: 'blast', chainId: 81457, proxy: null },
-  { name: 'avalanche', chainId: 43114, proxy: null },
 ] as const
 
 /**
@@ -637,17 +635,29 @@ const GOVERNANCE_MULTISIG_ADDRESS = '0x59E4DBc95BD312A882Bb36b7f3E8298682340679'
 const PUBLIC_GRAPHQL_ENDPOINT = 'https://thatsrekt.com/graphql'
 
 function Reference() {
+  const liveChains = PLANNED_DEPLOYMENTS.filter((d) => d.status === 'live')
+  const liveChainNames = liveChains.map((d) =>
+    d.name.charAt(0).toUpperCase() + d.name.slice(1),
+  )
+  const liveChainList =
+    liveChainNames.length === 0
+      ? ''
+      : liveChainNames.length === 1
+        ? liveChainNames[0]
+        : liveChainNames.slice(0, -1).join(', ') +
+          ', and ' +
+          liveChainNames[liveChainNames.length - 1]
+
   return (
     <Section heading="reference">
       <SubSection heading="deployments">
         <p className="text-sm leading-relaxed text-neutral-800 mb-3">
           The proxy address is{' '}
           <strong className="font-black">stable across chains</strong>{' '}
-          via CREATE2 — when contracts ship with the canonical
+          via CREATE2: when contracts ship with the canonical
           governance + whitelist, the same address resolves onchain on
-          every live chain below. Ethereum, Base, Optimism, Arbitrum,
-          Polygon, and BSC are all live at the canonical proxy.
-          Blast and Avalanche are pending deploy.
+          every live chain below. {liveChainList}{' '}
+          {liveChainNames.length === 1 ? 'is' : 'are'} all live at the canonical proxy.
         </p>
         <div className="overflow-x-auto border-2 border-black">
           <table className="w-full text-left text-sm">
@@ -689,8 +699,8 @@ function Reference() {
 
       <SubSection heading="governance">
         <p className="text-sm leading-relaxed text-neutral-800 mb-3">
-          One Safe multisig governs every chain — same address on
-          all of them via CREATE2. Three roles, asymmetric delays:
+          One Safe multisig governs every chain (same address on
+          all of them via CREATE2). Three roles, asymmetric delays:
           guardians are <strong className="font-black">removed
           instantly</strong>{' '}
           (incident-response is fast), but{' '}

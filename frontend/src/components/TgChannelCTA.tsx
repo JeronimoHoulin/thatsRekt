@@ -42,7 +42,7 @@ export function GetAlertsButton({
       target="_blank"
       rel="noreferrer noopener"
       onClick={onAfterClick}
-      aria-label="get real-time alerts on the thatsRekt telegram channel"
+      aria-label="get onchain hack alerts on the thatsRekt telegram channel"
       className={
         variant === 'desktop'
           ? 'inline-flex items-center gap-1 whitespace-nowrap border-2 border-red-600 bg-white text-red-600 px-3 py-1 text-[11px] uppercase tracking-widest font-black hover:bg-red-50 transition-colors focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-1'
@@ -68,7 +68,7 @@ function PanelVariant() {
   return (
     <section
       className="border-2 border-black bg-white p-4 space-y-3"
-      aria-label="follow live alerts on telegram"
+      aria-label="get onchain hack alerts on telegram"
     >
       <p className="text-sm leading-relaxed text-neutral-800">
         Alerts in real time on{' '}

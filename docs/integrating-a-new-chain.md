@@ -21,12 +21,12 @@ move to the next section until the current one is complete and verified onchain 
 
 The thatsRekt proxy **must deploy at the canonical CREATE2 address
 `0xBfaEEE9662b4c037De24e5Caa65815350d57b89A` on every chain.** This is a hard
-requirement — breaking it means the cross-chain public registry is no longer a single
+requirement. Breaking it means the cross-chain public registry is no longer a single
 address, destroying trust and integration assumptions.
 
 The address depends on a fixed tuple:
 - CREATE2 factory: `0x4e59b44847b379578588920cA78FbF26c0B4956C` (universal singleton; must
-  be deployed on the target chain — check onchain before proceeding)
+  be deployed on the target chain; check onchain before proceeding)
 - Deployer EOA: `0xb5a6c8ca369e38050784e2a6793bee6447109340`
 - The ORIGINAL canonical 6 `initialWhitelisters` (order matters): `0x5822B262EDdA82d2C6A436b598Ff96fA9AB894c4`, `0xda1b9dFA299d655135C1ECdc4f0b4c9aED9a7f45`, `0x9e8680dbbca1127add812abe209a10e621b385df`, `0x24c2167054a9a9e00f67233f1ebc4060501f54fa`, `0xe0396d6d738e726d39f96099b8f6a55d11184374`, `0xb5a6c8ca369e38050784e2a6793bee6447109340`
 - Governance Safe: `0x59E4DBc95BD312A882Bb36b7f3E8298682340679`
@@ -60,7 +60,7 @@ forge test --match-test testCanonicalAddressParity -vv
 
 The `CanonicalAddressParity` test drives the real `Deploy.deploy()` function and asserts all
 5 addresses. It **must pass and print `0xBfaEEE9662b4c037De24e5Caa65815350d57b89A`**. If it
-fails, STOP — investigate before touching `--broadcast`.
+fails, STOP. Investigate before touching `--broadcast`.
 
 Alternatively, run `PredictAddresses.s.sol`:
 
@@ -99,7 +99,7 @@ Must return non-empty bytecode. If the factory is missing, the deploy will fail 
   ```
   Verify the log prints proxy `0xBfaEEE9662b4c037De24e5Caa65815350d57b89A` and the 4
   supporting addresses (impl, upgradeTLC, addTLC, purgeTLC) match every other chain.
-- [ ] Broadcast (stream to log file — do not pipe through tail):
+- [ ] Broadcast (stream to log file; do not pipe through tail):
   ```bash
   forge script script/Deploy.s.sol \
     --rpc-url <new_chain_rpc> \
@@ -112,8 +112,8 @@ Must return non-empty bytecode. If the factory is missing, the deploy will fail 
 - [ ] Verify on the chain's block explorer:
   - Proxy at `0xBfaEEE9662b4c037De24e5Caa65815350d57b89A`
   - `owner()` == upgradeTLC `0xf6F807f095D6D09c1216ffBd6AaCBB73D8F02aB6` (the 7-day
-    timelock — canonical on every chain). NOTE: this is **not** the governance Safe
-    `0x59E4DBc95BD312A882Bb36b7f3E8298682340679` — the Safe is the upgradeTLC's *proposer*
+    timelock, canonical on every chain). NOTE: this is **not** the governance Safe
+    `0x59E4DBc95BD312A882Bb36b7f3E8298682340679`; the Safe is the upgradeTLC's *proposer*
     and the `swapOwner` target in step 2, never the proxy's `owner()`.
   - `whitelistAdmin()` == addTLC `0xB83AB5772f919BE72b4AaB98456eDdED5ad68D4f`
   - `whitelistRemover()` == operator `0xda1b9dFA299d655135C1ECdc4f0b4c9aED9a7f45`
@@ -127,9 +127,9 @@ Must return non-empty bytecode. If the factory is missing, the deploy will fail 
 The newly deployed proxy has the original 6 whitelisters. The live set on other chains has
 grown. Reconcile by:
 
-1. **swapOwner** — adjust the BSC Safe's owners to match other chains' current post-cutover
+1. **swapOwner**: adjust the BSC Safe's owners to match other chains' current post-cutover
    owner set (this is immediate, no timelock).
-2. **Add-TLC scheduleBatch** — schedule `addWhitelisted` for every address in the live
+2. **Add-TLC scheduleBatch**: schedule `addWhitelisted` for every address in the live
    mainnet set that is not in the initial 6, including the relayer poster EOA
    (`0xFe6B4dFf18D741e725c7c6922CCF69121B2fFFdb`). This has a **3-day timelock** before
    execute.
@@ -146,7 +146,7 @@ cast logs \
 ```
 
 Alternatively, use the proposal script at `ops/scripts/propose-bsc-whitelist-parity.ts`
-(worktree `thatsRekt-bsc-gov`, branch `bauti/bsc-whitelist-parity-proposal`) — it reads the
+(worktree `thatsRekt-bsc-gov`, branch `bauti/bsc-whitelist-parity-proposal`); it reads the
 live set from mainnet, diffs against the initial 6, and builds the MultiSendCallOnly batch.
 
 ### Build and propose the Safe batch
@@ -157,7 +157,7 @@ The batch is: `[swapOwner(...), addTLC.scheduleBatch(addWhitelisted×N)]` via
 `MultiSendCallOnly` (`onlyCalls: true`).
 
 **⚠️ Safe signing gotcha:** when proposing via the Safe Transaction Service from a delegate
-EOA, sign the raw `safeTxHash` digest — not `signMessage`. Using `signMessage` applies
+EOA, sign the raw `safeTxHash` digest (not `signMessage`). Using `signMessage` applies
 EIP-191 prefix `\x19Ethereum Signed Message:\n32`, producing a hash the service cannot
 recover. The service recovers the wrong signer address and rejects the proposal (HTTP 4xx).
 
@@ -176,10 +176,10 @@ The Safe Transaction Service URL for BSC:
 
 - [ ] Confirm the proposal appears in the Safe UI with 0 confirmations.
 - [ ] Collect 2-of-5 signatures from Safe owners.
-- [ ] Execute — `swapOwner` lands immediately; it is NOT timelocked.
+- [ ] Execute: `swapOwner` lands immediately; it is NOT timelocked.
 - [ ] Verify `swapOwner` result onchain: new owners match other chains.
 - [ ] Wait 3 days for the Add-TLC timelock to mature.
-- [ ] Execute `executeBatch` on the Add-TLC (executor role is open — any address can call it).
+- [ ] Execute `executeBatch` on the Add-TLC (executor role is open; any address can call it).
   Keep the salt from the `scheduleBatch` call; you'll need it:
   ```bash
   cast send 0xB83AB5772f919BE72b4AaB98456eDdED5ad68D4f \
@@ -251,7 +251,7 @@ make test   # full suite including the new chain
 
 ### 3b. Infrastructure (damm-cloud)
 
-Open a worktree against `damm-cloud` (default branch: **`main`** — not `master`).
+Open a worktree against `damm-cloud` (default branch: **`main`**, not `master`).
 
 Add the new chain to the `for_each` sets in `terraform/lambdas.tf`:
 - The Lambda function map (one entry per chain)
@@ -262,7 +262,7 @@ Add the new chain's RPC endpoint to the relayer's Secrets Manager entry
 (`prod/thatsrekt-relayer/rpc`). The key convention follows the existing pattern (e.g.
 `BSC_RPC_URL` for chain 56).
 
-Reference: `damm-cloud#183` is the canonical single-entry add — the diff is minimal.
+Reference: `damm-cloud#183` is the canonical single-entry add; the diff is minimal.
 
 **⚠️ damm-cloud has no apply-on-merge CI.** Merging the Terraform PR is safe; it only
 changes infra on `terraform apply`, which is a manual operator step. Plan (`terraform plan`)
@@ -308,8 +308,8 @@ the slug to `MESH_CHAINS` in Secrets Manager + redeploying the compose stack
 (`IMAGE_TAG` = full git SHA, not short).
 
 Three data-driven registries must stay in sync. Add the new chain to all three in the same
-PR (or a tightly coupled pair of PRs — indexer+mesh together, then frontend). Two additional
-non-data-driven surfaces must also be updated by hand (§4e) — they are NOT derived from
+PR (or a tightly coupled pair of PRs: indexer+mesh together, then frontend). Two additional
+non-data-driven surfaces must also be updated by hand (§4e); they are NOT derived from
 `chains.ts` and NOT caught by the slug-coverage test.
 
 ### 4a. Indexer — `indexer/src/chains.ts`
@@ -412,7 +412,7 @@ export const SLUG_TO_PREFIX: Record<string, string> = {
 
 **⚠️ liveIndexed chains MUST have a `SLUG_TO_PREFIX` entry.** A `liveIndexed: true` chain
 without a matching entry causes `/post/<slug>/<id>` to 500. The slug-coverage test in
-`frontend/test/slug-coverage.test.ts` enforces this invariant — it will fail CI if you
+`frontend/test/slug-coverage.test.ts` enforces this invariant; it will fail CI if you
 promote a chain without adding the prefix bridge.
 
 Reference: `thatsRekt#158`.
@@ -427,14 +427,14 @@ Once all three registry PRs are merged and images are built:
    IMAGE_TAG=<full_git_sha>  # never short SHA — compose pull fails
    # Update INDEXER_TAG / MESH_TAG / FRONTEND_TAG overrides as needed
    ```
-3. The public TG notifier is chain-agnostic (reads the unified mesh feed) — no change
+3. The public TG notifier is chain-agnostic (reads the unified mesh feed); no change
    required there.
 
 ### 4e. Non-data-driven surfaces: README table + OG explorer map
 
 > **Who:** any integrator. Done in the same PR as 4a–4c (or as a follow-up patch before
 > closing the integration issue). These two surfaces are NOT derived from `chains.ts` and
-> are NOT covered by the slug-coverage test — they must be updated by hand.
+> are NOT covered by the slug-coverage test; they must be updated by hand.
 
 **⚠️ This is exactly why BSC was partially integrated.** Both surfaces were missed because
 no checklist item reminded the integrator to update them. Do not let the next chain slip.
@@ -448,7 +448,7 @@ Add the new chain's row to the table in `README.md` (under the
 | <Chain Name> | <chainId> | [<explorer-label>](<explorer_url>/address/0xBfaEEE9662b4c037De24e5Caa65815350d57b89A) |
 ```
 
-Example — BSC (chain 56):
+Example (BSC, chain 56):
 
 ```markdown
 | BNB Smart Chain | 56 | [bscscan](https://bscscan.com/address/0xBfaEEE9662b4c037De24e5Caa65815350d57b89A) |
@@ -492,7 +492,7 @@ const base: Record<string, string> = {
 Open a worktree against `damm-top-up-monitor`.
 
 Add the new chain to `KMS_EOA_CHAINS` in the seed script. For BSC (chain 56), the support
-registries (`threshold`, `<CHAIN>_JSON_RPC` env var) were already wired — verify they exist
+registries (`threshold`, `<CHAIN>_JSON_RPC` env var) were already wired; verify they exist
 before adding a new chain:
 
 ```bash
@@ -503,7 +503,7 @@ grep -n "56\|BSC\|bnb" src/monitor/chains.ts  # or equivalent
 If the chain is not pre-wired, add it to the chain registry first (threshold + RPC + display
 name), then add it to the seed.
 
-Apply the seed script and deploy **paired with funding the poster** — if the poster is
+Apply the seed script and deploy **paired with funding the poster**: if the poster is
 below-threshold at the moment the monitor first polls, it will immediately fire an alert.
 Fund first, then apply+deploy.
 
@@ -541,16 +541,16 @@ Reference: `damm-top-up-monitor#28`.
 |---|--------|--------|-----|
 | G1 | Canonical bytecode is **macOS-arm64 + forge 1.5.1** only | Deploy on Linux or wrong forge version → wrong address → parity broken | Deploy from macOS-arm64; verify forge version; run parity gate before broadcast |
 | G2 | Universal CREATE2 factory may not be deployed on new chain | `forge script --broadcast` silently deploys to wrong address | `cast code 0x4e59b…4956C` must return non-empty bytecode first |
-| G3 | Safe signing: `signMessage` vs `account.sign` | `signMessage` EIP-191-prefixes → service recovers wrong signer → HTTP 4xx proposal rejection | Use `account.sign({ hash: safeTxHash })` — signs raw digest only |
+| G3 | Safe signing: `signMessage` vs `account.sign` | `signMessage` EIP-191-prefixes → service recovers wrong signer → HTTP 4xx proposal rejection | Use `account.sign({ hash: safeTxHash })` (signs raw digest only) |
 | G4 | Relayer has three per-chain branches, not one | Missing `blocksForDuration` case → dedup lookback 5h instead of 24h → duplicate onchain posts | `grep -rn "switch chainID\|map\[uint64\]"` before writing code; add a case to all three |
 | G5 | `blocksForDuration` rounds wrong direction | Using `ceil` or a safe round → shorter lookback → missed dedup window | Round DOWN (use a block time slightly shorter than reality → more blocks → safer) |
 | G6 | Stale cross-repo checkout | Worktree for repo A was cut before a critical PR merged in repo B → falsely reports "X is missing" | `git fetch origin && git log origin/main -3` in every cross-repo clone before relying on its state |
 | G7 | `damm-cloud` default branch is `main`; `thatsRekt` is `master` | Grepping `origin/master` in damm-cloud finds nothing | Note the default branch per repo; fetch + check `origin/main` for damm-cloud |
-| G8 | `liveIndexed: true` without a `SLUG_TO_PREFIX` entry | `/post/<slug>/<id>` 500s | The slug-coverage test enforces it — add to both places atomically |
+| G8 | `liveIndexed: true` without a `SLUG_TO_PREFIX` entry | `/post/<slug>/<id>` 500s | The slug-coverage test enforces it; add to both places atomically |
 | G9 | Compose stack uses full git SHA for `IMAGE_TAG`, not short SHA | `compose pull` fails silently on short SHA → old image runs | Always use the full 40-char SHA |
 | G10 | Apply-gate: Terraform apply + hack-claw routing before poster is whitelisted | Events published to SQS reach the contract, reverts, DLQ fills up | Apply infra and activate routing only AFTER `executeBatch` confirms the poster is whitelisted |
 | G11 | Gas monitor seed without prior funding | Monitor fires immediate below-threshold alert | Fund poster first, then apply seed + deploy |
-| G12 | `README.md` chain table and `mesh/src/og.ts` `explorerAddressUrl` map are NOT data-driven | New chain silently absent from the public README and from Article JSON-LD `author.url` in social cards; slug-coverage test does NOT catch either gap | Update both by hand in §4e — they are not derived from `chains.ts` and no CI gate enforces them |
+| G12 | `README.md` chain table and `mesh/src/og.ts` `explorerAddressUrl` map are NOT data-driven | New chain silently absent from the public README and from Article JSON-LD `author.url` in social cards; slug-coverage test does NOT catch either gap | Update both by hand in §4e; they are not derived from `chains.ts` and no CI gate enforces them |
 
 ### Known limitation: silent drop for non-integrated chains
 

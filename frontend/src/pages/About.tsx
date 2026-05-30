@@ -49,7 +49,7 @@ function WaysToUse() {
       <div className="space-y-5 sm:space-y-4">
         <Bullet label="for wallets" size="large">
           Pre-flight every outbound transfer. Check the recipient's
-          attacker score before signing — if it's been confirmed by
+          attacker score before signing. If it's been confirmed by
           peers as a hack address, warn the user before money leaves.
         </Bullet>
         <Bullet label="for DEXs or bridges" size="large">
@@ -60,8 +60,8 @@ function WaysToUse() {
         <Bullet label="for lending markets" size="large">
           A keeper checks whether your own contracts appear in any
           active alert. The second a peer security team posts about
-          your protocol being drained, your pause guardian can fire —
-          even if your team hasn't woken up yet.
+          your protocol being drained, your pause guardian can fire
+          even before your team wakes up.
         </Bullet>
         <Bullet label="for security teams or detectors" size="large">
           Apply for guardian status. The moment your fork-monitor or
@@ -71,8 +71,8 @@ function WaysToUse() {
         </Bullet>
         <Bullet label="if you're just curious" size="large">
           Browse the feed. Every attack links to the actual onchain
-          attack tx, the attacker addresses, and the victim contracts
-          — before-the-fact incident reporting, not after-the-fact news.
+          attack tx, the attacker addresses, and the victim contracts.
+          Before-the-fact incident reporting, not after-the-fact news.
         </Bullet>
       </div>
       <p className="text-sm text-neutral-700">
@@ -97,13 +97,13 @@ function Hero() {
         [public good · open to read · permissioned to report]
       </p>
       <p className="text-lg sm:text-xl leading-tight text-neutral-900 font-black tracking-tight max-w-2xl">
-        thatsRekt is the onchain hack alert registry — a public list
+        thatsRekt is the onchain hack alert registry: a public list
         of active onchain exploits across every EVM chain, reported
         as they happen by vetted security firms and industry peers.
       </p>
       <p className="text-base leading-relaxed text-neutral-800">
         Two kinds of guardians keep the registry honest. Security
-        firms are fast — they spot exploits in flight and post the
+        firms are fast: they spot exploits in flight and post the
         alert first. High-signal industry peers are the second line:
         they confirm or refute the report onchain so consumers
         downstream can trust what they read.
@@ -120,7 +120,7 @@ function Hero() {
       <p className="text-base leading-relaxed text-neutral-800">
         <strong className="font-black">No fees. No tokens. No profit motive.</strong>{' '}
         Built so the broader ecosystem has reliable hack-detection
-        infrastructure — not so any one team can monetize knowing
+        infrastructure, not so any one team can monetize knowing
         about exploits first.
       </p>
     </header>
@@ -137,8 +137,8 @@ function HowItWorks() {
       </header>
       <div className="space-y-4 sm:space-y-3">
         <Bullet label="who reports">
-          Vetted security teams and automated detectors — the
-          guardians. They submit alerts (attacker addresses, victim
+          Vetted security teams and automated detectors (the
+          guardians). They submit alerts (attacker addresses, victim
           contracts, a short note) and confirm or refute each other's
           claims.
         </Bullet>
@@ -183,14 +183,13 @@ function Bullet({
   // size="large" is used by WaysToUse to give the section more visual
   // weight vs HowItWorks above it. Body text grows from text-sm to
   // text-base; label column widens to accommodate longer labels.
+  const sharedBodyClass = 'leading-relaxed text-neutral-800 min-w-0'
+  const sharedLabelClass =
+    'font-black uppercase tracking-widest text-[10px] text-neutral-700 sm:shrink-0 mb-1 sm:mb-0'
   const bodyClass =
-    size === 'large'
-      ? 'text-base leading-relaxed text-neutral-800 min-w-0'
-      : 'text-sm leading-relaxed text-neutral-800 min-w-0'
+    size === 'large' ? `text-base ${sharedBodyClass}` : `text-sm ${sharedBodyClass}`
   const labelClass =
-    size === 'large'
-      ? 'font-black uppercase tracking-widest text-[10px] text-neutral-700 sm:shrink-0 sm:w-36 mb-1 sm:mb-0'
-      : 'font-black uppercase tracking-widest text-[10px] text-neutral-700 sm:shrink-0 sm:w-28 mb-1 sm:mb-0'
+    size === 'large' ? `${sharedLabelClass} sm:w-36` : `${sharedLabelClass} sm:w-28`
   return (
     <div className="flex flex-col sm:flex-row sm:gap-3 sm:items-baseline">
       <span className={labelClass}>[{label}]</span>
@@ -201,7 +200,7 @@ function Bullet({
 
 /**
  * "Get alerts" section — a low-friction CTA for visitors who don't run
- * detectors but want to follow live attacks. Lives between the
+ * detectors but want to receive onchain hack alerts. Lives between the
  * maintainers block and the donate block: by the time a reader's
  * scrolled this far they've earned an obvious next-step.
  */

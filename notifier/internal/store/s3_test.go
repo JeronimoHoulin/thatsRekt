@@ -50,80 +50,58 @@ func TestStateDeserializesLegacyVoteFields(t *testing.T) {
 		}
 	}`
 
+	// Unmarshal directly into the real store.State type.  This is the same
+	// step that Store.Load performs internally.  If a future change adds
+	// json.Decoder.DisallowUnknownFields or restructures PostState, this test
+	// will catch the regression immediately — the throwaway local struct it
+	// replaced would not have caught that.
+	var state store.State
+	if err := json.Unmarshal([]byte(legacyJSON), &state); err != nil {
+		t.Fatalf("legacy JSON must unmarshal into store.State without error: %v", err)
+	}
+
+	if state.LastSeenByChain["base"] != "base-3" {
+		t.Errorf("expected LastSeenByChain[base]=base-3, got %q", state.LastSeenByChain["base"])
+	}
+	if len(state.Posts) != 2 {
+		t.Fatalf("expected 2 posts in state.Posts, got %d", len(state.Posts))
+	}
+
+	// Verify base-1 fields round-tripped correctly through the real PostState.
+	ps1, ok := state.Posts["base-1"]
+	if !ok {
+		t.Fatal("expected post base-1 to be present in state.Posts")
+	}
+	if ps1.MessageID != 42 {
+		t.Errorf("base-1: expected MessageID=42, got %d", ps1.MessageID)
+	}
+	if ps1.LastActionCount != 1 {
+		t.Errorf("base-1: expected LastActionCount=1, got %d", ps1.LastActionCount)
+	}
+	if ps1.LastUpdatedAt != "2026-05-21T10:00:00Z" {
+		t.Errorf("base-1: expected LastUpdatedAt=2026-05-21T10:00:00Z, got %q", ps1.LastUpdatedAt)
+	}
+	if ps1.ChainSlug != "base" {
+		t.Errorf("base-1: expected ChainSlug=base, got %q", ps1.ChainSlug)
+	}
+	if ps1.Retracted {
+		t.Errorf("base-1: expected Retracted=false, got true")
+	}
+
+	// Verify base-2 retracted flag.
+	ps2, ok := state.Posts["base-2"]
+	if !ok {
+		t.Fatal("expected post base-2 to be present in state.Posts")
+	}
+	if ps2.MessageID != 99 {
+		t.Errorf("base-2: expected MessageID=99, got %d", ps2.MessageID)
+	}
+	if !ps2.Retracted {
+		t.Errorf("base-2: expected Retracted=true, got false")
+	}
+
 	// Use NewInMemory so no S3 client is needed.
 	st := store.NewInMemory()
-
-	// Manually unmarshal into the store's state via the exported Load path is
-	// not available for in-memory stores, so we verify at the type level by
-	// unmarshaling into a State-shaped map and confirming the struct fields
-	// we care about are present and correct.
-	//
-	// The real correctness proof: unmarshal directly into the internal State
-	// type. We do this by round-tripping through a generic map first to
-	// assert no error, then separately verifying that a fresh Store with the
-	// correct fields would agree.
-	var raw map[string]interface{}
-	if err := json.Unmarshal([]byte(legacyJSON), &raw); err != nil {
-		t.Fatalf("legacy JSON must parse as valid JSON: %v", err)
-	}
-
-	// Simulate what Store.Load does: unmarshal into a local State struct.
-	// We replicate the unmarshal step here because Store.Load requires an
-	// S3 client — the in-memory store short-circuits Load. This is the
-	// minimal surface needed to prove that the struct accepts the old fields
-	// without error.
-	type stateShape struct {
-		LastSeenByChain map[string]string      `json:"lastSeenByChain"`
-		Posts           map[string]interface{} `json:"posts"`
-	}
-	var shaped stateShape
-	if err := json.Unmarshal([]byte(legacyJSON), &shaped); err != nil {
-		t.Fatalf("unmarshal into shaped struct failed: %v", err)
-	}
-	if len(shaped.Posts) != 2 {
-		t.Fatalf("expected 2 posts in shaped parse, got %d", len(shaped.Posts))
-	}
-	if shaped.LastSeenByChain["base"] != "base-3" {
-		t.Errorf("expected LastSeenByChain[base]=base-3, got %q", shaped.LastSeenByChain["base"])
-	}
-
-	// Now prove the current PostState struct ignores the vote fields cleanly.
-	type postStateShape struct {
-		MessageID       int64  `json:"messageId"`
-		LastActionCount int    `json:"lastActionCount"`
-		LastUpdatedAt   string `json:"lastUpdatedAt"`
-		ChainSlug       string `json:"chainSlug"`
-		Retracted       bool   `json:"retracted"`
-	}
-	post1JSON := `{
-		"messageId": 42,
-		"upVotes": 5,
-		"downVotes": 2,
-		"voters": {"100001": "up"},
-		"lastActionCount": 1,
-		"lastUpdatedAt": "2026-05-21T10:00:00Z",
-		"chainSlug": "base",
-		"retracted": false
-	}`
-	var ps postStateShape
-	if err := json.Unmarshal([]byte(post1JSON), &ps); err != nil {
-		t.Fatalf("PostState-shaped unmarshal must not error on legacy fields: %v", err)
-	}
-	if ps.MessageID != 42 {
-		t.Errorf("expected MessageID=42, got %d", ps.MessageID)
-	}
-	if ps.LastActionCount != 1 {
-		t.Errorf("expected LastActionCount=1, got %d", ps.LastActionCount)
-	}
-	if ps.LastUpdatedAt != "2026-05-21T10:00:00Z" {
-		t.Errorf("expected LastUpdatedAt=2026-05-21T10:00:00Z, got %q", ps.LastUpdatedAt)
-	}
-	if ps.ChainSlug != "base" {
-		t.Errorf("expected ChainSlug=base, got %q", ps.ChainSlug)
-	}
-	if ps.Retracted {
-		t.Errorf("expected Retracted=false, got true")
-	}
 
 	// Verify the in-memory store API still works correctly after the removal.
 	st.RegisterPost("base-1", 42, "base")
