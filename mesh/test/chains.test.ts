@@ -84,3 +84,53 @@ describe('BSC chain entry', () => {
     expect(bsc?.registryAddress).toBe('0xBfaEEE9662b4c037De24e5Caa65815350d57b89A')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Polygon entry (DAMM-Cap/damm-thatsrekt-relayer#134 — consumes graphql-polygon:4363 from #162)
+// ---------------------------------------------------------------------------
+
+describe('Polygon chain entry', () => {
+  const polygon = CHAINS.find((c) => c.slug === 'polygon') as ChainEntry | undefined
+
+  test('polygon entry exists in the registry', () => {
+    expect(polygon).toBeDefined()
+  })
+
+  test('chainId is 137 (Polygon mainnet)', () => {
+    expect(polygon?.chainId).toBe(137)
+  })
+
+  test('slug is polygon', () => {
+    expect(polygon?.slug).toBe('polygon')
+  })
+
+  test('prefix is Polygon_', () => {
+    // Prefix must be unique and contain no hyphens — GraphQL field names
+    // cannot contain hyphens.  Must match the frontend SLUG_TO_PREFIX
+    // entry `polygon` → `Polygon` (trailing underscore added by the mesh).
+    expect(polygon?.prefix).toBe('Polygon_')
+  })
+
+  test('default endpoint targets graphql-polygon:4363 (matches #162 graphql-polygon compose port)', () => {
+    // When GRAPHQL_POLYGON_URL is unset, the fallback must point at the
+    // graphql-polygon service on port 4363 — the port #162 exposes in prod.
+    const originalEnv = process.env.GRAPHQL_POLYGON_URL
+    delete process.env.GRAPHQL_POLYGON_URL
+
+    // Re-import via dynamic import with a fresh module cache isn't
+    // straightforward in bun:test without module isolation, so we inspect
+    // the static default embedded in the entry directly by checking the
+    // production hostname/port pattern matches the expectation.
+    expect(polygon?.endpoint).toContain('graphql-polygon')
+    expect(polygon?.endpoint).toContain('4363')
+    expect(polygon?.endpoint).toContain('/graphql')
+
+    if (originalEnv !== undefined) process.env.GRAPHQL_POLYGON_URL = originalEnv
+  })
+
+  test('registryAddress matches the v1.2.0 CREATE2 canonical proxy', () => {
+    // Same address as Ethereum/Base/Arbitrum/Optimism/BSC — deployed via
+    // CREATE2 to identical address on every supported chain.
+    expect(polygon?.registryAddress).toBe('0xBfaEEE9662b4c037De24e5Caa65815350d57b89A')
+  })
+})
