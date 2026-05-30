@@ -7,9 +7,9 @@
 //   - an S3 bucket the IAM role has GetObject/PutObject on
 //
 // Lifecycle:
-//   1. Load config + state from S3.
-//   2. Start two goroutines: poll loop + callback loop.
-//   3. On SIGTERM (Fargate stop signal): cancel ctx, flush state, exit 0.
+//  1. Load config + state from S3.
+//  2. Start poll goroutine + main event loop (ticker + flush).
+//  3. On SIGTERM (Fargate stop signal): cancel ctx, flush state, exit 0.
 package main
 
 import (

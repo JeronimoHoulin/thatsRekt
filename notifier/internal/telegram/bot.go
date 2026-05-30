@@ -1,10 +1,9 @@
 // Package telegram — minimal Bot API client.
 //
-// Bot API only — no MTProto. We need exactly four operations:
-//   sendMessage      → drop a new alert in the channel
-//   editMessageReplyMarkup → update the inline keyboard counts after a vote
-//   getUpdates       → long-poll for callback_query (button-press) events
-//   answerCallbackQuery → ack the press so the user's client stops spinning
+// Bot API only — no MTProto. We need exactly two operations:
+//
+//	sendMessage      → drop a new alert in the channel
+//	editMessageText  → update an existing message in place (amendments + retracts)
 //
 // All requests go to https://api.telegram.org/bot<TOKEN>/<method> as JSON.
 package telegram
@@ -135,112 +134,6 @@ func (b *Bot) EditMessageText(ctx context.Context, chatID string, messageID int6
 		return fmt.Errorf("editMessageText: %s", out.Description)
 	}
 	return nil
-}
-
-type editReplyMarkupReq struct {
-	ChatID      string                `json:"chat_id"`
-	MessageID   int64                 `json:"message_id"`
-	ReplyMarkup *InlineKeyboardMarkup `json:"reply_markup"`
-}
-
-// EditReplyMarkup updates the inline keyboard on an existing message —
-// used after a vote to reflect the new counts. Telegram returns 400 if
-// the new markup is identical to the old one; we treat that as a no-op.
-func (b *Bot) EditReplyMarkup(ctx context.Context, chatID string, messageID int64, kb *InlineKeyboardMarkup) error {
-	body, _ := json.Marshal(editReplyMarkupReq{
-		ChatID:      chatID,
-		MessageID:   messageID,
-		ReplyMarkup: kb,
-	})
-	var out struct {
-		OK          bool   `json:"ok"`
-		Description string `json:"description"`
-	}
-	if err := b.call(ctx, "editMessageReplyMarkup", body, &out); err != nil {
-		return err
-	}
-	if !out.OK {
-		// 400 with "message is not modified" is benign — return nil so
-		// the caller doesn't spam logs on idempotent re-presses.
-		// Telegram historically returns this with and without the
-		// "Bad Request:" prefix — use substring match for robustness.
-		if strings.Contains(out.Description, "message is not modified") {
-			return nil
-		}
-		return fmt.Errorf("editMessageReplyMarkup: %s", out.Description)
-	}
-	return nil
-}
-
-// --- callbacks -------------------------------------------------------------
-
-type Update struct {
-	UpdateID      int64          `json:"update_id"`
-	CallbackQuery *CallbackQuery `json:"callback_query,omitempty"`
-}
-
-type CallbackQuery struct {
-	ID   string `json:"id"`
-	From struct {
-		ID int64 `json:"id"`
-	} `json:"from"`
-	Message struct {
-		MessageID int64 `json:"message_id"`
-	} `json:"message"`
-	Data string `json:"data"`
-}
-
-type getUpdatesReq struct {
-	Offset         int64    `json:"offset,omitempty"`
-	Timeout        int      `json:"timeout"`
-	AllowedUpdates []string `json:"allowed_updates"`
-}
-
-type getUpdatesResp struct {
-	OK          bool     `json:"ok"`
-	Result      []Update `json:"result"`
-	Description string   `json:"description,omitempty"`
-}
-
-// GetUpdates long-polls for new updates after `offset`. We only ask for
-// callback_query events — channel posts the bot itself sends are not
-// echoed back via this endpoint anyway, so the filter is mostly to skip
-// any future "message" / "edited_message" updates we don't care about.
-func (b *Bot) GetUpdates(ctx context.Context, offset int64, timeout time.Duration) ([]Update, error) {
-	body, _ := json.Marshal(getUpdatesReq{
-		Offset:         offset,
-		Timeout:        int(timeout.Seconds()),
-		AllowedUpdates: []string{"callback_query"},
-	})
-	var out getUpdatesResp
-	if err := b.call(ctx, "getUpdates", body, &out); err != nil {
-		return nil, err
-	}
-	if !out.OK {
-		return nil, fmt.Errorf("getUpdates: %s", out.Description)
-	}
-	return out.Result, nil
-}
-
-type answerCallbackReq struct {
-	CallbackQueryID string `json:"callback_query_id"`
-	Text            string `json:"text,omitempty"`
-	ShowAlert       bool   `json:"show_alert,omitempty"`
-}
-
-// AnswerCallback acknowledges a button press — Telegram requires this
-// within 15s or the user's client shows an indefinite spinner. Optional
-// text shows as a toast over the chat.
-func (b *Bot) AnswerCallback(ctx context.Context, queryID, text string) error {
-	body, _ := json.Marshal(answerCallbackReq{
-		CallbackQueryID: queryID,
-		Text:            text,
-	})
-	var out struct {
-		OK          bool   `json:"ok"`
-		Description string `json:"description"`
-	}
-	return b.call(ctx, "answerCallbackQuery", body, &out)
 }
 
 // --- HTTP plumbing ---------------------------------------------------------

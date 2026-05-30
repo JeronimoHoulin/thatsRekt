@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Maintainers } from '../components/Maintainers'
 import { BecomeAPosterCallout } from '../components/BecomeAPosterCallout'
 import { TgChannelCTA } from '../components/TgChannelCTA'
@@ -45,35 +46,43 @@ function WaysToUse() {
           [for builders · for security teams · for everyone]
         </p>
       </header>
-      <div className="space-y-4 sm:space-y-3">
-        <Bullet label="for wallets">
+      <div className="space-y-5 sm:space-y-4">
+        <Bullet label="for wallets" size="large">
           Pre-flight every outbound transfer. Check the recipient's
           attacker score before signing — if it's been confirmed by
           peers as a hack address, warn the user before money leaves.
         </Bullet>
-        <Bullet label="for DEXs or bridges">
+        <Bullet label="for DEXs or bridges" size="large">
           Read directly from the registry on-chain. Block swaps where
           the input or output token has been reported as a victim
           contract; refuse cross-chain releases to flagged addresses.
         </Bullet>
-        <Bullet label="for lending markets">
+        <Bullet label="for lending markets" size="large">
           A keeper checks whether your own contracts appear in any
           active alert. The second a peer security team posts about
           your protocol being drained, your pause guardian can fire —
           even if your team hasn't woken up yet.
         </Bullet>
-        <Bullet label="for security teams or detectors">
+        <Bullet label="for security teams or detectors" size="large">
           Apply for guardian status. The moment your fork-monitor or
           mempool scanner fires, report the attacker addresses on-chain.
           Other guardians race to confirm or refute. Confirmer
           karma builds reputation over time.
         </Bullet>
-        <Bullet label="if you're just curious">
+        <Bullet label="if you're just curious" size="large">
           Browse the feed. Every attack links to the actual on-chain
           attack tx, the attacker addresses, and the victim contracts
           — before-the-fact incident reporting, not after-the-fact news.
         </Bullet>
       </div>
+      <p className="text-sm text-neutral-700">
+        <Link
+          to="/docs#use-cases"
+          className="font-mono rekt-link"
+        >
+          see the full onchain use cases with code in the docs →
+        </Link>
+      </p>
     </section>
   )
 }
@@ -161,21 +170,31 @@ function HowItWorks() {
 function Bullet({
   label,
   children,
+  size = 'default',
 }: {
   label: string
   children: React.ReactNode
+  size?: 'default' | 'large'
 }) {
   // Stacks vertically on mobile (label above text) so long labels
   // don't clip into the right column. On sm+ goes side-by-side with
   // a fixed-width label gutter for easy scanning.
+  //
+  // size="large" is used by WaysToUse to give the section more visual
+  // weight vs HowItWorks above it. Body text grows from text-sm to
+  // text-base; label column widens to accommodate longer labels.
+  const bodyClass =
+    size === 'large'
+      ? 'text-base leading-relaxed text-neutral-800 min-w-0'
+      : 'text-sm leading-relaxed text-neutral-800 min-w-0'
+  const labelClass =
+    size === 'large'
+      ? 'font-black uppercase tracking-widest text-[10px] text-neutral-700 sm:shrink-0 sm:w-36 mb-1 sm:mb-0'
+      : 'font-black uppercase tracking-widest text-[10px] text-neutral-700 sm:shrink-0 sm:w-28 mb-1 sm:mb-0'
   return (
     <div className="flex flex-col sm:flex-row sm:gap-3 sm:items-baseline">
-      <span className="font-black uppercase tracking-widest text-[10px] text-neutral-700 sm:shrink-0 sm:w-28 mb-1 sm:mb-0">
-        [{label}]
-      </span>
-      <p className="text-sm leading-relaxed text-neutral-800 min-w-0">
-        {children}
-      </p>
+      <span className={labelClass}>[{label}]</span>
+      <p className={bodyClass}>{children}</p>
     </div>
   )
 }
@@ -189,13 +208,10 @@ function Bullet({
 function GetAlertsSection() {
   return (
     <section className="space-y-4">
-      <header className="space-y-1">
+      <header>
         <h2 className="font-black uppercase tracking-tighter text-2xl sm:text-3xl leading-none">
           get alerts
         </h2>
-        <p className="text-xs uppercase tracking-widest text-neutral-700">
-          [follow live attacks on telegram]
-        </p>
       </header>
       <TgChannelCTA variant="panel" />
     </section>
