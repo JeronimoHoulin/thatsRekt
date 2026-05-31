@@ -1,9 +1,17 @@
 /**
  * Unit tests for donationMapper — pure module, no I/O.
  * Written test-first (TDD).
+ *
+ * Slice #207 additions: ERC20 branch tests (mapErc20Transfer).
  */
 import { describe, expect, test } from 'bun:test'
-import { mapNativeTransfer, normalizAmount, type NativeTransferInput } from '../src/donationMapper.ts'
+import {
+  mapNativeTransfer,
+  mapErc20Transfer,
+  normalizAmount,
+  type NativeTransferInput,
+  type Erc20TransferInput,
+} from '../src/donationMapper.ts'
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -17,6 +25,29 @@ const BASE_INPUT: NativeTransferInput = Object.freeze({
   blockNumber: 20_000_000,
   blockTimestampMs: 1_700_000_000_000,
   value: 1_000_000_000_000_000_000n, // 1 ETH
+})
+
+// USDC — 6 decimals, allowlisted on Ethereum
+const USDC_ADDRESS = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+// WBTC — 8 decimals, allowlisted on Ethereum
+const WBTC_ADDRESS = '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599'
+// A random non-allowlisted token
+const SPAM_TOKEN = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+
+const DONATION_SAFE = '0x59e4dbc95bd312a882bb36b7f3e8298682340679'
+const DONOR = '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
+
+const BASE_ERC20_INPUT: Erc20TransferInput = Object.freeze({
+  chainId: 1,
+  chainSlug: 'ethereum',
+  tokenAddress: USDC_ADDRESS,
+  fromAddress: DONOR,
+  toAddress: DONATION_SAFE,
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  txHash: '0xerc20txhash00000000000000000000000000000000000000000000000000001',
+  logIndex: 5,
+  blockNumber: 20_000_001,
+  blockTimestampMs: 1_700_000_012_000,
 })
 
 // ---------------------------------------------------------------------------
@@ -54,6 +85,14 @@ describe('normalizAmount', () => {
 
   test('6 decimals: 1_500_000 = "1.5"', () => {
     expect(normalizAmount(1_500_000n, 6)).toBe('1.5')
+  })
+
+  test('8 decimals (WBTC): 100_000_000 = "1"', () => {
+    expect(normalizAmount(100_000_000n, 8)).toBe('1')
+  })
+
+  test('8 decimals (WBTC): 50_000_000 = "0.5"', () => {
+    expect(normalizAmount(50_000_000n, 8)).toBe('0.5')
   })
 })
 
@@ -125,6 +164,108 @@ describe('mapNativeTransfer — drop conditions', () => {
 
   test('returns null for a completely unknown chain', () => {
     const row = mapNativeTransfer({ ...BASE_INPUT, chainId: 999999, chainSlug: 'unknown' })
+    expect(row).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// mapErc20Transfer — success path
+// ---------------------------------------------------------------------------
+
+describe('mapErc20Transfer — success path', () => {
+  test('returns a DonationRow for an allowlisted USDC transfer (6 decimals)', () => {
+    const row = mapErc20Transfer(BASE_ERC20_INPUT)
+    expect(row).not.toBeNull()
+    expect(row!.id).toBe(`1-${BASE_ERC20_INPUT.txHash}-5`)
+    expect(row!.chainId).toBe(1)
+    expect(row!.chainSlug).toBe('ethereum')
+    expect(row!.fromAddress).toBe(DONOR.toLowerCase())
+    expect(row!.tokenAddress).toBe(USDC_ADDRESS)
+    expect(row!.tokenSymbol).toBe('USDC')
+    expect(row!.tokenDecimals).toBe(6)
+    expect(row!.amountRaw).toBe('1000000')
+    expect(row!.amountNorm).toBe('1')
+    expect(row!.txHash).toBe(BASE_ERC20_INPUT.txHash)
+    expect(row!.logIndex).toBe(5)
+    expect(row!.blockNumber).toBe(BASE_ERC20_INPUT.blockNumber)
+    expect(row!.blockTimestamp).toEqual(new Date(BASE_ERC20_INPUT.blockTimestampMs))
+  })
+
+  test('USDC 100.5 (6 decimals) normalizes correctly', () => {
+    const row = mapErc20Transfer({ ...BASE_ERC20_INPUT, amount: 100_500_000n })
+    expect(row).not.toBeNull()
+    expect(row!.amountNorm).toBe('100.5')
+    expect(row!.amountRaw).toBe('100500000')
+  })
+
+  test('WBTC 0.5 BTC (8 decimals) normalizes correctly', () => {
+    const row = mapErc20Transfer({
+      ...BASE_ERC20_INPUT,
+      tokenAddress: WBTC_ADDRESS,
+      amount: 50_000_000n,
+      logIndex: 2,
+    })
+    expect(row).not.toBeNull()
+    expect(row!.tokenSymbol).toBe('WBTC')
+    expect(row!.tokenDecimals).toBe(8)
+    expect(row!.amountNorm).toBe('0.5')
+  })
+
+  test('tokenAddress is lowercased in the row', () => {
+    const row = mapErc20Transfer({
+      ...BASE_ERC20_INPUT,
+      tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // checksummed
+    })
+    expect(row).not.toBeNull()
+    expect(row!.tokenAddress).toBe(USDC_ADDRESS)
+  })
+
+  test('fromAddress is lowercased in the row', () => {
+    const row = mapErc20Transfer({
+      ...BASE_ERC20_INPUT,
+      fromAddress: '0xF39FD6E51AAD88F6F4CE6AB8827279CFFFB92266',
+    })
+    expect(row).not.toBeNull()
+    expect(row!.fromAddress).toBe(DONOR.toLowerCase())
+  })
+
+  test('id uses logIndex not "native"', () => {
+    const row = mapErc20Transfer({ ...BASE_ERC20_INPUT, logIndex: 99 })
+    expect(row!.id).toBe(`1-${BASE_ERC20_INPUT.txHash}-99`)
+  })
+
+  test('logIndex is populated (not null)', () => {
+    const row = mapErc20Transfer(BASE_ERC20_INPUT)
+    expect(row!.logIndex).toBe(5)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// mapErc20Transfer — drop conditions
+// ---------------------------------------------------------------------------
+
+describe('mapErc20Transfer — drop conditions (anti-spam guarantee)', () => {
+  test('non-allowlisted token returns null', () => {
+    const row = mapErc20Transfer({ ...BASE_ERC20_INPUT, tokenAddress: SPAM_TOKEN })
+    expect(row).toBeNull()
+  })
+
+  test('zero amount returns null', () => {
+    const row = mapErc20Transfer({ ...BASE_ERC20_INPUT, amount: 0n })
+    expect(row).toBeNull()
+  })
+
+  test('unknown chain returns null even for allowlisted token address', () => {
+    const row = mapErc20Transfer({ ...BASE_ERC20_INPUT, chainId: 8453 })
+    expect(row).toBeNull()
+  })
+
+  test('non-allowlisted token on unknown chain returns null', () => {
+    const row = mapErc20Transfer({
+      ...BASE_ERC20_INPUT,
+      chainId: 999999,
+      tokenAddress: SPAM_TOKEN,
+    })
     expect(row).toBeNull()
   })
 })

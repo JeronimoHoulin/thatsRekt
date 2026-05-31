@@ -1,15 +1,15 @@
 /**
  * Donations indexer — processor entry point.
  *
- * Watches native-value transactions whose `to` is the thatsrekt.eth
- * donation Safe on Ethereum mainnet, from the Safe's deployment block.
+ * Watches native-value transactions AND allowlisted ERC20 Transfer logs
+ * whose recipient is the thatsrekt.eth donation Safe on Ethereum mainnet.
  * Writes rows to the `donation` table in `thatsrekt_donations` DB.
  *
  * Processor-only: no squid-graphql-server is started here.
  * The mesh reads directly via a second pg pool (DONATIONS_DB_URL).
  *
- * Walking skeleton (slice #205): Ethereum + native ETH only.
- * Slice #207 adds ERC20 addLog() subscriptions.
+ * Slice #205: Ethereum + native ETH only.
+ * Slice #207: ERC20 Transfer log subscriptions added.
  * Slice #209 adds additional chains.
  */
 
@@ -24,7 +24,8 @@ import type {
 } from '@subsquid/util-internal-processor-tools'
 import pkg from 'pg'
 import { ensureDonationTable, upsertDonation } from './donationStore.js'
-import { mapNativeTransfer } from './donationMapper.js'
+import { mapNativeTransfer, mapErc20Transfer } from './donationMapper.js'
+import { erc20Addresses, TRANSFER_TOPIC0 } from './tokenAllowlist.js'
 
 const { Pool } = pkg
 
@@ -81,12 +82,29 @@ pool.on('error', (err) => {
 // ---------------------------------------------------------------------------
 // Subsquid processor.
 //
-// We subscribe to ALL transactions to the Safe address (addTransaction with
-// to filter). The `transaction` field must be requested for value access.
+// Subscriptions:
+//   - addTransaction({to:[Safe]}) — native value transfers to the Safe.
+//   - addLog({address:[token], topic0:[Transfer], topic2:[Safe]}) per ERC20
+//     — Transfer events directed to the Safe from each allowlisted token.
+//     topic2 = recipient (second indexed arg of Transfer(from,to,amount)).
+//
+// The `topic2` filter is Subsquid's server-side filter: only logs where
+// topics[2] matches the Safe address padded to 32 bytes are returned.
+// We still verify `to` defensively in the handler.
+//
 // No gateway for local Anvil forks — falls back to RPC-only.
 // ---------------------------------------------------------------------------
 
-const base = new EvmBatchProcessor()
+// Pad an address to a 32-byte topic (0x + 64 hex chars, address in lower 20 bytes).
+const addressToTopic = (addr: string): string =>
+  '0x' + addr.replace(/^0x/, '').toLowerCase().padStart(64, '0')
+
+const DONATION_SAFE_TOPIC = addressToTopic(DONATION_SAFE)
+
+// Retrieve all allowlisted ERC20 addresses for chain 1 (Ethereum).
+const ERC20_ADDRESSES = erc20Addresses(CHAIN_ID)
+
+let base = new EvmBatchProcessor()
   .setRpcEndpoint({
     url: RPC_URL,
     rateLimit: 10,
@@ -99,11 +117,28 @@ const base = new EvmBatchProcessor()
       value: true,
       hash: true,
     },
+    log: {
+      address: true,
+      topics: true,
+      data: true,
+      transactionHash: true,
+    },
   })
   .setBlockRange({ from: START_BLOCK })
   .addTransaction({
     to: [DONATION_SAFE],
   })
+
+// Register one addLog subscription per allowlisted ERC20.
+// Filter: Transfer topic0 + Safe as recipient (topic2).
+for (const tokenAddr of ERC20_ADDRESSES) {
+  base = base.addLog({
+    address: [tokenAddr],
+    topic0: [TRANSFER_TOPIC0],
+    topic2: [DONATION_SAFE_TOPIC],
+    transaction: true,
+  })
+}
 
 // Subsquid Network archive — only for production Ethereum mainnet.
 // For local Anvil forks (no archive) we skip the gateway; the processor
@@ -129,6 +164,7 @@ const main = async () => {
     buildHotDatabase(pool),
     async (ctx) => {
       for (const block of ctx.blocks) {
+        // Native value transfers.
         for (const tx of block.transactions) {
           // Defensive: ensure the `to` field matches our Safe.
           if (!tx.to || tx.to.toLowerCase() !== DONATION_SAFE) continue
@@ -152,6 +188,54 @@ const main = async () => {
 
           await upsertDonation(pool, row)
           ctx.log.info(`[donations-indexer] indexed donation ${row.id} — ${row.amountNorm} ${row.tokenSymbol}`)
+        }
+
+        // ERC20 Transfer logs.
+        for (const log of block.logs) {
+          // topic0 = Transfer, topic1 = from, topic2 = to (padded address)
+          const topics = log.topics
+          if (topics.length < 3) continue
+
+          // Defensive: verify topic0 is Transfer.
+          if (topics[0]?.toLowerCase() !== TRANSFER_TOPIC0) continue
+
+          // Decode `from` and `to` from the padded 32-byte topics.
+          const fromAddress = '0x' + (topics[1] ?? '').slice(-40)
+          const toAddress = '0x' + (topics[2] ?? '').slice(-40)
+
+          // Defensive: ensure the recipient is our Safe.
+          if (toAddress.toLowerCase() !== DONATION_SAFE) continue
+
+          // Decode amount from data (uint256, 32 bytes big-endian).
+          const amount = log.data && log.data !== '0x' ? BigInt(log.data) : 0n
+
+          // Resolve the tx hash: log has transactionHash directly.
+          const txHash = log.transactionHash
+
+          const row = mapErc20Transfer({
+            chainId: CHAIN_ID,
+            chainSlug: CHAIN_SLUG,
+            tokenAddress: log.address,
+            fromAddress,
+            toAddress,
+            amount,
+            txHash,
+            logIndex: log.logIndex,
+            blockNumber: block.header.height,
+            blockTimestampMs: block.header.timestamp,
+          })
+
+          if (!row) {
+            ctx.log.debug(
+              `[donations-indexer] dropped ERC20 log ${log.address}:${log.logIndex} (token not allowlisted or zero amount)`,
+            )
+            continue
+          }
+
+          await upsertDonation(pool, row)
+          ctx.log.info(
+            `[donations-indexer] indexed ERC20 donation ${row.id} — ${row.amountNorm} ${row.tokenSymbol}`,
+          )
         }
       }
     },

@@ -1,6 +1,6 @@
 # donations-indexer
 
-Subsquid processor watching native-coin donations to the `thatsrekt.eth` Safe on Ethereum mainnet. Persists donation rows to a dedicated Postgres database (`thatsrekt_donations`). No Squid GraphQL server — the mesh gateway reads via a second pool.
+Subsquid processor watching native-coin and ERC20 donations to the `thatsrekt.eth` Safe on Ethereum mainnet. Persists donation rows to a dedicated Postgres database (`thatsrekt_donations`). No Squid GraphQL server — the mesh gateway reads via a second pool.
 
 ## Stack
 
@@ -9,11 +9,11 @@ Subsquid processor watching native-coin donations to the `thatsrekt.eth` Safe on
 - **Language:** TypeScript compiled to CJS via `tsc`
 - **Runtime:** Node 20
 
-## Walking skeleton scope (slice #205)
+## Scope
 
-- Ethereum mainnet + native ETH only.
-- Slice #207 adds ERC20 Transfer log subscriptions.
-- Slice #209 adds additional chains (Base, Arbitrum, Optimism).
+- Slice #205: Ethereum mainnet + native ETH only.
+- Slice #207: ERC20 Transfer log subscriptions (~9 major tokens on Ethereum).
+- Slice #209: Additional chains (Base, Arbitrum, Optimism).
 - Top-level-tx value transfers only (slice #209 adds internal CALL traces).
 
 ## Quickstart — local anvil testbed
@@ -57,20 +57,41 @@ Set `FINALITY_CONFIRMATION=0` for local anvil testing to treat all blocks as fin
 
 ## Testing
 
+All tests require both `TEST_DB_URL` **and** `TEST_SUPERUSER_URL` to be set (or rely on the defaults below). The superuser URL is used to `CREATE DATABASE` if the test DB does not yet exist.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `TEST_DB_URL` | `postgres://postgres:postgres@localhost:5432/donations_test` | Test database connection string |
+| `TEST_SUPERUSER_URL` | `postgres://postgres:postgres@localhost:5432/postgres` | Superuser connection used to bootstrap the test DB |
+| `TEST_ERC20_DB_URL` | `postgres://postgres:postgres@localhost:5432/donations_erc20_test` | Separate test DB for ERC20 e2e (avoids table collisions with native e2e) |
+| `FORK_URL` | — | Ethereum archive RPC for the ERC20 e2e mainnet fork. Falls back to `RPC_ETHEREUM_HTTP`. Required for `processor.erc20.e2e.test.ts`. |
+
 ```bash
 # Unit tests (no infrastructure needed):
 bun test test/donationMapper.test.ts test/tokenAllowlist.test.ts
 
 # Store e2e (real Postgres required):
 docker run --rm -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16-alpine
-bun test test/donationStore.e2e.test.ts
+TEST_SUPERUSER_URL=postgres://postgres:postgres@localhost:5432/postgres \
+  bun test test/donationStore.e2e.test.ts
 
-# Processor e2e (real Postgres + anvil required):
+# Processor e2e — native ETH (real Postgres + anvil required):
 bun run build
-bun test test/processor.e2e.test.ts
+TEST_DB_URL=postgres://postgres:postgres@localhost:5432/donations_test \
+TEST_SUPERUSER_URL=postgres://postgres:postgres@localhost:5432/postgres \
+  bun test test/processor.e2e.test.ts
 
-# Full suite:
-bun test
+# Processor e2e — ERC20 (real Postgres + anvil mainnet fork required):
+bun run build
+TEST_DB_URL=postgres://postgres:postgres@localhost:5432/donations_test \
+TEST_SUPERUSER_URL=postgres://postgres:postgres@localhost:5432/postgres \
+TEST_ERC20_DB_URL=postgres://postgres:postgres@localhost:5432/donations_erc20_test \
+FORK_URL=https://lb.routeme.sh/rpc/1/<key> \
+  bun test test/processor.erc20.e2e.test.ts
+
+# Full suite (requires Postgres + anvil + archive RPC):
+TEST_DB_URL=... TEST_SUPERUSER_URL=... TEST_ERC20_DB_URL=... FORK_URL=... \
+  bun test
 ```
 
 ## Schema
@@ -79,7 +100,7 @@ The processor creates and owns two tables on startup:
 
 | Table | Purpose |
 |---|---|
-| `donation` | One row per indexed donation. PK: `${chainId}-${txHash}-native`. |
+| `donation` | One row per indexed donation. PK: `${chainId}-${txHash}-native` for native, `${chainId}-${txHash}-${logIndex}` for ERC20. |
 | `donations_indexer_status` | Single-row cursor: `height` + `hash` of last committed finalized block. |
 
 Both tables are created with `IF NOT EXISTS` — safe to restart on an existing database.
