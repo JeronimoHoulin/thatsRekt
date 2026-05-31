@@ -15,6 +15,13 @@
 
 import 'dotenv/config'
 import { EvmBatchProcessor } from '@subsquid/evm-processor'
+import type {
+  HotDatabase,
+  HotDatabaseState,
+  HotTxInfo,
+  FinalTxInfo,
+  HashAndHeight,
+} from '@subsquid/util-internal-processor-tools'
 import pkg from 'pg'
 import { ensureDonationTable, upsertDonation } from './donationStore.js'
 import { mapNativeTransfer } from './donationMapper.js'
@@ -49,6 +56,13 @@ const CHAIN_SLUG = 'ethereum'
 // be overridden for testing (anvil fork starts much later).
 const START_BLOCK = parseInt(process.env.START_BLOCK_ETHEREUM ?? '19000000', 10)
 
+// Finality confirmation in blocks.
+// Default: 75 (Ethereum PoS justification depth, ~15 min).
+// Set FINALITY_CONFIRMATION=0 in tests (e.g. anvil e2e) to treat all blocks
+// as final — with allBlocksAreFinal=true, the processor only calls transact()
+// and skips the hot-block phase entirely.
+const FINALITY_CONFIRMATION = parseInt(process.env.FINALITY_CONFIRMATION ?? '75', 10)
+
 // ---------------------------------------------------------------------------
 // Postgres pool for donations DB.
 // ---------------------------------------------------------------------------
@@ -77,7 +91,7 @@ const base = new EvmBatchProcessor()
     url: RPC_URL,
     rateLimit: 10,
   })
-  .setFinalityConfirmation(75)
+  .setFinalityConfirmation(FINALITY_CONFIRMATION)
   .setFields({
     transaction: {
       to: true,
@@ -106,14 +120,13 @@ const main = async () => {
   await ensureDonationTable(pool)
   console.log('[donations-indexer] donation table ensured')
 
-  // TypeormDatabase is not used here — we manage PG directly via our pool
-  // (same pattern as mesh/src/db.ts comments table).
-  // Subsquid's raw run() loop gives us blocks + transactions per batch.
+  // We manage PG directly via our pool — no TypeORM overhead.
+  // buildHotDatabase() returns a HotDatabase<void> that satisfies the full
+  // Subsquid Database contract. Finalized batches are written in transact();
+  // hot (unfinalized) batches are ignored in transactHot() — the cursor only
+  // advances on finalized data so reorgs cannot introduce phantom rows.
   processor.run(
-    // We use the raw Database interface (no TypeORM store). Subsquid's
-    // EvmBatchProcessor.run() accepts a Database-compatible object; we
-    // supply a minimal one that tracks height in our pg pool.
-    buildRawDatabase(pool),
+    buildHotDatabase(pool),
     async (ctx) => {
       for (const block of ctx.blocks) {
         for (const tx of block.transactions) {
@@ -146,28 +159,35 @@ const main = async () => {
 }
 
 // ---------------------------------------------------------------------------
-// Minimal raw Database implementation for EvmBatchProcessor.
+// HotDatabase<void> implementation.
 //
-// Subsquid's run() API requires a Database-compatible object implementing
-// `connect()`, `transact()`, `advance()`, and `getState()`. We implement
-// a lightweight version that tracks the processor's last block in a
-// single-row `donations_indexer_status` table. This avoids pulling in
-// TypeormDatabase (and its full TypeORM/migration overhead) for a
-// processor that manages its own schema.
+// Subsquid's run<Store>(db: Database<Store>, ...) requires a Database that
+// satisfies either FinalDatabase<S> or HotDatabase<S>.
+//
+// We implement HotDatabase<void>:
+//   - The void store type means the handler receives `store: void` which it
+//     ignores (handlers write directly via the module-level pg pool).
+//   - supportsHotBlocks: true  — required so the runner can enter the
+//     near-head hot-block phase without crashing.
+//   - connect()       — reads {height, hash, top:[]} from the status table.
+//   - transact()      — finalised-block path: run the handler, then advance
+//                       the cursor to info.nextHead. This is where all
+//                       donation rows are written (post finality-depth).
+//   - transactHot()   — hot-block path: no-op. We intentionally do not
+//                       persist donations from unfinalized blocks — with the
+//                       default 75-block finality depth on Ethereum mainnet,
+//                       every block we surface to the user is already safe.
+//                       The transactHot2 optional override is not implemented
+//                       so the runner falls back to transactHot.
+//
+// Cursor semantics:
+//   The status table tracks the last committed FINALIZED block.
+//   Hot blocks are tracked in memory by Subsquid's runner (the `top` field
+//   in HotDatabaseState); we return top:[] from connect() because we do not
+//   persist hot-block state across restarts.
 // ---------------------------------------------------------------------------
 
-interface ProcessorState {
-  height: number
-  hash: string
-}
-
-interface RawDatabase {
-  connect(): Promise<ProcessorState>
-  transact(info: { prevHead: ProcessorState; nextHead: ProcessorState }, cb: () => Promise<void>): Promise<void>
-  advance(info: { nextHead: ProcessorState }): Promise<void>
-}
-
-function buildRawDatabase(pgPool: InstanceType<typeof Pool>): RawDatabase {
+function buildHotDatabase(pgPool: InstanceType<typeof Pool>): HotDatabase<void> {
   const ensureStatus = async (): Promise<void> => {
     await pgPool.query(`
       CREATE TABLE IF NOT EXISTS donations_indexer_status (
@@ -185,30 +205,37 @@ function buildRawDatabase(pgPool: InstanceType<typeof Pool>): RawDatabase {
   }
 
   return {
-    async connect(): Promise<ProcessorState> {
+    supportsHotBlocks: true,
+
+    async connect(): Promise<HotDatabaseState> {
       await ensureStatus()
       const { rows } = await pgPool.query<{ height: number; hash: string }>(
         `SELECT height, hash FROM donations_indexer_status WHERE id = 1`,
       )
-      const row = rows[0]
-      return row ?? { height: -1, hash: '' }
+      const row = rows[0] ?? { height: -1, hash: '' }
+      // top:[] — we do not persist hot-block state; the runner will re-fetch
+      // near-head blocks on restart if they haven't been finalized yet.
+      return { ...row, top: [] }
     },
 
-    async transact(
-      _info: { prevHead: ProcessorState; nextHead: ProcessorState },
-      cb: () => Promise<void>,
-    ): Promise<void> {
-      // Execute the batch callback — our upserts are individually idempotent
-      // so we don't need full transaction wrapping here. Subsquid will not
-      // call advance() until transact() resolves successfully.
-      await cb()
-    },
-
-    async advance(info: { nextHead: ProcessorState }): Promise<void> {
+    async transact(info: FinalTxInfo, cb: (store: void) => Promise<void>): Promise<void> {
+      // Run the batch handler. Our upserts are individually idempotent so we
+      // don't need a full PG transaction wrapping the donation rows.
+      await cb(undefined as void)
+      // Advance the cursor so the processor resumes from nextHead on restart.
+      // This must happen after cb() succeeds — the cursor only moves on
+      // successful finalized-block processing.
       await pgPool.query(
         `UPDATE donations_indexer_status SET height = $1, hash = $2 WHERE id = 1`,
         [info.nextHead.height, info.nextHead.hash],
       )
+    },
+
+    async transactHot(_info: HotTxInfo, _cb: (store: void, block: HashAndHeight) => Promise<void>): Promise<void> {
+      // Hot blocks are not persisted. We only write finalized donations.
+      // With FINALITY_CONFIRMATION=75, every block surfaced to transact() is
+      // already 75 blocks deep — safe against any realistic Ethereum reorg.
+      // The runner calls transactHot() for near-head blocks; we skip them.
     },
   }
 }

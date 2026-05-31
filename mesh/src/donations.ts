@@ -124,18 +124,30 @@ export const listDonations = async (opts: {
   const safeLimit = Math.max(1, Math.min(200, opts.limit))
   const safeOffset = Math.max(0, opts.offset)
   const order = orderByClause('date', 'DESC')
-  const { rows } = await donationsPool.query<DbRow>(
-    `SELECT id, chain_id, chain_slug, from_address,
-            token_address, token_symbol, token_decimals,
-            amount_raw::text AS amount_raw,
-            amount_norm::text AS amount_norm,
-            tx_hash, log_index, block_number, block_timestamp
-       FROM donation
-       ORDER BY ${order}
-       LIMIT $1 OFFSET $2`,
-    [safeLimit, safeOffset],
-  )
-  return rows.map(rowToDonation)
+  try {
+    const { rows } = await donationsPool.query<DbRow>(
+      `SELECT id, chain_id, chain_slug, from_address,
+              token_address, token_symbol, token_decimals,
+              amount_raw::text AS amount_raw,
+              amount_norm::text AS amount_norm,
+              tx_hash, log_index, block_number, block_timestamp
+         FROM donation
+         ORDER BY ${order}
+         LIMIT $1 OFFSET $2`,
+      [safeLimit, safeOffset],
+    )
+    return rows.map(rowToDonation)
+  } catch (err: unknown) {
+    // The `donation` table is created by the processor on first start.
+    // If mesh boots before the processor has ever run, degrade gracefully
+    // to an empty list rather than crashing the whole gateway.
+    const pgErr = err as { code?: string }
+    if (pgErr.code === '42P01') {
+      // 42P01 = undefined_table — processor hasn't run yet.
+      return []
+    }
+    throw err
+  }
 }
 
 // ---------------------------------------------------------------------------

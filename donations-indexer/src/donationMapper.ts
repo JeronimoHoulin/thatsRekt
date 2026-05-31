@@ -25,7 +25,7 @@ export interface NativeTransferInput {
   readonly fromAddress: string
   readonly txHash: string
   readonly blockNumber: number
-  /** Unix epoch seconds (Subsquid block.timestamp is ms — divide by 1000). */
+  /** Unix epoch milliseconds (Subsquid EVM block.header.timestamp is already ms). */
   readonly blockTimestampMs: number
   /** Transfer value in wei (bigint). */
   readonly value: bigint

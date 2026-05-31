@@ -3,11 +3,9 @@
  *
  * Mirrors the pattern in db.ts (metaPool for thatsrekt_meta).
  * The donations DB is managed by the donations-indexer processor; mesh
- * only needs read access via DONATIONS_DB_URL.
- *
- * `ensureDonationTableView()` creates a minimal read-side view (no write
- * grants needed). The actual donation table is managed by the processor's
- * ensureDonationTable(). We don't touch the schema here — we only SELECT.
+ * only needs read access via DONATIONS_DB_URL. We do not touch the schema
+ * here — we only SELECT. The `donation` table is created by the processor's
+ * ensureDonationTable() on first start.
  */
 import pkg from 'pg'
 const { Pool } = pkg
