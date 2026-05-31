@@ -1,16 +1,23 @@
 /**
- * Donation mapper — pure transform from a raw native value-transfer into
- * a normalized DonationRow, or null when the transfer should be dropped.
+ * Donation mapper — pure transforms from raw chain data into normalized
+ * DonationRows, or null when the transfer should be dropped.
  *
- * Walking skeleton (slice #205): native-coin branch only.
- * Slice #207 will add the ERC20 log branch.
+ * Slice #205: native-coin branch only.
+ * Slice #207: ERC20 log branch added (mapErc20Transfer).
  *
- * Drop conditions:
+ * Drop conditions (native):
  *   - Chain not in the allowlist.
  *   - Transfer value is below the per-chain native dust floor.
  *
- * The id is deterministic: `${chainId}-${txHash}-native`.
- * This key is stable and safe to re-index (idempotent upsert downstream).
+ * Drop conditions (ERC20):
+ *   - Chain not in the allowlist.
+ *   - Token address not in the ERC20 allowlist.
+ *   - Transfer amount is zero.
+ *
+ * Row IDs are deterministic:
+ *   native: `${chainId}-${txHash}-native`
+ *   ERC20:  `${chainId}-${txHash}-${logIndex}`
+ * These keys are stable and safe to re-index (idempotent upsert downstream).
  *
  * amount_norm is computed as the human-readable decimal value:
  *   amount_norm = amount_raw / 10^decimals
@@ -29,6 +36,28 @@ export interface NativeTransferInput {
   readonly blockTimestampMs: number
   /** Transfer value in wei (bigint). */
   readonly value: bigint
+}
+
+/**
+ * Decoded ERC-20 Transfer(address from, address to, uint256 amount) event.
+ * All fields derived from the Subsquid log item before being passed here.
+ */
+export interface Erc20TransferInput {
+  readonly chainId: number
+  readonly chainSlug: string
+  /** The ERC-20 contract address (lowercased). */
+  readonly tokenAddress: string
+  /** Decoded `from` field (topic1, lowercased). */
+  readonly fromAddress: string
+  /** Decoded `to` field (topic2, lowercased) — must be the donation Safe. */
+  readonly toAddress: string
+  /** Decoded transfer amount (uint256). */
+  readonly amount: bigint
+  readonly txHash: string
+  readonly logIndex: number
+  readonly blockNumber: number
+  /** Unix epoch milliseconds. */
+  readonly blockTimestampMs: number
 }
 
 export interface DonationRow {
@@ -95,6 +124,40 @@ export const mapNativeTransfer = (input: NativeTransferInput): DonationRow | nul
     amountNorm: normalizAmount(input.value, meta.decimals),
     txHash: input.txHash,
     logIndex: null,
+    blockNumber: input.blockNumber,
+    blockTimestamp: new Date(input.blockTimestampMs),
+  })
+}
+
+/**
+ * Map a decoded ERC-20 Transfer log to a DonationRow.
+ * Returns null when the transfer should be dropped:
+ *   - Token not in the allowlist (anti-spam guarantee).
+ *   - Amount is zero.
+ *
+ * Pure — no I/O, no side effects.
+ */
+export const mapErc20Transfer = (input: Erc20TransferInput): DonationRow | null => {
+  const meta = tokenMeta(input.chainId, input.tokenAddress)
+
+  // Token not in the allowlist — drop (anti-spam: scam/poison tokens never land).
+  if (!meta) return null
+
+  // Zero-amount transfers are meaningless — drop.
+  if (input.amount === 0n) return null
+
+  return Object.freeze({
+    id: `${input.chainId}-${input.txHash}-${input.logIndex}`,
+    chainId: input.chainId,
+    chainSlug: input.chainSlug,
+    fromAddress: input.fromAddress.toLowerCase(),
+    tokenAddress: input.tokenAddress.toLowerCase(),
+    tokenSymbol: meta.symbol,
+    tokenDecimals: meta.decimals,
+    amountRaw: input.amount.toString(),
+    amountNorm: normalizAmount(input.amount, meta.decimals),
+    txHash: input.txHash,
+    logIndex: input.logIndex,
     blockNumber: input.blockNumber,
     blockTimestamp: new Date(input.blockTimestampMs),
   })
