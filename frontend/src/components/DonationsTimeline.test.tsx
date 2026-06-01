@@ -1,9 +1,13 @@
 /**
  * Component tests for DonationsTimeline.
  *
- * Uses real MemoryRouter + afterEach cleanup. No mock.module (process-global
- * poison risk per spec). ChainBadge uses getChainBySlug which is a pure
- * lookup — no stub needed.
+ * Uses real MemoryRouter + afterEach cleanup. ChainBadge uses getChainBySlug
+ * which is a pure lookup — no stub needed.
+ *
+ * Donor cells render via the shared AddressLabel, which reverse-resolves ENS
+ * through wagmi's useEnsName. We stub useEnsLookup to null so wagmi never boots
+ * in the test runner (same approach as AddressLabel.test.tsx); addresses then
+ * fall back to the truncated hex form (0x…1234) we assert on.
  *
  * Tests:
  *   1. Renders loading state.
@@ -12,7 +16,7 @@
  *   4. Renders donation rows with donor address, amount, tx link.
  *   5. "Load more" button calls onLoadMore when hasMore is true.
  *   6. "Load more" is absent when hasMore is false.
- *   7. Donor addresses are truncated (0x...1234 format).
+ *   7. Donor addresses are truncated (0x…1234 format) via AddressLabel.
  */
 
 import { afterEach, describe, expect, it, mock } from 'bun:test'
@@ -20,8 +24,12 @@ import { render, screen, cleanup } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 
-// No mock.module calls — DonationsTimeline has no module-level side effects.
-// We import it directly.
+// Stub useEnsLookup before importing DonationsTimeline so the AddressLabel it
+// now renders never boots wagmi (mirrors AddressLabel.test.tsx).
+mock.module('../hooks/useEnsLookup', () => ({
+  useEnsLookup: () => ({ name: null, isLoading: false }),
+}))
+
 const { DonationsTimeline } = await import('./DonationsTimeline')
 import type { Donation } from '../lib/queries'
 
@@ -98,7 +106,7 @@ describe('DonationsTimeline — donation rows', () => {
   it('renders two rows for two donations', () => {
     renderTimeline()
     // Each row has a truncated donor address — two should appear.
-    const rows = screen.getAllByText(/0x[a-f0-9]{4}\.\.\.[a-f0-9]{4}/i)
+    const rows = screen.getAllByText(/0x[a-f0-9]{4}…[a-f0-9]{4}/i)
     expect(rows.length).toBeGreaterThanOrEqual(2)
   })
 
@@ -165,10 +173,10 @@ describe('DonationsTimeline — load more', () => {
 })
 
 describe('DonationsTimeline — address truncation', () => {
-  it('truncates 0xd8da6bf2...6045 to 0xd8da...6045', () => {
+  it('truncates 0xd8da6bf2...6045 to 0xd8da…6045', () => {
     renderTimeline()
     // The test address starts 0xd8da6bf2 and ends 96045
-    const truncated = screen.getAllByText(/0xd8da\.\.\.\w{4}/i)
+    const truncated = screen.getAllByText(/0xd8da…\w{4}/i)
     expect(truncated.length).toBeGreaterThan(0)
   })
 })
