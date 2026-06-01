@@ -32,7 +32,7 @@ const Donations = lazy(() =>
 import { useHasPosts } from './hooks/useHasPosts'
 import { useDisconnectIfNotWhitelisted } from './hooks/useDisconnectIfNotWhitelisted'
 import { PostAlertButton, AccountChip } from './components/PostAlertButton'
-import { TgChannelCTA, GetAlertsButton } from './components/TgChannelCTA'
+import { GetAlertsButton } from './components/TgChannelCTA'
 import { Footer } from './components/Footer'
 import { ScrollManager } from './components/ScrollManager'
 

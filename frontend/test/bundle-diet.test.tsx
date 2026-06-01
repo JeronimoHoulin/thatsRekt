@@ -15,7 +15,7 @@
  */
 import { describe, expect, test, mock } from 'bun:test'
 import { render, waitFor } from '@testing-library/react'
-import React, { Suspense } from 'react'
+import { Suspense } from 'react'
 
 // ---------------------------------------------------------------------------
 // useEnsLookup stub — prevents wagmi from booting in this test file.

@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react'
+import { Suspense, lazy } from 'react'
 
 /**
  * LazyMarkdown — async chunk wrapper for react-markdown + remark-gfm.
