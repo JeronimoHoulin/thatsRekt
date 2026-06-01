@@ -105,7 +105,7 @@ export default defineConfig({
           // Wallet / chain interaction — heavy but only needed for
           // the connect + vote / post flows. Deferred from main chunk
           // via this explicit split so it doesn't inflate first load.
-          wagmi: ['wagmi', '@wagmi/core', 'viem'],
+          wagmi: ['wagmi', 'viem'],
           // Markdown rendering — pulled into a separate async chunk.
           // React.lazy in LazyMarkdown.tsx ensures this never rides
           // the homepage-critical JS path.
