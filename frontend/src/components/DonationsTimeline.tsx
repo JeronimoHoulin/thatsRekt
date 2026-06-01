@@ -17,8 +17,9 @@
 import type { Donation } from '../lib/queries'
 import type { OrderColumn, SortState } from '../lib/sortState'
 import { sortStateReducer } from '../lib/sortState'
-import { getChainBySlug, explorerTxUrl, explorerAddressUrl } from '../lib/chains'
+import { getChainBySlug, explorerTxUrl } from '../lib/chains'
 import { ChainBadge } from './ChainBadge'
+import { AddressLabel } from './AddressLabel'
 
 export type { Donation }
 
@@ -38,10 +39,6 @@ interface DonationsTimelineProps {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/** Truncate an address to 0x...1234 format. */
-const shortAddr = (addr: string): string =>
-  `${addr.slice(0, 6)}...${addr.slice(-4)}`
 
 /** Format a block_timestamp ISO string to a relative human time. */
 const relativeTime = (iso: string): string => {
@@ -123,26 +120,16 @@ function SortHeader({ column, label, sortState, onSort, className }: SortHeaderP
 function DonationRow({ donation }: { donation: Donation }) {
   const chain = getChainBySlug(donation.chainSlug)
   const txUrl = chain ? explorerTxUrl(chain, donation.txHash) : null
-  const addrUrl = chain ? explorerAddressUrl(chain, donation.fromAddress) : null
 
   return (
     <>
       {/* Desktop row — hidden on mobile */}
       <tr className="hidden sm:table-row border-b border-neutral-200 hover:bg-neutral-50 transition-colors">
-        <td className="py-2 px-3 font-mono text-xs text-neutral-700">
-          {addrUrl ? (
-            <a
-              href={addrUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-black underline underline-offset-2"
-              title={donation.fromAddress}
-            >
-              {shortAddr(donation.fromAddress)}
-            </a>
-          ) : (
-            <span title={donation.fromAddress}>{shortAddr(donation.fromAddress)}</span>
-          )}
+        <td className="py-2 px-3 text-xs text-neutral-700">
+          {/* Shared AddressLabel: shows the donor's ENS primary name (or a
+              registered contributor alias) when one resolves, otherwise the
+              truncated hex. Copy + explorer link always operate on raw hex. */}
+          <AddressLabel addr={donation.fromAddress} chainSlug={donation.chainSlug} />
         </td>
         <td className="py-2 px-3 font-mono text-xs text-right">
           <span className="font-black">{donation.amountNorm}</span>
@@ -174,19 +161,8 @@ function DonationRow({ donation }: { donation: Donation }) {
         <td colSpan={5} className="py-3 px-2">
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-xs text-neutral-700">
-                {addrUrl ? (
-                  <a
-                    href={addrUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-black underline underline-offset-2"
-                  >
-                    {shortAddr(donation.fromAddress)}
-                  </a>
-                ) : (
-                  shortAddr(donation.fromAddress)
-                )}
+              <span className="text-xs text-neutral-700 min-w-0">
+                <AddressLabel addr={donation.fromAddress} chainSlug={donation.chainSlug} />
               </span>
               <ChainBadge slug={donation.chainSlug} />
             </div>
